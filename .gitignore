@@ -1,0 +1,29 @@
+# Dependencies
+/node_modules
+/frontend/node_modules
+
+# Environment variables
+.env
+.env*
+!.env.example
+
+# Production build
+/frontend/dist
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+#- Miscellaneous
+.DS_Store
+Thumbs.db
+.bot_instance.lock
+google-credentials.json
+tts_donation_db.json
+temp_query_failed.sql
+temp_query_pending.sql
+
+# Audios
+public/audios/*.mp3
+!public/audios/.gitkeep
