@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import PropTypes from 'prop-types';
 
-const API = import.meta.env.VITE_BASE_URL || 'http://localhost:5000';
-
-export default function Settings() {
+export default function Settings({ apiClient }) {
   const [s, setS] = useState({ maxChars: 600, stepChars: 15, basePrice: 20, incrementPrice: 15, filteredWords: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -12,20 +10,22 @@ export default function Settings() {
   const [newFilteredWord, setNewFilteredWord] = useState('');
 
   useEffect(() => {
-    axios.get(`${API}/api/admin/settings`, { headers: { 'x-admin-token': import.meta.env.VITE_ADMIN_TOKEN || '' } }).then(r => {
+    if (!apiClient) return;
+    apiClient.get(`/settings`).then(r => {
       const fetchedSettings = r.data.settings;
       if (!Array.isArray(fetchedSettings.filteredWords)) {
         fetchedSettings.filteredWords = [];
       }
       setS(fetchedSettings);
     }).catch(e => setError(e?.message || 'Failed')).finally(()=>setLoading(false));
-  }, []);
+  }, [apiClient]);
 
   const save = async () => {
+    if (!apiClient) return;
     setSaving(true);
     setMessage(null);
     try {
-      const resp = await axios.post(`${API}/api/admin/settings`, s, { headers: { 'x-admin-token': import.meta.env.VITE_ADMIN_TOKEN || '' } });
+      const resp = await apiClient.post(`/settings`, s);
       // Ensure filteredWords is applied back into state (server may return strings)
       if (resp?.data?.settings) {
         const newSettings = { ...resp.data.settings };
