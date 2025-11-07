@@ -29,6 +29,8 @@ export default function StreamerPage() {
   const [pagination, setPagination] = useState(null);
   const [apiKey, setApiKey] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const audioRef = useRef(null);
+  const playingRef = useRef(false);
   const audioContextRef = useRef(null);
   const gainNodeRef = useRef(null);
   const [volume, setVolume] = useState(() => {
