@@ -88,6 +88,13 @@ export default function StreamerPage() {
         audioContextRef.current.close();
       }
     };
+  }, []);
+
+  // Update volume when it changes without recreating AudioContext
+  useEffect(() => {
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = volume;
+    }
   }, [volume]);
 
   // ✅ Fetch streamer info + donation history
