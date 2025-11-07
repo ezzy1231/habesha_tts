@@ -151,7 +151,11 @@ export default function StreamerPage() {
 
   // ✅ Play next queued donation
   const playNext = useCallback(() => {
-    if (!enabled || playingRef.current || queue.length === 0) return;
+    console.log(`[playNext] Called. enabled: ${enabled}, playingRef.current: ${playingRef.current}, queue.length: ${queue.length}`);
+    if (!enabled || playingRef.current || queue.length === 0) {
+      console.log("[playNext] Conditions not met for playback.");
+      return;
+    }
 
     const nextDonation = queue[0];
     playingRef.current = true;
@@ -165,8 +169,9 @@ export default function StreamerPage() {
     const notificationUrlFallback = `${baseUrl}/public/audios/notification.mp3`;
 
     const playDonation = async () => {
+      console.log(`[playDonation] Attempting to play donation ${nextDonation.id}. AudioContext state: ${audioContextRef.current?.state}`);
       if (!audioContextRef.current) {
-        console.error("❌ AudioContext not initialized.");
+        console.error("❌ [playDonation] AudioContext not initialized.");
         playingRef.current = false;
         setCurrentPlaying(null);
         markAsPlayed(nextDonation.id);
@@ -177,10 +182,12 @@ export default function StreamerPage() {
       try {
         // Ensure context is running
         if (audioContextRef.current.state === 'suspended') {
+          console.log("[playDonation] AudioContext is suspended, attempting to resume...");
           try {
             await audioContextRef.current.resume();
+            console.log("[playDonation] AudioContext resumed successfully. State:", audioContextRef.current.state);
           } catch (e) {
-            console.error("Failed to resume AudioContext for donation:", e);
+            console.error("❌ [playDonation] Failed to resume AudioContext for donation:", e.name, e.message, e);
             playingRef.current = false;
             setCurrentPlaying(null);
             markAsPlayed(nextDonation.id);
@@ -189,34 +196,41 @@ export default function StreamerPage() {
           }
         }
 
+        console.log(`[playDonation] Fetching donation audio from: ${donationUrl}`);
         const response = await fetch(donationUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        console.log("[playDonation] Audio fetched, decoding...");
         const arrayBuffer = await response.arrayBuffer();
         const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+        console.log("[playDonation] Audio decoded.");
 
         const source = audioContextRef.current.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioContextRef.current.destination);
 
         source.onended = () => {
-          console.log("✅ Finished donation (Web Audio):", nextDonation.id);
+          console.log("✅ [playDonation] Finished donation (Web Audio):", nextDonation.id);
           playingRef.current = false;
           setCurrentPlaying(null);
           markAsPlayed(nextDonation.id);
           setQueue((prev) => prev.slice(1));
         };
 
-        console.log("🔊 Playing donation (Web Audio):", donationUrl);
+        console.log("🔊 [playDonation] Playing donation (Web Audio):", donationUrl);
         source.start(0);
         audioRef.current = source; // Store the source node for potential stopping
 
         // Fallback: mark as played after audio duration + 1 second in case onended doesn't fire
         setTimeout(() => {
+          console.log("[playDonation] Fallback: Marking as played after timeout.");
           markAsPlayed(nextDonation.id);
         }, (audioBuffer.duration * 1000) + 1000);
       } catch (err) {
-        console.error("❌ Donation audio error (Web Audio):", err);
+        console.error("❌ [playDonation] Donation audio error (Web Audio):", err.name, err.message, err);
         if (err.name === 'NotAllowedError') {
-          console.log("🔇 Autoplay blocked. User needs to interact with page first.");
+          console.log("🔇 [playDonation] Autoplay blocked. User needs to interact with page first.");
           playingRef.current = false;
           setCurrentPlaying(null);
           return;
@@ -229,8 +243,9 @@ export default function StreamerPage() {
     };
 
     const playNotificationThenDonation = async () => {
+      console.log(`[playNotificationThenDonation] Attempting to play notification. AudioContext state: ${audioContextRef.current?.state}`);
       if (!audioContextRef.current) {
-        console.error("❌ AudioContext not initialized for notification.");
+        console.error("❌ [playNotificationThenDonation] AudioContext not initialized for notification.");
         playDonation(); // Skip notification, try to play donation directly
         return;
       }
@@ -238,10 +253,12 @@ export default function StreamerPage() {
       try {
         // Ensure context is running
         if (audioContextRef.current.state === 'suspended') {
+          console.log("[playNotificationThenDonation] AudioContext is suspended, attempting to resume...");
           try {
             await audioContextRef.current.resume();
+            console.log("[playNotificationThenDonation] AudioContext resumed successfully. State:", audioContextRef.current.state);
           } catch (e) {
-            console.error("Failed to resume AudioContext for notification:", e);
+            console.error("❌ [playNotificationThenDonation] Failed to resume AudioContext for notification:", e.name, e.message, e);
             playDonation(); // Skip notification, try to play donation directly
             return;
           }
@@ -249,16 +266,23 @@ export default function StreamerPage() {
 
         let notificationAudioBuffer;
         try {
+          console.log(`[playNotificationThenDonation] Fetching primary notification from: ${notificationUrlPrimary}`);
           const response = await fetch(notificationUrlPrimary);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
           const arrayBuffer = await response.arrayBuffer();
           notificationAudioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-          console.log("🔔 Playing notification (Web Audio):", notificationUrlPrimary);
+          console.log("🔔 [playNotificationThenDonation] Playing primary notification (Web Audio):", notificationUrlPrimary);
         } catch (e) {
-          console.warn("⚠️ Primary notification not found, trying fallback:", notificationUrlFallback);
+          console.warn("⚠️ [playNotificationThenDonation] Primary notification not found or failed, trying fallback:", e.name, e.message, notificationUrlFallback);
           const response = await fetch(notificationUrlFallback);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
           const arrayBuffer = await response.arrayBuffer();
           notificationAudioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-          console.log("🔔 Playing notification (Web Audio):", notificationUrlFallback);
+          console.log("🔔 [playNotificationThenDonation] Playing fallback notification (Web Audio):", notificationUrlFallback);
         }
 
         const source = audioContextRef.current.createBufferSource();
@@ -266,12 +290,13 @@ export default function StreamerPage() {
         source.connect(audioContextRef.current.destination);
 
         source.onended = () => {
+          console.log("[playNotificationThenDonation] Notification ended, starting donation.");
           playDonation();
         };
 
         source.start(0);
       } catch (e) {
-        console.error("⚠️ Notification play failed (Web Audio), skipping to donation:", e);
+        console.error("⚠️ [playNotificationThenDonation] Notification play failed (Web Audio), skipping to donation:", e.name, e.message, e);
         playDonation();
       }
     };
