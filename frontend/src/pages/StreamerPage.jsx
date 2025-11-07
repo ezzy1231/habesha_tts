@@ -29,9 +29,12 @@ export default function StreamerPage() {
   const [pagination, setPagination] = useState(null);
   const [apiKey, setApiKey] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const audioRef = useRef(null);
-  const playingRef = useRef(false);
   const audioContextRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  const [volume, setVolume] = useState(() => {
+    const savedVolume = localStorage.getItem('tts_volume');
+    return savedVolume !== null ? Number(savedVolume) : 1;
+  });
 
   // Create a memoized axios instance that includes the API key
   const apiClient = useMemo(() => {
@@ -74,13 +77,16 @@ export default function StreamerPage() {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (Ctx) {
       audioContextRef.current = new Ctx();
+      gainNodeRef.current = audioContextRef.current.createGain();
+      gainNodeRef.current.connect(audioContextRef.current.destination);
+      gainNodeRef.current.gain.value = volume; // Set initial volume
     }
     return () => {
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
       }
     };
-  }, []);
+  }, [volume]);
 
   // ✅ Fetch streamer info + donation history
   const fetchInitialData = useCallback(async (page = 1) => {
@@ -208,7 +214,7 @@ export default function StreamerPage() {
 
         const source = audioContextRef.current.createBufferSource();
         source.buffer = audioBuffer;
-        source.connect(audioContextRef.current.destination);
+        source.connect(gainNodeRef.current);
 
         source.onended = () => {
           console.log("✅ [playDonation] Finished donation (Web Audio):", nextDonation.id);
@@ -287,7 +293,7 @@ export default function StreamerPage() {
 
         const source = audioContextRef.current.createBufferSource();
         source.buffer = notificationAudioBuffer;
-        source.connect(audioContextRef.current.destination);
+        source.connect(gainNodeRef.current);
 
         source.onended = () => {
           console.log("[playNotificationThenDonation] Notification ended, starting donation.");
@@ -559,6 +565,7 @@ return (
                       </div>
                       
                       <div className="flex gap-3 flex-1 sm:flex-none">
+                      <div className="flex gap-3 flex-1 sm:flex-none">
                         <button
                           onClick={() => navigate(`/withdraw/${uuid}`)}
                           className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm:text-base px-4 py-3 flex-1 sm:flex-none min-w-[100px]"
@@ -569,6 +576,27 @@ return (
                           <span className="sm:hidden">Wd</span>
                         </button>
 
+                        <div className="flex flex-col items-center gap-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 shadow-inner flex-1 sm:flex-none min-w-[100px]">
+                          <label htmlFor="volume-slider" className="text-xs font-medium text-gray-600 dark:text-gray-300">Volume</label>
+                          <input
+                            id="volume-slider"
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={volume}
+                            onChange={(e) => {
+                              const newVolume = Number(e.target.value);
+                              setVolume(newVolume);
+                              localStorage.setItem('tts_volume', newVolume);
+                              if (gainNodeRef.current) {
+                                gainNodeRef.current.gain.value = newVolume;
+                              }
+                            }}
+                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 accent-primary"
+                          />
+                        </div>
+
                         <button
                           onClick={async () => {
                             if (!enabled) {
@@ -578,6 +606,9 @@ return (
                                   const Ctx = window.AudioContext || window.webkitAudioContext;
                                   if (Ctx) {
                                     audioContextRef.current = new Ctx();
+                                    gainNodeRef.current = audioContextRef.current.createGain();
+                                    gainNodeRef.current.connect(audioContextRef.current.destination);
+                                    gainNodeRef.current.gain.value = volume; // Set initial volume
                                   }
                                 }
                                 if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
