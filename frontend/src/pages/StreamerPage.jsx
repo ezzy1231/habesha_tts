@@ -154,7 +154,6 @@ export default function StreamerPage() {
     try {
       await apiClient.post(`/streamer/${uuid}/donations/${id}/played`);
       console.log("✅ Donation marked as played in DB:", id);
-      fetchInitialData(currentPage); // Refetch donations
     } catch (error) {
       console.error("Error marking donation as played:", error);
       // If API fails, revert the UI update
