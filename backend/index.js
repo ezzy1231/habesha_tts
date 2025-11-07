@@ -23,8 +23,12 @@ const lockKey = 'bot_instance_lock';
 const instanceId = Math.random().toString(36).substring(2);
 let lockAcquired = false;
 
+console.log(`[Redis Lock] Instance ID generated: ${instanceId}`);
+
 async function acquireLock() {
+  console.log(`[Redis Lock] Attempting to acquire lock with instance ID: ${instanceId}`);
   const result = await redis.set(lockKey, instanceId, 'EX', 10, 'NX');
+  console.log(`[Redis Lock] acquireLock result: ${result}`);
   if (result === 'OK') {
     lockAcquired = true;
     console.log('✅ Acquired bot instance lock.');
@@ -35,16 +39,26 @@ async function acquireLock() {
 }
 
 async function releaseLock() {
-  if (lockAcquired && (await redis.get(lockKey)) === instanceId) {
-    await redis.del(lockKey);
+  console.log(`[Redis Lock] Attempting to release lock. Current instance ID: ${instanceId}`);
+  const currentLockHolder = await redis.get(lockKey);
+  console.log(`[Redis Lock] Current lock holder in Redis: ${currentLockHolder}`);
+  if (lockAcquired && currentLockHolder === instanceId) {
+    const delResult = await redis.del(lockKey);
+    console.log(`[Redis Lock] releaseLock result (DEL): ${delResult}`);
     console.log('Released bot instance lock.');
+  } else if (lockAcquired && currentLockHolder !== instanceId) {
+    console.warn(`[Redis Lock] Not releasing lock: current instance (${instanceId}) is not the lock holder (${currentLockHolder}).`);
+  } else {
+    console.log(`[Redis Lock] Not releasing lock: lock not acquired by this instance.`);
   }
 }
 
 // Periodically refresh the lock
 const lockInterval = setInterval(async () => {
   if (lockAcquired) {
-    await redis.expire(lockKey, 10);
+    console.log(`[Redis Lock] Refreshing lock for instance ID: ${instanceId}`);
+    const expireResult = await redis.expire(lockKey, 10);
+    console.log(`[Redis Lock] Lock refresh result (EXPIRE): ${expireResult}`);
   }
 }, 8000); // Refresh every 8 seconds, before the 10-second expiry
 
