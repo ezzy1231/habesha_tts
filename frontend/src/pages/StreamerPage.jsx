@@ -155,12 +155,12 @@ export default function StreamerPage() {
       await apiClient.post(`/streamer/${uuid}/donations/${id}/played`);
       console.log("✅ Donation marked as played in DB:", id);
     } catch (error) {
-      console.error("Error marking donation as played:", error);
+      console.error("❌ Error marking donation as played:", error.response?.status, error.response?.data, error);
       // If API fails, revert the UI update
       setDonations(prev => prev.map(d => d.id === id ? { ...d, played: false } : d));
       playedDonationsRef.current.delete(id);
     }
-  }, [uuid, fetchInitialData, currentPage, apiClient]);
+  }, [uuid, apiClient]);
 
   // ✅ Play next queued donation
   const playNext = useCallback(() => {
