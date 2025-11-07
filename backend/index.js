@@ -110,25 +110,26 @@ io.on('connection', (socket) => {
 
 
 // --- Server Start ---
-server.listen(PORT, '0.0.0.0', async () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://localhost:${PORT} and http://${ip.address()}:${PORT}`);
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) console.log('🔊 TTS: Google Cloud configured');
-  // Dynamically import bot after server and lock are ready
-  try {
-    const mod = await import('../bot/bot.js');
-    bot = mod.bot;
-  } catch (e) {
-    console.error('❌ Failed to initialize Telegram bot:', e?.message || e);
-  }
-}).on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use. Please stop the other process or change the PORT in .env`);
-    process.exit(1);
-  } else {
-    console.error('❌ Server error:', err);
-    process.exit(1);
-  }
 });
+
+// --- Bot Initialization (Lock-Protected) ---
+(async () => {
+  if (await acquireLock()) {
+    // Only the instance that acquires the lock will initialize the bot
+    try {
+      console.log('🔑 Lock acquired. Initializing Telegram bot...');
+      const mod = await import('../bot/bot.js');
+      bot = mod.bot;
+    } catch (e) {
+      console.error('❌ Failed to initialize Telegram bot:', e?.message || e);
+    }
+  } else {
+    console.log('🔒 Did not acquire lock. This instance will run as an API/worker server only.');
+  }
+})();
 
 // --- Graceful Shutdown ---
 const gracefulShutdown = async (signal) => {
