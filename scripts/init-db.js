@@ -1,4 +1,4 @@
-import db from '../src/db-postgres.js';
+import db from '../backend/db-postgres.js';
 
 const createTables = async () => {
   console.log('Initializing database schema...');

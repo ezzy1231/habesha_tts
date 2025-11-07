@@ -13,49 +13,47 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import ip from 'ip';
-import db from './db-postgres.js';
+import db from './db-simple.js';
 // Bot will be imported dynamically after acquiring single-instance lock
 let bot = null;
 
-// Prevent multiple bot instances across processes using a pid file
-import fs from 'fs';
-import path from 'path';
+import { connection as redis } from './queue-optimized.js';
 
-const lockFile = path.resolve('.bot_instance.lock');
-try {
-  if (fs.existsSync(lockFile)) {
-    // Check if the PID in the lock file is still running
-    const oldPidStr = fs.readFileSync(lockFile, 'utf8').trim();
-    const oldPid = Number(oldPidStr);
-    let isRunning = false;
-    if (!Number.isNaN(oldPid)) {
-      try {
-        process.kill(oldPid, 0); // Does not actually kill; checks existence
-        isRunning = true;
-      } catch (e) {
-        // ESRCH means process does not exist; other errors we treat as running to be safe
-        if (e.code === 'ESRCH') {
-          isRunning = false;
-        } else {
-          isRunning = true;
-        }
-      }
-    }
+const lockKey = 'bot_instance_lock';
+const instanceId = Math.random().toString(36).substring(2);
+let lockAcquired = false;
 
-    if (isRunning) {
-      console.error('❌ Another bot instance is already running (lock file present). Please stop it first.');
-      process.exit(1);
-    } else {
-      console.warn('⚠️ Stale bot lock detected. Removing and continuing.');
-      try { fs.unlinkSync(lockFile); } catch (e) {}
-    }
+async function acquireLock() {
+  const result = await redis.set(lockKey, instanceId, 'EX', 10, 'NX');
+  if (result === 'OK') {
+    lockAcquired = true;
+    console.log('✅ Acquired bot instance lock.');
+    process.env.BOT_INSTANCE_LOCK = 'true';
+    return true;
   }
-  fs.writeFileSync(lockFile, String(process.pid));
-  process.env.BOT_INSTANCE_LOCK = 'true';
-} catch (e) {
-  console.error('❌ Failed to create bot instance lock:', e);
-  process.exit(1);
+  return false;
 }
+
+async function releaseLock() {
+  if (lockAcquired && (await redis.get(lockKey)) === instanceId) {
+    await redis.del(lockKey);
+    console.log('Released bot instance lock.');
+  }
+}
+
+// Periodically refresh the lock
+const lockInterval = setInterval(async () => {
+  if (lockAcquired) {
+    await redis.expire(lockKey, 10);
+  }
+}, 8000); // Refresh every 8 seconds, before the 10-second expiry
+
+// Attempt to acquire the lock at startup
+(async () => {
+  if (!(await acquireLock())) {
+    console.log('Another bot instance is already running. This instance will not process Telegram messages.');
+  }
+})();
 
 // Import routes
 import adminRoutes from './routes/admin.js';
@@ -160,23 +158,14 @@ const gracefulShutdown = async (signal) => {
   }
 
   // 3. Close the database connection pool
-  try {
-    console.log('[Shutdown] Closing database connection pool...');
-    await db.end();
-    console.log('[Shutdown] Database connection pool closed.');
-  } catch (error) {
-    console.error('[Shutdown] Error closing database pool:', error.message);
-  }
+  // db-simple.js does not have a connection pool to close
 
   // 4. Close the server
-  server.close(() => {
+  server.close(async () => {
     console.log('[Shutdown] HTTP server closed.');
-    // Release bot instance lock and remove pid file
-    try {
-      if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
-    } catch (e) {
-      console.error('[Shutdown] Failed to remove lock file:', e);
-    }
+    // Release bot instance lock
+    await releaseLock();
+    clearInterval(lockInterval);
     process.env.BOT_INSTANCE_LOCK = 'false';
     process.exit(0);
   });

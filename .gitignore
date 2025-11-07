@@ -27,3 +27,6 @@ temp_query_pending.sql
 # Audios
 public/audios/*.mp3
 !public/audios/.gitkeep
+
+# Local Netlify folder
+.netlify
