@@ -4,6 +4,9 @@ export const protectStreamer = async (req, res, next) => {
   const apiKey = req.headers.authorization?.split(' ')[1]; // Expects "Bearer <key>"
   const { uuid } = req.params;
 
+  console.log(`[Auth Middleware] Received UUID: '${uuid}' (length: ${uuid?.length})`);
+  console.log(`[Auth Middleware] Received API Key: '${apiKey}' (length: ${apiKey?.length})`);
+
   if (!apiKey) {
     return res.status(401).json({ error: 'Unauthorized: No API key provided.' });
   }
@@ -17,6 +20,8 @@ export const protectStreamer = async (req, res, next) => {
       'SELECT telegram_id FROM users WHERE link_uuid = $1 AND api_key = $2 AND role = \'streamer\'',
       [uuid, apiKey]
     );
+
+    console.log("[Auth Middleware] DB Query Result:", streamerRes.rows);
 
     const streamer = streamerRes.rows[0];
 
