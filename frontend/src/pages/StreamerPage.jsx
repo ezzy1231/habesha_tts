@@ -565,7 +565,6 @@ return (
                       </div>
                       
                       <div className="flex gap-3 flex-1 sm:flex-none">
-                      <div className="flex gap-3 flex-1 sm:flex-none">
                         <button
                           onClick={() => navigate(`/withdraw/${uuid}`)}
                           className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm:text-base px-4 py-3 flex-1 sm:flex-none min-w-[100px]"
