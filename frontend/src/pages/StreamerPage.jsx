@@ -81,7 +81,6 @@ export default function StreamerPage() {
       audioContextRef.current = new Ctx();
       gainNodeRef.current = audioContextRef.current.createGain();
       gainNodeRef.current.connect(audioContextRef.current.destination);
-      gainNodeRef.current.gain.value = volume; // Set initial volume
     }
     return () => {
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
@@ -336,7 +335,7 @@ export default function StreamerPage() {
     socket.off("new_donation");
     socket.on("new_donation", (data) => {
       console.log("💸 [StreamerPage] New donation received via socket:", data);
-      const normalized = { played: false, ...data };
+      const normalized = { ...data }; // Use the 'played' status directly from data
       // Add to UI donations if we are on the first page
       if (currentPage === 1) {
         setDonations((prev) => {
@@ -346,8 +345,8 @@ export default function StreamerPage() {
           return [normalized, ...prev];
         });
       }
-      // Add to audio queue if playable and not already queued/played
-      if (normalized && normalized.status === 'paid' && normalized.audio_url && !normalized.played) {
+      // Add to audio queue if playable and not already queued/played in this session
+      if (normalized && normalized.status === 'paid' && normalized.audio_url && !normalized.played && !playedDonationsRef.current.has(normalized.id)) {
         setQueue((prev) => {
           if (prev.some((d) => Number(d.id) === Number(normalized.id))) return prev;
           console.log("[StreamerPage] Adding new donation to audio queue:", normalized);
