@@ -2,3 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './styles.css';
+
+
