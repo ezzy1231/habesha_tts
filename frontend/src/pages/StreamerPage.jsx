@@ -535,16 +535,6 @@ return (
                       
                       <div className="flex gap-3 flex-1 sm:flex-none">
                         <button
-                          onClick={() => navigate(`/withdraw/${uuid}`)}
-                          className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm:text-base px-4 py-3 flex-1 sm:flex-none min-w-[100px]"
-                          title="Request withdrawal"
-                        >
-                          <span className="text-base sm:text-lg">💸</span>
-                          <span className="ml-2 hidden sm:inline">Withdraw</span>
-                          <span className="sm:hidden">Wd</span>
-                        </button>
-
-                        <button
                           onClick={async () => {
                             if (!enabled) {
                               try {
