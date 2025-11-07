@@ -113,6 +113,7 @@ export default function StreamerPage() {
         setStreamerInfo(res.data.streamer);
         newDonations = res.data.donations || [];
         newPagination = res.data.pagination;
+        console.log(`[fetchInitialData] Fetched donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
         
         const audioReady = newDonations.filter(
           (d) => d.status === "paid" && d.audio_url && !d.played
@@ -125,6 +126,7 @@ export default function StreamerPage() {
         const res = await apiClient.get(`/streamer/${uuid}/donations?page=${page}`);
         newDonations = res.data.donations || [];
         newPagination = res.data.pagination;
+        console.log(`[fetchInitialData] Fetched paginated donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
       }
       
       setDonations(newDonations);
@@ -334,6 +336,7 @@ export default function StreamerPage() {
     socket.off("new_donation");
     socket.on("new_donation", (data) => {
       console.log("💸 [StreamerPage] New donation received via socket:", data);
+      console.log(`[StreamerPage] New donation ID: ${data.id}, Played status from socket: ${data.played}`);
       const normalized = { ...data }; // Use the 'played' status directly from data
       // Add to UI donations if we are on the first page
       if (currentPage === 1) {
