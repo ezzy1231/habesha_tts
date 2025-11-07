@@ -40,8 +40,11 @@ export default function StreamerPage() {
 
   // Create a memoized axios instance that includes the API key
   const apiClient = useMemo(() => {
-    if (!apiKey) return null;
-
+    if (!apiKey) {
+      console.log("[apiClient] API Key is null, apiClient not created.");
+      return null;
+    }
+    console.log("[apiClient] Creating apiClient with API Key (first 5 chars):", apiKey.substring(0, 5));
     return axios.create({
       baseURL: import.meta.env.VITE_API_URL,
       headers: {
@@ -54,8 +57,10 @@ export default function StreamerPage() {
   useEffect(() => {
     const key = localStorage.getItem(`apiKey_${uuid}`);
     if (key) {
+      console.log("[API Key Load] Found API Key in local storage (first 5 chars):", key.substring(0, 5));
       setApiKey(key);
     } else {
+      console.log("[API Key Load] No API Key found in local storage, opening modal.");
       setIsModalOpen(true);
     }
   }, [uuid]);
