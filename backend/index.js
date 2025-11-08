@@ -84,7 +84,17 @@ console.log('🚀 Using centralized queue manager with built-in worker and event
 
 // --- Middleware ---
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  origin: (origin, callback) => {
+    let allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+    if (allowedOrigin && !allowedOrigin.startsWith("http")) {
+      allowedOrigin = `https://${allowedOrigin}`;
+    }
+    if (!origin || origin === allowedOrigin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Admin-Token"],
 }));
