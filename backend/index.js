@@ -83,7 +83,11 @@ const PORT = process.env.PORT || 5000;
 console.log('🚀 Using centralized queue manager with built-in worker and event listeners.');
 
 // --- Middleware ---
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Admin-Token"],
+}));
 app.use(express.json());
 app.use('/public', express.static('public'));
 
