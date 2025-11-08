@@ -60,8 +60,8 @@ export default function WithdrawPage() {
     const fetchStreamerBalance = async () => {
       if (!apiClient) return; // Don't fetch if apiClient is not ready
       try {
-        const res = await apiClient.get(`/streamer/${uuid}`);
-        setStreamerBalance(res.data.streamer.balance);
+        const res = await apiClient.get(`/streamer/${uuid}/donations`);
+        setStreamerBalance(res.data.pagination.totalAmount);
       } catch (err) {
         console.error("Error fetching streamer balance:", err);
         setMessage("Failed to load streamer balance.");
@@ -73,6 +73,17 @@ export default function WithdrawPage() {
       }
     };
     fetchStreamerBalance();
+
+    const socket = io(SOCKET_URL, { transports: ["websocket"], reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000 });
+    socket.emit("join_streamer_room", uuid);
+    socket.on("withdrawal_approved", (data) => {
+      console.log("💸 Withdrawal approved received:", data);
+      setStreamerBalance(typeof data?.newBalance === 'number' ? data.newBalance : 0);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [uuid, apiClient]);
 
   const handleSubmit = async (e) => {
