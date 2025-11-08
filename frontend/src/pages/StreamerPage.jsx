@@ -451,15 +451,26 @@ export default function StreamerPage() {
     localStorage.setItem("tts_enabled", enabled);
   }, [enabled]);
 
-  // ✅ Initial load
+  // ✅ Initial load and refetch on visibility change
   useEffect(() => {
-    if (apiClient) { // Only fetch data if apiClient is available
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && apiClient) {
+        console.log("Page is visible again, refetching data...");
+        fetchInitialData(1);
+      }
+    };
+
+    if (apiClient) {
       fetchInitialData(1);
     } else {
-      // If apiClient is not ready, ensure loading state is false
-      // so the API key modal can be displayed without a perpetual loading screen.
       setLoading(false);
     }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [uuid, fetchInitialData, apiClient]);
 
   const toggleTheme = () => {
