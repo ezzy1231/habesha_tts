@@ -105,7 +105,7 @@ router.get("/:uuid", async (req, res) => {
     const totalEarned = Number(stats.totalAmount || 0);
 
     const approvedWithdrawalsRes = await db.query(`
-      SELECT SUM(amount) as totalWithdrawn
+      SELECT SUM(amount) as "totalWithdrawn"
       FROM withdrawals
       WHERE user_id = $1 AND status = 'approved'
     `, [streamer.telegram_id]);
