@@ -101,6 +101,9 @@ router.get("/:uuid", async (req, res) => {
       WHERE d.streamer_id = $1 AND d.status = 'paid'
     `, [streamer.telegram_id]);
     const stats = statsRes.rows[0];
+    console.log('--- BALANCE CALCULATION DEBUG ---');
+    console.log('Streamer Telegram ID:', streamer.telegram_id);
+    console.log('Raw stats from DB (donations):', stats);
     const totalCount = parseInt(stats.count);
     const totalEarned = Number(stats.totalAmount || 0);
 
@@ -109,9 +112,13 @@ router.get("/:uuid", async (req, res) => {
       FROM withdrawals
       WHERE user_id = $1 AND status = 'approved'
     `, [streamer.telegram_id]);
-    const totalWithdrawn = Number(approvedWithdrawalsRes.rows[0].totalWithdrawn || 0);
+    const withdrawalStats = approvedWithdrawalsRes.rows[0];
+    console.log('Raw stats from DB (withdrawals):', withdrawalStats);
+    const totalWithdrawn = Number(withdrawalStats.totalWithdrawn || 0);
 
     const balance = totalEarned - totalWithdrawn;
+    console.log(`Final Calculation: totalEarned=${totalEarned}, totalWithdrawn=${totalWithdrawn}, balance=${balance}`);
+    console.log('---------------------------------');
 
     const donations = (donationsRes.rows || []).map(d => ({
       ...d,
