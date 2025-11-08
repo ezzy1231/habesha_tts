@@ -96,7 +96,7 @@ router.get("/:uuid", async (req, res) => {
 
     // Get total count and total amount for pagination
     const statsRes = await db.query(`
-      SELECT COUNT(*) as count, SUM(amount) as totalAmount
+      SELECT COUNT(*) as count, SUM(amount) as "totalAmount"
       FROM donations d
       WHERE d.streamer_id = $1 AND d.status = 'paid'
     `, [streamer.telegram_id]);
