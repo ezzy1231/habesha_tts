@@ -580,12 +580,12 @@ router.post("/withdrawals/:id/approve", async (req, res) => {
     console.log("Admin approval: withdrawal.streamer_id =", withdrawal.user_id, "found streamer =", !!streamerUser);
 
     if (global.socketIO && streamerUser) {
-      global.socketIO.to(streamerUser.telegram_id).emit("withdrawal_approved", {
+      global.socketIO.to(streamerUser.link_uuid).emit("withdrawal_approved", {
         message: `Your withdrawal of Br ${withdrawal.amount.toFixed(2)} was approved. New balance: Br ${newBalance.toFixed(2)}.`, // Assuming telegram_id is used as link_uuid for socket rooms
         streamer_id: streamerUser.telegram_id,
         newBalance,
       });
-      console.log("📢 Emitted withdrawal_approved to:", streamerUser.telegram_id);
+      console.log("📢 Emitted withdrawal_approved to:", streamerUser.link_uuid);
     } else {
       console.log("❌ Could not emit withdrawal_approved event: global.socketIO =", !!global.socketIO, "streamer =", !!streamerUser);
     }
