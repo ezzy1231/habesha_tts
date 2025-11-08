@@ -116,6 +116,7 @@ export default function StreamerPage() {
         // We still wait for apiClient to be ready to ensure the user has authenticated.
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/streamer/${uuid}?page=${page}`);
         setStreamerInfo(res.data.streamer);
+        console.log("[StreamerPage] Fetched streamer balance from API:", res.data.streamer.balance);
         newDonations = res.data.donations || [];
         newPagination = res.data.pagination;
         console.log(`[fetchInitialData] Fetched donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
