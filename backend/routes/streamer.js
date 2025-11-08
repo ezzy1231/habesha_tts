@@ -102,7 +102,16 @@ router.get("/:uuid", async (req, res) => {
     `, [streamer.telegram_id]);
     const stats = statsRes.rows[0];
     const totalCount = parseInt(stats.count);
-    const totalAmount = Number(stats.totalamount || 0);
+    const totalEarned = Number(stats.totalamount || 0);
+
+    const approvedWithdrawalsRes = await db.query(`
+      SELECT SUM(amount) as totalWithdrawn
+      FROM withdrawals
+      WHERE user_id = $1 AND status = 'approved'
+    `, [streamer.telegram_id]);
+    const totalWithdrawn = Number(approvedWithdrawalsRes.rows[0].totalWithdrawn || 0);
+
+    const balance = totalEarned - totalWithdrawn;
 
     const donations = (donationsRes.rows || []).map(d => ({
       ...d,
@@ -116,7 +125,7 @@ router.get("/:uuid", async (req, res) => {
         telegram_id: streamer.telegram_id,
         username: streamer.username,
         full_name: streamer.full_name,
-        balance: totalAmount, // Use the freshly calculated, always-correct value
+        balance: balance, // Use the freshly calculated, always-correct value
         link_uuid: streamer.link_uuid,
         profile_picture_url,
       },
@@ -125,7 +134,7 @@ router.get("/:uuid", async (req, res) => {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),
         totalCount,
-        totalAmount,
+        totalAmount: totalEarned, // totalAmount in pagination should reflect total earned, not current balance
         hasNextPage: page * limit < totalCount
       }
     });
