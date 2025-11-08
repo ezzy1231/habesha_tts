@@ -60,8 +60,8 @@ export default function WithdrawPage() {
     const fetchStreamerBalance = async () => {
       if (!apiClient) return; // Don't fetch if apiClient is not ready
       try {
-        const res = await apiClient.get(`/streamer/${uuid}/donations`);
-        setStreamerBalance(res.data.pagination.totalAmount);
+        const res = await apiClient.get(`/streamer/${uuid}`);
+        setStreamerBalance(res.data.streamer.balance);
       } catch (err) {
         console.error("Error fetching streamer balance:", err);
         setMessage("Failed to load streamer balance.");
