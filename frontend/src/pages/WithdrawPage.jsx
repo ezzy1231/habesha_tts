@@ -4,6 +4,8 @@ import axios from "axios";
 import io from "socket.io-client";
 import Balance from "../components/Balance";
 import ApiKeyModal from '../components/ApiKeyModal';
+import ThemeToggle from '../components/ThemeToggle';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const API = import.meta.env.VITE_BASE_URL || 'http://localhost:5000';
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -19,6 +21,11 @@ export default function WithdrawPage() {
   const [streamerBalance, setStreamerBalance] = useState(0);
   const [apiKey, setApiKey] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    // Check for theme in multiple possible keys for backward compatibility
+    const saved = localStorage.getItem('theme') || localStorage.getItem('streamer_theme');
+    return saved === 'dark';
+  });
 
   // Create a memoized axios instance that includes the API key
   const apiClient = useMemo(() => {
@@ -86,6 +93,15 @@ export default function WithdrawPage() {
     };
   }, [uuid, apiClient]);
 
+  // Apply theme on load and when darkMode changes
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const withdrawalAmount = parseFloat(amount);
@@ -131,8 +147,12 @@ export default function WithdrawPage() {
   const withdrawalAmount = parseFloat(amount);
   const payoutAmount = !isNaN(withdrawalAmount) && withdrawalAmount > 0 ? (withdrawalAmount * 0.6).toFixed(2) : null;
 
+  const themeClasses = darkMode
+    ? "min-h-screen gradient-dark text-gray-100"
+    : "min-h-screen gradient-light text-gray-900";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6 md:p-10">
+    <div className={`${themeClasses} p-6 md:p-10`}>
       <ApiKeyModal
         isOpen={isModalOpen}
         onClose={handleModalClose}
@@ -148,7 +168,12 @@ export default function WithdrawPage() {
           ← Back to Dashboard
         </button>
 
-        <div className="card p-6">
+        <div className="card p-6 relative">
+          {/* Theme Toggle - Inside Card at Right Top Corner */}
+          <div className="absolute top-3 right-3 z-10">
+            <ThemeToggle isDarkMode={darkMode} toggleDarkMode={setDarkMode} />
+          </div>
+          
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 text-center">Request Withdrawal</h1>
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-2 text-center">
             Your current balance: <Balance value={streamerBalance} showLabel={false} className="font-semibold text-gray-900 dark:text-white" />
@@ -218,6 +243,16 @@ export default function WithdrawPage() {
           )}
         </div>
       </div>
+      
+      {/* Overlay loading for form submission */}
+      {loading && (
+        <LoadingSpinner 
+          overlay={true}
+          size="md"
+          text="Submitting request..."
+          showText={true}
+        />
+      )}
     </div>
   );
 }

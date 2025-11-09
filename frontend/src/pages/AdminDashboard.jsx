@@ -8,6 +8,8 @@ import ApiKeyModal from '../components/ApiKeyModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Balance from '../components/Balance';
 import AdminComplaints from './AdminComplaints';
+import LoadingSpinner from '../components/LoadingSpinner';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const API = import.meta.env.VITE_BASE_URL || 'http://localhost:5000';
 const socket = io(API, { transports: ['websocket'] });
@@ -23,13 +25,13 @@ function StatCard({ title, value, subtitle }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">{title}</div>
-          <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-primary dark:group-hover:text-primary-light transition-colors truncate">
+          <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-primary-500 dark:group-hover:text-primary-400 transition-colors truncate">
             {value}
           </div>
           {subtitle && <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-1 sm:mt-2">{subtitle}</div>}
         </div>
-        <div className="p-2 sm:p-3 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl group-hover:from-primary/20 group-hover:to-primary/10 transition-all flex-shrink-0">
-          <div className="w-4 h-4 sm:w-6 sm:h-6 bg-primary rounded-lg opacity-60"></div>
+        <div className="p-2 sm:p-3 bg-gradient-to-br from-primary-100 to-primary-50 rounded-xl group-hover:from-primary-200 group-hover:to-primary-100 transition-all flex-shrink-0">
+          <div className="w-4 h-4 sm:w-6 sm:h-6 bg-primary-500 rounded-lg opacity-60"></div>
         </div>
       </div>
     </div>
@@ -54,30 +56,45 @@ function Overview({ apiClient, refreshKey }) {
     }).catch(e => setError(e?.message || 'Failed to load')).finally(()=>setLoading(false));
   }, [apiClient, refreshKey]);
 
-  if (loading) return <div>Loading overview...</div>;
+  if (loading) return (
+    <div className="flex justify-center p-8">
+      <LoadingSpinner size="md" text="Loading overview..." />
+    </div>
+  );
   if (error) return <div className="text-red-600">{error}</div>;
 
   const t = data.totals || {};
 
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-        <StatCard title="Total Amount" value={<Currency value={t.total_amount} />} subtitle={`${t.total_count || 0} donations`} />
-        <StatCard title="Streamers" value={t.unique_streamers || 0} />
-        <StatCard title="Donors" value={t.unique_donors || 0} />
-        <StatCard title="Avg. Donation" value={<Currency value={(t.total_amount || 0) / Math.max(1, t.total_count || 1)} />} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 animate-fade-in-stagger">
+        {loading ? (
+          <>
+            <SkeletonLoader type="stat" />
+            <SkeletonLoader type="stat" />
+            <SkeletonLoader type="stat" />
+            <SkeletonLoader type="stat" />
+          </>
+        ) : (
+          <>
+            <StatCard title="Total Amount" value={<Currency value={t.total_amount} />} subtitle={`${t.total_count || 0} donations`} className="animate-fade-in-stagger" style={{ animationDelay: '0ms' }} />
+            <StatCard title="Streamers" value={t.unique_streamers || 0} className="animate-fade-in-stagger" style={{ animationDelay: '100ms' }} />
+            <StatCard title="Donors" value={t.unique_donors || 0} className="animate-fade-in-stagger" style={{ animationDelay: '200ms' }} />
+            <StatCard title="Avg. Donation" value={<Currency value={(t.total_amount || 0) / Math.max(1, t.total_count || 1)} />} className="animate-fade-in-stagger" style={{ animationDelay: '300ms' }} />
+          </>
+        )}
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
-        <div className="card p-3 sm:p-4 md:p-6">
+        <div className="card p-3 sm:p-4 md:p-6 animate-fade-in-stagger" style={{ animationDelay: '400ms' }}>
           <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
             <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-white">Top Streamers</h3>
-            <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
+            <div className="p-2 gradient-avatar-purple rounded-lg">
               <span className="text-white text-sm sm:text-base md:text-lg">🎥</span>
             </div>
           </div>
           <div className="space-y-2 sm:space-y-3 md:space-y-4">
             {(data.topStreamers || []).map((s, idx) => (
-              <div key={s.streamer_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <div key={s.streamer_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${400 + idx * 100}ms` }}>
                                   <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                     {s.profile_picture_url ? (
                                       <img 
@@ -86,7 +103,7 @@ function Overview({ apiClient, refreshKey }) {
                                         className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0"
                                       />
                                     ) : (
-                                      <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs sm:text-sm font-bold flex-shrink-0">
+                                      <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full gradient-avatar-purple text-white text-xs sm:text-sm font-bold flex-shrink-0">
                                         {idx + 1}
                                       </div>
                                     )}                  <div className="min-w-0 flex-1">
@@ -104,16 +121,16 @@ function Overview({ apiClient, refreshKey }) {
             ))}
           </div>
         </div>
-        <div className="card p-3 sm:p-4 md:p-6">
+        <div className="card p-3 sm:p-4 md:p-6 animate-fade-in-stagger" style={{ animationDelay: '500ms' }}>
           <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
             <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-white">Top Donors</h3>
-            <div className="p-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+            <div className="p-2 gradient-avatar-cyan rounded-lg">
               <span className="text-white text-sm sm:text-base md:text-lg">💎</span>
             </div>
           </div>
           <div className="space-y-2 sm:space-y-3 md:space-y-4">
             {(data.topDonors || []).map((d, idx) => (
-              <div key={d.donor_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <div key={d.donor_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${500 + idx * 100}ms` }}>
                                   <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                     {d.profile_picture_url ? (
                                       <img 
@@ -122,7 +139,7 @@ function Overview({ apiClient, refreshKey }) {
                                         className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0"
                                       />
                                     ) : (
-                                      <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs sm:text-sm font-bold flex-shrink-0">
+                                      <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full gradient-avatar-cyan text-white text-xs sm:text-sm font-bold flex-shrink-0">
                                         {idx + 1}
                                       </div>
                                     )}                  <div className="min-w-0 flex-1">
@@ -170,6 +187,15 @@ function Streamers({ apiClient, refreshKey }) {
 
   useEffect(() => {
     fetchStreamers();
+
+    socket.on('admin_update', (data) => {
+      console.log('[Streamers] Admin update received via socket:', data);
+      fetchStreamers(); // Re-fetch streamers on any admin-related update
+    });
+
+    return () => {
+      socket.off('admin_update');
+    };
   }, [fetchStreamers, refreshKey]);
 
   const handleSaveOrder = async () => {
@@ -212,7 +238,11 @@ function Streamers({ apiClient, refreshKey }) {
   };
 
 
-  if (loading) return <div>Loading streamers...</div>;
+  if (loading) return (
+    <div className="flex justify-center p-8">
+      <LoadingSpinner size="md" text="Loading streamers..." />
+    </div>
+  );
   if (error) return <div className="text-red-600">{error}</div>;
 
   return (
@@ -247,7 +277,8 @@ function Streamers({ apiClient, refreshKey }) {
                 onDragEnter={(e) => handleDragEnter(e, index)}
                 onDragEnd={handleDragEnd}
                 onDragOver={(e) => e.preventDefault()}
-                className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 animate-fade-in-stagger"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 <td className="py-4 text-center text-gray-400 cursor-grab">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
@@ -261,7 +292,7 @@ function Streamers({ apiClient, refreshKey }) {
                         className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full gradient-avatar-purple flex items-center justify-center text-white font-semibold flex-shrink-0">
                         {(s.username || 'S').charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -315,6 +346,15 @@ function Donors({ apiClient, refreshKey }) {
     if (!apiClient) return;
     setLoading(true);
     apiClient.get(`/donors`).then((r) => setRows(r.data.donors || [])).catch((e) => setError(e?.message || 'Failed')).finally(() => setLoading(false));
+
+    socket.on('admin_update', (data) => {
+      console.log('[Donors] Admin update received via socket:', data);
+      setRefresh((x) => x + 1); // Trigger a refresh of donors
+    });
+
+    return () => {
+      socket.off('admin_update');
+    };
   }, [apiClient, refresh, refreshKey]);
 
   const startEdit = (row) => {
@@ -342,11 +382,15 @@ function Donors({ apiClient, refreshKey }) {
     }
   };
 
-  if (loading) return <div>Loading donors...</div>;
+  if (loading) return (
+    <div className="flex justify-center p-8">
+      <LoadingSpinner size="md" text="Loading donors..." />
+    </div>
+  );
   if (error) return <div className="text-red-600">{error}</div>;
 
   return (
-    <div className="card overflow-hidden">
+    <div className="card overflow-hidden animate-fade-in-stagger">
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Donors Management</h3>
         <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">Manage donor information and display names</p>
@@ -355,10 +399,10 @@ function Donors({ apiClient, refreshKey }) {
       {/* Mobile Card View */}
       <div className="block sm:hidden">
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {rows.map((d) => (
-            <div key={d.telegram_id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+          {rows.map((d, index) => (
+            <div key={d.telegram_id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                <div className="w-10 h-10 rounded-full gradient-avatar-cyan flex items-center justify-center text-white font-semibold flex-shrink-0">
                   {(d.username || 'D').charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -376,7 +420,7 @@ function Donors({ apiClient, refreshKey }) {
                             type="text" 
                             value={displayName} 
                             onChange={(e) => setDisplayName(e.target.value)} 
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-primary" 
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
                             placeholder="e.g. አበበ መኮንን" 
                           />
                           <div className="flex gap-2">
@@ -457,11 +501,11 @@ function Donors({ apiClient, refreshKey }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((d) => (
-              <tr key={d.telegram_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            {rows.map((d, index) => (
+              <tr key={d.telegram_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
                 <td className="py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold">
+                    <div className="w-10 h-10 rounded-full gradient-avatar-cyan flex items-center justify-center text-white font-semibold">
                       {(d.username || 'D').charAt(0).toUpperCase()}
                     </div>
                     <div>
@@ -479,7 +523,7 @@ function Donors({ apiClient, refreshKey }) {
                         type="text" 
                         value={displayName} 
                         onChange={(e) => setDisplayName(e.target.value)} 
-                        className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-primary" 
+                        className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
                         placeholder="e.g. አበበ መኮንን" 
                       />
                     </div>
@@ -563,11 +607,15 @@ function Donations({ apiClient, refreshKey }) {
     }).catch(e => setError(e?.message || 'Failed')).finally(()=>setLoading(false));
   }, [apiClient, refreshKey]);
 
-  if (loading) return <div>Loading donations...</div>;
+  if (loading) return (
+    <div className="flex justify-center p-8">
+      <LoadingSpinner size="md" text="Loading donations..." />
+    </div>
+  );
   if (error) return <div className="text-red-600">{error}</div>;
 
-return (
-    <div className="card overflow-hidden">
+  return (
+    <div className="card overflow-hidden animate-fade-in-stagger">
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Recent Donations</h3>
         <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">View all donation transactions</p>
@@ -576,8 +624,8 @@ return (
       {/* Mobile Card View */}
       <div className="block sm:hidden">
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {rows.map(d => (
-            <div key={d.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+          {rows.map((d, index) => (
+            <div key={d.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 dark:text-white truncate">
@@ -636,8 +684,8 @@ return (
             </tr>
           </thead>
           <tbody>
-            {rows.map(d => (
-              <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            {rows.map((d, index) => (
+              <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
                 <td className="py-4">
                   <div className="text-sm text-gray-600 dark:text-gray-400">
                     {new Date(d.created_at).toLocaleString()}
@@ -697,14 +745,16 @@ function Recharges({ apiClient }) {
     if (!apiClient) return;
     setLoading(true);
     apiClient.get(`/recharges`).then(r => setRows(r.data.recharges || [])).catch(e => setError(e?.message || 'Failed')).finally(()=>setLoading(false));
-  }, [apiClient, refresh]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRefresh(x => x + 1);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    socket.on('admin_update', (data) => {
+      console.log('[Recharges] Admin update received via socket:', data);
+      setRefresh(x => x + 1); // Trigger a refresh of recharges
+    });
+
+    return () => {
+      socket.off('admin_update');
+    };
+  }, [apiClient, refresh]);
 
   const approve = (id) => {
     setModal({ open: true, id, amount: '' });
@@ -755,7 +805,11 @@ function Recharges({ apiClient }) {
     setConfirmModal({ isOpen: false, action: null, id: null, title: '', message: '' });
   };
 
-  if (loading) return <div>Loading recharges...</div>;
+  if (loading) return (
+    <div className="flex justify-center p-8">
+      <LoadingSpinner size="md" text="Loading recharges..." />
+    </div>
+  );
   if (error) return <div className="text-red-600">{error}</div>;
 
   const filteredRows = rows.filter(r => r.status === statusFilter);
@@ -786,7 +840,7 @@ function Recharges({ apiClient }) {
                 step="0.01" 
                 value={modal.amount} 
                 onChange={(e)=>setModal(m=>({...m, amount: e.target.value }))} 
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" 
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
                 placeholder="e.g. 100.00" 
               />
             </div>
@@ -797,24 +851,24 @@ function Recharges({ apiClient }) {
           </div>
         </div>
       )}
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden animate-fade-in-stagger">
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Recharge Requests</h3>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'pending' 
-                  ? 'bg-primary text-white' 
+                  ? 'bg-primary-500 text-white' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}>Pending</button>
               <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'approved' 
-                  ? 'bg-primary text-white' 
+                  ? 'bg-primary-500 text-white' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}>Approved</button>
               <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'rejected' 
-                  ? 'bg-primary text-white' 
+                  ? 'bg-primary-500 text-white' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}>Rejected</button>
             </div>
@@ -824,8 +878,8 @@ function Recharges({ apiClient }) {
         {/* Mobile Card View */}
         <div className="block sm:hidden">
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredRows.map(r => (
-              <div key={r.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            {filteredRows.map((r, index) => (
+              <div key={r.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-gray-900 dark:text-white truncate">
@@ -902,8 +956,8 @@ function Recharges({ apiClient }) {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              {filteredRows.map((r, index) => (
+                <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
                   <td className="py-4">
                     <div className="text-sm text-gray-600 dark:text-gray-400">
                       {new Date(r.created_at).toLocaleString()}
@@ -987,14 +1041,16 @@ function Withdrawals({ apiClient }) {
     if (!apiClient) return;
     setLoading(true);
     apiClient.get(`/withdrawals`).then(r => setRows(r.data.withdrawals || [])).catch(e => setError(e?.message || 'Failed')).finally(()=>setLoading(false));
-  }, [apiClient, refresh]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRefresh(x => x + 1);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    socket.on('admin_update', (data) => {
+      console.log('[Withdrawals] Admin update received via socket:', data);
+      setRefresh(x => x + 1); // Trigger a refresh of withdrawals
+    });
+
+    return () => {
+      socket.off('admin_update');
+    };
+  }, [apiClient, refresh]);
 
   const openConfirmModal = (action, id, title, message) => {
     setConfirmModal({ isOpen: true, action, id, title, message });
@@ -1017,7 +1073,11 @@ function Withdrawals({ apiClient }) {
     setConfirmModal({ isOpen: false, action: null, id: null, title: '', message: '' });
   };
 
-  if (loading) return <div>Loading withdrawals...</div>;
+  if (loading) return (
+    <div className="flex justify-center p-8">
+      <LoadingSpinner size="md" text="Loading withdrawals..." />
+    </div>
+  );
   if (error) return <div className="text-red-600">{error}</div>;
 
   const filteredRows = rows.filter(r => r.status === statusFilter);
@@ -1033,24 +1093,24 @@ function Withdrawals({ apiClient }) {
         confirmButtonClass={confirmModal.action === 'reject' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden animate-fade-in-stagger">
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Withdrawal Requests</h3>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'pending' 
-                  ? 'bg-primary text-white' 
+                  ? 'bg-primary-500 text-white' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}>Pending</button>
               <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'approved' 
-                  ? 'bg-primary text-white' 
+                  ? 'bg-primary-500 text-white' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}>Approved</button>
               <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'rejected' 
-                  ? 'bg-primary text-white' 
+                  ? 'bg-primary-500 text-white' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}>Rejected</button>
             </div>
@@ -1060,8 +1120,8 @@ function Withdrawals({ apiClient }) {
         {/* Mobile Card View */}
         <div className="block sm:hidden">
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredRows.map(w => (
-              <div key={w.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            {filteredRows.map((w, index) => (
+              <div key={w.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-gray-900 dark:text-white truncate">
@@ -1140,8 +1200,8 @@ function Withdrawals({ apiClient }) {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map(w => (
-                <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              {filteredRows.map((w, index) => (
+                <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
                   <td className="py-4">
                     <div className="text-sm text-gray-600 dark:text-gray-400">
                       {new Date(w.created_at).toLocaleString()}
@@ -1222,6 +1282,15 @@ function StreamerRequests({ apiClient }) {
       .then(r => setRows(r.data.requests || []))
       .catch(e => setError(e?.message || 'Failed to load requests'))
       .finally(() => setLoading(false));
+
+    socket.on('admin_update', (data) => {
+      console.log('[StreamerRequests] Admin update received via socket:', data);
+      setRefresh(x => x + 1); // Trigger a refresh of streamer requests
+    });
+
+    return () => {
+      socket.off('admin_update');
+    };
   }, [apiClient, refresh]);
 
   const openImageModal = (src) => setImageModal({ open: true, src });
@@ -1248,7 +1317,11 @@ function StreamerRequests({ apiClient }) {
     setConfirmModal({ isOpen: false, action: null, id: null, title: '', message: '' });
   };
 
-  if (loading) return <div>Loading streamer requests...</div>;
+  if (loading) return (
+    <div className="flex justify-center p-8">
+      <LoadingSpinner size="md" text="Loading streamer requests..." />
+    </div>
+  );
   if (error) return <div className="text-red-600">{error}</div>;
 
   const filteredRows = rows.filter(r => r.registration_status === statusFilter);
@@ -1264,24 +1337,24 @@ function StreamerRequests({ apiClient }) {
         confirmButtonClass={confirmModal.action === 'reject' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden animate-fade-in-stagger">
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Streamer Requests</h3>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'pending' 
-                  ? 'bg-primary text-white' 
+                  ? 'bg-primary-500 text-white' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}>Pending</button>
               <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'approved' 
-                  ? 'bg-primary text-white' 
+                  ? 'bg-primary-500 text-white' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}>Approved</button>
               <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'rejected' 
-                  ? 'bg-primary text-white' 
+                  ? 'bg-primary-500 text-white' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}>Rejected</button>
             </div>
@@ -1291,8 +1364,8 @@ function StreamerRequests({ apiClient }) {
         {/* Mobile Card View */}
         <div className="block sm:hidden">
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredRows.map(r => (
-              <div key={r.telegram_id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            {filteredRows.map((r, index) => (
+              <div key={r.telegram_id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
                 <div className="flex items-start gap-3 mb-3">
                   {r.profile_picture_url ? (
                     <img 
@@ -1358,8 +1431,8 @@ function StreamerRequests({ apiClient }) {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map(r => (
-                <tr key={r.telegram_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              {filteredRows.map((r, index) => (
+                <tr key={r.telegram_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
                   <td className="py-4">
                     <div className="text-sm text-gray-600 dark:text-gray-400">
                       {new Date(r.created_at).toLocaleString()}
@@ -1395,7 +1468,7 @@ function StreamerRequests({ apiClient }) {
                     </div>
                   </td>
                   <td className="py-4">
-                    <a href={r.social_link} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-dark transition-colors">
+                    <a href={r.social_link} target="_blank" rel="noopener noreferrer" className="text-primary-500 hover:text-primary-600 transition-colors">
                       View Profile
                     </a>
                   </td>
@@ -1445,6 +1518,11 @@ export default function AdminDashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [adminToken, setAdminToken] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    // Check for theme in localStorage
+    const saved = localStorage.getItem('theme');
+    return saved === 'dark';
+  });
 
   // On initial load, check for Admin Token
   useEffect(() => {
@@ -1467,6 +1545,21 @@ export default function AdminDashboard() {
     if (!adminToken) {
       alert("An Admin Token is required to view this page.");
     }
+  };
+
+  // Apply theme on load and when darkMode changes
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  const toggleDarkMode = (isDark) => {
+    setDarkMode(isDark);
+    const nextTheme = isDark ? 'dark' : 'light';
+    localStorage.setItem('theme', nextTheme);
   };
 
   const apiClient = useMemo(() => {
@@ -1520,9 +1613,17 @@ export default function AdminDashboard() {
         }
       }
     };
-    fetchCounts();
-    const interval = setInterval(fetchCounts, 5000);
-    return () => clearInterval(interval);
+
+    fetchCounts(); // Fetch immediately on mount
+
+    socket.on('admin_update', (data) => {
+      console.log('[AdminDashboard] Admin update received via socket:', data);
+      fetchCounts(); // Re-fetch counts on any admin-related update
+    });
+
+    return () => {
+      socket.off('admin_update');
+    };
   }, [apiClient]);
 
   if (!apiClient) {
@@ -1541,18 +1642,23 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen gradient-light dark:gradient-dark">
       <ApiKeyModal
         isOpen={isModalOpen}
         onClose={handleModalClose}
         onSubmit={handleTokenSubmit}
         title="Admin Authentication Required"
-        message="Please enter the Admin Token to access this dashboard. The token can be found in your project's .env file."
+        message="Please enter Admin Token to access this dashboard. The token can be found in your project's .env file."
       />
       <div className="w-full px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 xl:px-12 xl:py-10 2xl:px-16 2xl:py-12">
         {/* Header */}
         <div className="mb-4 sm:mb-6 md:mb-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 relative">
+            {/* Theme Toggle - Inside Card at Right Top Corner */}
+            <div className="absolute top-3 right-3 z-10">
+              <ThemeToggle isDarkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+            </div>
+            
             <div className="min-w-0 flex-1">
               <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 truncate">
                 🎛️ Admin Panel
@@ -1561,25 +1667,23 @@ export default function AdminDashboard() {
                 Manage streamers, donors, and donations
               </p>
             </div>
-            <div className="flex-shrink-0">
-              <ThemeToggle />
-            </div>
           </div>
         </div>
 
         {/* Navigation Tabs */}
         <div className="mb-4 sm:mb-6 md:mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-1">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-1 animate-fade-in">
             <div className="flex flex-wrap justify-between items-center gap-1 sm:gap-2">
-              {['overview','streamer-requests','streamers','donors','donations','withdrawals','recharges', 'complaints', 'settings'].map(k => (
+              {['overview','streamer-requests','streamers','donors','donations','withdrawals','recharges', 'complaints', 'settings'].map((k, index) => (
                 <button 
                   key={k} 
                   onClick={()=>setTab(k)} 
-                  className={`flex-shrink-0 px-2 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-all duration-200 text-xs sm:text-sm md:text-base whitespace-nowrap relative ${
+                  className={`flex-shrink-0 px-2 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-all duration-200 text-xs sm:text-sm md:text-base whitespace-nowrap relative animate-fade-in-stagger ${
                     tab===k 
-                      ? 'bg-primary text-white shadow-lg transform scale-105 ring-2 ring-primary/30 ring-offset-2 ring-offset-white dark:ring-offset-gray-900' 
+                      ? 'bg-primary-500 text-white shadow-lg transform scale-105 ring-2 ring-primary-300 ring-offset-2 ring-offset-white dark:ring-offset-gray-900' 
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow-md'
                   }`}
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <span className="flex items-center gap-2">
                     <span className="text-lg sm:text-xl">

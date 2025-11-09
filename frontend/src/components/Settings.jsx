@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import LoadingSpinner from './LoadingSpinner';
 
 export default function Settings({ apiClient }) {
   const [s, setS] = useState({ maxChars: 600, stepChars: 15, basePrice: 20, incrementPrice: 15, filteredWords: [] });
@@ -54,7 +55,11 @@ export default function Settings({ apiClient }) {
     setS(prevS => ({ ...prevS, filteredWords: prevS.filteredWords.filter(word => word !== wordToRemove) }));
   };
 
-  if (loading) return <div>Loading settings...</div>;
+  if (loading) return (
+    <div className="flex justify-center p-8">
+      <LoadingSpinner size="md" text="Loading settings..." />
+    </div>
+  );
   if (error) return <div className="text-red-600">{error}</div>;
 
 const input = (k, label) => (

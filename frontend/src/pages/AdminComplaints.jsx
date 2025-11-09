@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function AdminComplaints({ apiClient, refreshData }) {
   const [complaints, setComplaints] = useState([]);
@@ -64,7 +65,11 @@ export default function AdminComplaints({ apiClient, refreshData }) {
   };
 
   if (loading) {
-    return <div className="text-center p-8">Loading complaints...</div>;
+    return (
+      <div className="flex justify-center p-8">
+        <LoadingSpinner size="md" text="Loading complaints..." />
+      </div>
+    );
   }
 
   if (error) {

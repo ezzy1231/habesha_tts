@@ -26,14 +26,12 @@ export default function DonationCard({ donation, isPlaying = false }) {
       .toUpperCase();
   };
 
-
-
-return (
+  return (
     <div
-      className={`card hover:shadow-xl transition-all duration-300 group ${
+      className={`card hover:shadow-lg group transition-all duration-300 ${
         isPlaying 
-          ? "ring-2 ring-green-500 ring-opacity-50 border-green-200 dark:border-green-800" 
-          : "hover:scale-[1.02]"
+          ? "ring-2 ring-success-500 ring-opacity-50 border-success-200 dark:border-success-800" 
+          : "hover-scale-102"
       }`}
     >
       <div className="p-3 sm:p-4 lg:p-6">
@@ -42,12 +40,12 @@ return (
           <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 min-w-0 flex-1">
             <div className={`relative w-8 h-8 sm:w-10 sm:h-12 lg:w-12 lg:h-12 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shadow-lg transition-all duration-300 flex-shrink-0 ${
               isPlaying 
-                ? "bg-gradient-to-r from-green-500 to-green-600 text-white scale-110" 
-                : "bg-gradient-to-r from-blue-500 to-blue-600 text-white group-hover:scale-105"
+                ? "gradient-avatar-green text-white scale-110" 
+                : "gradient-avatar-blue text-white hover-scale-105"
             }`}>
               {initials(donation.donor_name || "Donor")}
               {isPlaying && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-green-400 rounded-full animate-ping"></div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-success-400 rounded-full animate-ping"></div>
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -56,8 +54,8 @@ return (
                   {donation.donor_name || "Anonymous"}
                 </span>
                 {isPlaying && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs font-medium flex-shrink-0">
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  <div className="badge badge-success flex-shrink-0">
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-success-500 rounded-full animate-pulse"></span>
                     <span className="hidden sm:inline">Playing</span>
                     <span className="sm:hidden">▶</span>
                   </div>
@@ -70,7 +68,7 @@ return (
           </div>
 
           <div className="flex flex-col items-end gap-1.5 sm:gap-2 flex-shrink-0">
-<div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-700 dark:text-blue-300 rounded-lg">
+            <div className="gradient-donation flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
               <span className="text-sm sm:text-lg">💸</span>
               <Balance 
                 value={donation.amount} 
@@ -80,17 +78,13 @@ return (
             </div>
             
             <div className="flex flex-wrap gap-1 justify-end">
-              <span className={`inline-flex items-center px-1.5 sm:px-2 py-1 rounded-full text-xs font-medium ${
-                donation.status === "paid"
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+              <span className={`badge ${
+                donation.status === "paid" ? "badge-success" : "badge-warning"
               }`}>
                 {donation.status || "pending"}
               </span>
-              <span className={`inline-flex items-center px-1.5 sm:px-2 py-1 rounded-full text-xs font-medium ${
-                donation.played
-                  ? "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300"
-                  : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+              <span className={`badge ${
+                donation.played ? "badge-gray" : "badge-purple"
               }`}>
                 {donation.played ? "✓" : "○"}
                 <span className="hidden sm:inline ml-1">{donation.played ? "Played" : "Unplayed"}</span>
@@ -101,25 +95,25 @@ return (
 
         {/* Donation message */}
         <div className="relative">
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-900/50 rounded-xl p-3 sm:p-4 border border-gray-200 dark:border-gray-700">
-            <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 text-gray-400 dark:text-gray-500 text-sm sm:text-lg">"</div>
+          <div className="gradient-message rounded-xl p-3 sm:p-4 border border-gray-200 dark:border-gray-700">
+            <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 text-gray-400 dark:text-gray-500 text-sm sm:text-lg">&ldquo;</div>
             <p className="italic text-gray-800 dark:text-gray-200 leading-relaxed pl-3 sm:pl-4 pr-3 sm:pr-4 text-sm sm:text-base">
               {donation.text}
             </p>
-            <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 text-gray-400 dark:text-gray-500 text-sm sm:text-lg">"</div>
+            <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 text-gray-400 dark:text-gray-500 text-sm sm:text-lg">&rdquo;</div>
           </div>
         </div>
 
         {/* Action indicators */}
         {isPlaying && (
           <div className="mt-3 sm:mt-4 flex items-center justify-center">
-            <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg">
+            <div className="badge badge-success">
               <div className="flex space-x-0.5 sm:space-x-1">
-                <div className="w-0.5 h-3 sm:w-1 sm:h-4 bg-green-500 rounded-full animate-pulse"></div>
-                <div className="w-0.5 h-3 sm:w-1 sm:h-4 bg-green-500 rounded-full animate-pulse delay-75"></div>
-                <div className="w-0.5 h-3 sm:w-1 sm:h-4 bg-green-500 rounded-full animate-pulse delay-150"></div>
+                <div className="w-0.5 h-3 sm:w-1 sm:h-4 bg-success-500 rounded-full animate-pulse"></div>
+                <div className="w-0.5 h-3 sm:w-1 sm:h-4 bg-success-500 rounded-full animate-pulse" style={{animationDelay: '75ms'}}></div>
+                <div className="w-0.5 h-3 sm:w-1 sm:h-4 bg-success-500 rounded-full animate-pulse" style={{animationDelay: '150ms'}}></div>
               </div>
-              <span className="text-xs sm:text-sm font-medium">Audio Playing</span>
+              <span className="text-xs sm:text-sm">Audio Playing</span>
             </div>
           </div>
         )}

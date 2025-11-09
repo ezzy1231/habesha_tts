@@ -5,6 +5,9 @@ import io from "socket.io-client";
 import DonationCard from "../components/DonationCard";
 import Pagination from "../components/Pagination";
 import Balance from "../components/Balance";
+import ThemeToggle from '../components/ThemeToggle';
+import LoadingSpinner from '../components/LoadingSpinner';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 import ApiKeyModal from '../components/ApiKeyModal';
 
@@ -19,7 +22,8 @@ export default function StreamerPage() {
   const [queue, setQueue] = useState([]);
   const [currentPlaying, setCurrentPlaying] = useState(null);
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('streamer_theme');
+    // Check for theme in multiple possible keys for backward compatibility
+    const saved = localStorage.getItem('theme') || localStorage.getItem('streamer_theme');
     return saved === 'dark';
   });
   const [streamerInfo, setStreamerInfo] = useState(null);
@@ -97,7 +101,10 @@ export default function StreamerPage() {
   // Update volume when it changes without recreating AudioContext
   useEffect(() => {
     if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = volume;
+      const currentTime = audioContextRef.current.currentTime;
+      gainNodeRef.current.gain.cancelScheduledValues(currentTime);
+      gainNodeRef.current.gain.setValueAtTime(gainNodeRef.current.gain.value, currentTime);
+      gainNodeRef.current.gain.linearRampToValueAtTime(volume, currentTime + 0.1); // Smooth 100ms transition
     }
   }, [volume]);
 
@@ -324,7 +331,7 @@ export default function StreamerPage() {
 
     // Start sequence
     playNotificationThenDonation();
-  }, [enabled, queue, setCurrentPlaying, playedDonationsRef, uuid, markAsPlayed]);
+  }, [enabled, queue, setCurrentPlaying, markAsPlayed]);
 
 
 
@@ -407,7 +414,6 @@ export default function StreamerPage() {
   }, [uuid, enabled, currentPage, fetchInitialData]);
 
   // ✅ Watch for queue changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (enabled && !playingRef.current && queue.length > 0) {
       console.log("🎵 Starting next queued donation...");
@@ -438,7 +444,9 @@ export default function StreamerPage() {
     if (saved === "true") setEnabled(true);
   }, []);
 
-  // ✅ Apply theme on load
+
+
+  // ✅ Apply theme on load and when darkMode changes
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -451,6 +459,46 @@ export default function StreamerPage() {
   useEffect(() => {
     localStorage.setItem("tts_enabled", enabled);
   }, [enabled]);
+
+  // ✅ Keyboard shortcuts for volume control
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Only handle shortcuts when not typing in input fields
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      const step = 0.05; // 5% increments
+      let newVolume = volume;
+      
+      switch(e.key) {
+        case 'ArrowUp':
+        case 'ArrowRight':
+          e.preventDefault();
+          newVolume = Math.min(1, volume + step);
+          break;
+        case 'ArrowDown':
+        case 'ArrowLeft':
+          e.preventDefault();
+          newVolume = Math.max(0, volume - step);
+          break;
+        case 'm':
+        case 'M':
+          e.preventDefault();
+          newVolume = volume === 0 ? 0.5 : 0; // Toggle mute
+          break;
+        default:
+          return;
+      }
+      
+      if (newVolume !== volume) {
+        setVolume(newVolume);
+        localStorage.setItem('tts_volume', newVolume);
+        // Smooth transition handled by useEffect above
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [volume]);
 
   // ✅ Initial load and refetch on visibility change
   useEffect(() => {
@@ -474,25 +522,10 @@ export default function StreamerPage() {
     };
   }, [uuid, fetchInitialData, apiClient]);
 
-  const toggleTheme = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem('streamer_theme', newDarkMode ? 'dark' : 'light');
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
 
 
-  const toggleEnabled = () => {
-    const newEnabled = !enabled;
-    setEnabled(newEnabled);
-    if (newEnabled && !audioContextRef.current) {
-      audioContextRef.current = new AudioContext();
-    }
-  };
+
+
 
   const handlePageChange = (page) => {
     if (page !== currentPage) {
@@ -501,39 +534,41 @@ export default function StreamerPage() {
     }
   };
 
+  // Get volume icon based on level
+  const getVolumeIcon = (vol) => {
+    if (vol === 0) return '🔇';
+    if (vol <= 0.33) return '🔈';
+    if (vol <= 0.66) return '🔉';
+    return '🔊';
+  };
+
+  // Get volume color based on level
+  const getVolumeColor = (vol) => {
+    if (vol === 0) return 'text-gray-400';
+    if (vol <= 0.33) return 'text-blue-500';
+    if (vol <= 0.80) return 'text-green-500';
+    return 'text-red-700'; // #AC3939 equivalent
+  };
+
 const themeClasses = darkMode
-    ? "min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100"
-    : "min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 text-gray-900";
-  const cardBg = darkMode ? "bg-gray-800/80 backdrop-blur-lg border-gray-700" : "bg-white/90 backdrop-blur-lg border-gray-200";
+    ? "min-h-screen gradient-dark text-gray-100"
+    : "min-h-screen gradient-light text-gray-900";
+  const cardBg = darkMode ? "card-dark" : "card-light";
 
 if (loading && donations.length === 0) { // Only show full-screen loader on initial load
     return (
       <div className={`${themeClasses} flex items-center justify-center min-h-screen`}>
-        <div className="text-center">
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-primary/20 rounded-full animate-spin"></div>
-            <div className="absolute top-0 left-0 w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          </div>
-          <p className="text-lg mt-4 font-medium text-gray-600 dark:text-gray-300">Loading dashboard...</p>
-        </div>
+        <LoadingSpinner 
+          size="lg" 
+          text="Loading dashboard..." 
+          className="text-center"
+        />
       </div>
     );
   }
 
 return (
     <div className={`${themeClasses} p-3 sm:p-4 md:p-6 lg:p-8 transition-colors duration-300 relative`}>
-      {/* Theme Toggle - Top Right Corner */}
-      <div className="fixed top-3 right-3 sm:top-4 sm:right-4 z-40">
-        <button
-          onClick={toggleTheme}
-          className="btn btn-ghost hover:bg-gray-100 dark:hover:bg-gray-700 shadow-lg hover:shadow-xl transition-all duration-300 text-xs sm:text-sm px-2 sm:px-3 py-2"
-          title="Toggle theme"
-          aria-label="Toggle theme"
-        >
-          <span className="text-sm sm:text-base">{darkMode ? "🌞" : "🌙"}</span>
-          <span className="hidden sm:inline ml-1">{darkMode ? "Light" : "Dark"}</span>
-        </button>
-      </div>
 
       <ApiKeyModal
         isOpen={isModalOpen}
@@ -543,12 +578,17 @@ return (
         message="Please enter your secret API Key to connect to your dashboard. You can find this key in the registration message from the Telegram bot."
       />
 <header className="mb-4 sm:mb-6">
-        <div className="card p-3 sm:p-4 md:p-6 shadow-xl">
+        <div className="card p-3 sm:p-4 md:p-6 shadow-xl relative">
+          {/* Theme Toggle - Inside Card at Right Top Corner */}
+          <div className="absolute top-3 right-3 z-10">
+            <ThemeToggle isDarkMode={darkMode} toggleDarkMode={setDarkMode} />
+          </div>
+          
           <div className="flex flex-col gap-4">
             {/* Dashboard Title and Streamer Info */}
             <div className="flex-1">
               <div className="flex items-center gap-2 sm:gap-3 mb-3">
-                <div className="p-1.5 sm:p-2 bg-gradient-to-r from-primary to-secondary rounded-xl shadow-lg">
+                <div className="p-1.5 sm:p-2 gradient-primary rounded-xl shadow-lg">
                   <span className="text-white text-lg sm:text-xl">🎙️</span>
                 </div>
                 <div className="min-w-0 flex-1">
@@ -560,7 +600,7 @@ return (
               </div>
               
               {streamerInfo && (
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl p-3">
+                <div className="gradient-surface rounded-xl p-3">
                   <div className="flex flex-col gap-4">
                     {/* Streamer Info Row */}
                     <div className="flex items-center gap-3">
@@ -571,7 +611,7 @@ return (
                           className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0"
                         />
                       ) : (
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg sm:text-xl flex-shrink-0">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full gradient-avatar-purple flex items-center justify-center text-white font-bold text-lg sm:text-xl flex-shrink-0">
                           {(streamerInfo.username || 'S').charAt(0).toUpperCase()}
                         </div>
                       )}
@@ -602,25 +642,38 @@ return (
                           <span className="sm:hidden">Wd</span>
                         </button>
 
-                        <div className="flex flex-col items-center gap-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 shadow-inner flex-1 sm:flex-none min-w-[100px]">
-                          <label htmlFor="volume-slider" className="text-xs font-medium text-gray-600 dark:text-gray-300">Volume</label>
-                          <input
-                            id="volume-slider"
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={volume}
-                            onChange={(e) => {
-                              const newVolume = Number(e.target.value);
-                              setVolume(newVolume);
-                              localStorage.setItem('tts_volume', newVolume);
-                              if (gainNodeRef.current) {
-                                gainNodeRef.current.gain.value = newVolume;
-                              }
-                            }}
-                            className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 accent-primary"
-                          />
+                        <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-gray-100 dark:bg-gray-700 shadow-inner flex-1 sm:flex-none min-w-[120px] relative group">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm transition-colors duration-200 ${getVolumeColor(volume)}`}>
+                              {getVolumeIcon(volume)}
+                            </span>
+                            <label htmlFor="volume-slider" className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                              Volume {Math.round(volume * 100)}%
+                            </label>
+                          </div>
+                          <div className="relative w-full">
+                            <input
+                              id="volume-slider"
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.01"
+                              value={volume}
+                              onChange={(e) => {
+                                const newVolume = Number(e.target.value);
+                                setVolume(newVolume);
+                                localStorage.setItem('tts_volume', newVolume);
+                                // Smooth transition handled by useEffect above
+                              }}
+                              className="range-input w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 transition-all duration-200 hover:scale-105"
+                              style={{
+                                background: `linear-gradient(to right, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} 0%, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} ${volume * 100}%, #D1D5DB ${volume * 100}%, #D1D5DB 100%)`
+                              }}
+                            />
+                            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                              {Math.round(volume * 100)}%
+                            </div>
+                          </div>
                         </div>
 
                         <button
@@ -673,11 +726,11 @@ return (
                             } else {
                               setEnabled(false);
                             }
-                          } }
-                          className={`btn shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm:text-base px-4 py-3 flex-1 sm:flex-none min-w-[100px] ${
+                          }}
+className={`btn shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm:text-base px-4 py-3 flex-1 sm:flex-none min-w-[100px] ${
                             enabled 
-                              ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white" 
-                              : "bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white"
+                              ? "gradient-success hover:gradient-success-dark text-white" 
+                              : "gradient-gray hover:gradient-gray-dark text-white"
                           }`}
                           title={enabled ? "Disable Audio" : "Enable Audio"}
                         >
@@ -700,7 +753,7 @@ return (
           {/* Queue Info and Playing Indicator - Horizontal Layout */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-2 sm:p-3 bg-gradient-to-r from-primary to-secondary rounded-xl shadow-lg">
+              <div className="p-2 sm:p-3 gradient-primary rounded-xl shadow-lg">
                 <span className="text-white text-lg sm:text-2xl">🎵</span>
               </div>
               <div className="min-w-0 flex-1">
@@ -724,7 +777,7 @@ return (
             
             {/* Now Playing Indicator - Aligned to the right on desktop, below on mobile */}
             {currentPlaying && (
-              <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl shadow-lg animate-pulse">
+              <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 gradient-success text-white rounded-xl shadow-lg animate-pulse">
                 <div className="relative">
                   <span className="text-sm sm:text-lg animate-pulse">🔊</span>
                   <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-white rounded-full animate-ping"></div>
@@ -741,20 +794,18 @@ return (
 <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {loading && donations.length === 0 && (
           <div className="col-span-full flex justify-center p-8 sm:p-12">
-            <div className="text-center">
-              <div className="relative">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-primary/20 rounded-full animate-spin"></div>
-                <div className="absolute top-0 left-0 w-10 h-10 sm:w-12 sm:h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-              </div>
-              <p className="mt-4 text-sm sm:text-base text-gray-600 dark:text-gray-300">Loading donations...</p>
-            </div>
+            <LoadingSpinner 
+              size="md" 
+              text="Loading donations..." 
+              className="text-center"
+            />
           </div>
         )}
         
         {!loading && donations.length === 0 ? (
           <div className={`${cardBg} p-6 sm:p-8 lg:p-12 rounded-xl text-center shadow-xl border col-span-full`}>
             <div className="mb-4 sm:mb-6">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center shadow-lg">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto gradient-primary rounded-full flex items-center justify-center shadow-lg">
                 <span className="text-2xl sm:text-4xl">💰</span>
               </div>
             </div>
@@ -769,6 +820,8 @@ return (
               </button>
             </div>
           </div>
+        ) : loading ? (
+          <SkeletonLoader type="donation" count={6} />
         ) : (
           donations.map((donation) => (
             <DonationCard key={donation.id} donation={donation} isPlaying={currentPlaying === donation.id} />
@@ -788,7 +841,7 @@ return (
 <footer className="mt-8 sm:mt-12 lg:mt-16 text-center">
         <div className="card p-4 sm:p-6 max-w-md mx-auto">
           <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-            <div className="p-1.5 sm:p-2 bg-gradient-to-r from-primary to-secondary rounded-lg">
+            <div className="p-1.5 sm:p-2 gradient-primary rounded-lg">
               <span className="text-white text-lg sm:text-xl">🚀</span>
             </div>
             <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">Powered by Habesha TTS</span>
