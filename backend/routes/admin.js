@@ -3,6 +3,7 @@ import db from "../db-postgres.js";
 import { bot, reloadSettings } from "../../bot/bot.js";
 import { generateStreamerLink } from "../utils/generateLink.js";
 import crypto from "crypto";
+import { url } from "inspector";
 
 const router = express.Router();
 
@@ -314,7 +315,21 @@ router.post("/streamer-requests/:id/approve", async (req, res) => {
     // Notify user via Telegram bot
     try {
       if (bot) {
-        const message = `✅ የእርስዎ የ Streamer ምዝገባ ጸድቋል!\n\nየልገሳ ሊንክዎ ይኸውና:\n${process.env.FRONTEND_URL}/streamer/${link_uuid}\n\n🔑 Your Secret API Key: \`${apiKey}\`\n\n(ይህንን ቁልፍ በሚስጥር ያስቀምጡ! ከ OBS ጋር ለማገናኘት ያስፈልግዎታል።)`;
+        const frontendBase = (process.env.FRONTEND_URL || process.env.PUBLIC_FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, '');
+        const dashboardUrl = `${frontendBase}/streamer/${link_uuid}`;
+        const loginUrl = `${dashboardUrl}/login`;
+
+        const message = [
+          '✅ የእርስዎ የ Streamer ምዝገባ ጸድቋል!\n',
+
+          '🔗 የ Dashboard ሊንክዎ:\n'  + dashboardUrl,
+          
+          '\n Login ስያረጉ 6 code ያለው ኦቲፒ ኮድ ይደርሶታል ።\n',
+          '',
+          'ለማንኛውም ጥያቄ ወይም እገዛ እባክዎ አስተዳዳሪውን ያነጋግሩ።'
+
+        ].join('\n');
+
         await bot.sendMessage(id, message);
       }
     } catch (e) {
