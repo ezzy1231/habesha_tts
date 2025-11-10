@@ -10,27 +10,21 @@ const router = express.Router();
 // Simple admin auth middleware using token
 function adminAuth(req, res, next) {
   const token = req.headers['x-admin-token'];
-  const allowUnprotected = String(process.env.ADMIN_ALLOW_UNPROTECTED || '').toLowerCase() === 'true';
 
-  // If no ADMIN_TOKEN is configured
+  // ADMIN_TOKEN is always required - no backdoors
   if (!process.env.ADMIN_TOKEN) {
-    if (allowUnprotected) {
-      if (!adminAuth._warned) {
-        console.warn('[AdminAuth] ADMIN_TOKEN not set. Admin routes are UNPROTECTED because ADMIN_ALLOW_UNPROTECTED=true.');
-        adminAuth._warned = true;
-      }
-      return next();
-    }
-    // Default-deny when not explicitly allowing unprotected access
     if (!adminAuth._warned) {
-      console.warn('[AdminAuth] ADMIN_TOKEN not set. Blocking admin access. Set ADMIN_TOKEN or ADMIN_ALLOW_UNPROTECTED=true for dev.');
+      console.error('[AdminAuth] SECURITY: ADMIN_TOKEN not set. All admin routes are blocked.');
       adminAuth._warned = true;
     }
-    return res.status(503).json({ error: 'Admin disabled: ADMIN_TOKEN not set' });
+    return res.status(503).json({ error: 'Admin disabled: ADMIN_TOKEN not configured' });
   }
 
-  // With ADMIN_TOKEN set, require exact match
-  if (token !== process.env.ADMIN_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+  // Require exact match - constant-time comparison to prevent timing attacks
+  if (!token || token !== process.env.ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
   next();
 }
 
