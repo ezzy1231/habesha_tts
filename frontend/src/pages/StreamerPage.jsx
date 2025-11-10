@@ -10,6 +10,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import SkeletonLoader from '../components/SkeletonLoader';
 
 import ApiKeyModal from '../components/ApiKeyModal';
+import { useAuth } from '../contexts/AuthContext';
 
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const socket = io(SOCKET_URL, { transports: ["websocket"], reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000 });
@@ -17,7 +18,12 @@ const socket = io(SOCKET_URL, { transports: ["websocket"], reconnection: true, r
 export default function StreamerPage() {
   const { uuid } = useParams();
   const navigate = useNavigate();
+  const { isAuthenticated, logout } = useAuth();
+  const REQUIRE_JWT = (import.meta.env.VITE_REQUIRE_JWT_DASHBOARD || 'false').toLowerCase() === 'true';
+  const usingSession = REQUIRE_JWT && isAuthenticated;
   const [donations, setDonations] = useState([]);
+  const donationBufferRef = useRef([]);
+  const bufferFlushIntervalRef = useRef(null);
   const [enabled, setEnabled] = useState(false);
   const [queue, setQueue] = useState([]);
   const [currentPlaying, setCurrentPlaying] = useState(null);
@@ -37,13 +43,54 @@ export default function StreamerPage() {
   const playingRef = useRef(false);
   const audioContextRef = useRef(null);
   const gainNodeRef = useRef(null);
+  const audioBufferCacheRef = useRef(new Map()); // key: audio_filename, value: AudioBuffer
+  const currentTimeoutRef = useRef(null);
   const [volume, setVolume] = useState(() => {
     const savedVolume = localStorage.getItem('tts_volume');
     return savedVolume !== null ? Number(savedVolume) : 1;
   });
+  // Helper to build donation audio URL
+  const getDonationUrl = useCallback((filename) => {
+    const baseUrl = SOCKET_URL;
+    return `${baseUrl}/public/audios/${encodeURIComponent(filename)}`;
+  }, []);
+
+  // Preload next donation's audio buffer to reduce gaps
+  useEffect(() => {
+    const preloadNext = async () => {
+      if (!audioContextRef.current) return;
+      if (!queue || queue.length === 0) return;
+      const next = queue[0];
+      const file = next?.audio_url;
+      if (!file) return;
+      if (audioBufferCacheRef.current.has(file)) return;
+      try {
+        const url = getDonationUrl(file);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const arr = await res.arrayBuffer();
+        const buf = await audioContextRef.current.decodeAudioData(arr);
+        audioBufferCacheRef.current.set(file, buf);
+        // Cap cache size to 5
+        if (audioBufferCacheRef.current.size > 5) {
+          const firstKey = audioBufferCacheRef.current.keys().next().value;
+          audioBufferCacheRef.current.delete(firstKey);
+        }
+      } catch (e) {
+        console.warn('[preload] Failed to preload audio:', e?.message || e);
+      }
+    };
+    preloadNext();
+  }, [queue, getDonationUrl]);
 
   // Create a memoized axios instance that includes the API key
   const apiClient = useMemo(() => {
+    if (usingSession) {
+      return axios.create({
+        baseURL: import.meta.env.VITE_API_URL,
+        withCredentials: true,
+      });
+    }
     if (!apiKey) {
       console.log("[apiClient] API Key is null, apiClient not created.");
       return null;
@@ -55,10 +102,14 @@ export default function StreamerPage() {
         'Authorization': `Bearer ${apiKey}`
       }
     });
-  }, [apiKey]);
+  }, [apiKey, usingSession]);
 
   // On initial load, check for API Key
   useEffect(() => {
+    if (usingSession) {
+      setIsModalOpen(false);
+      return;
+    }
     const key = localStorage.getItem(`apiKey_${uuid}`);
     if (key) {
       console.log("[API Key Load] Found API Key in local storage (first 5 chars):", key.substring(0, 5));
@@ -67,7 +118,7 @@ export default function StreamerPage() {
       console.log("[API Key Load] No API Key found in local storage, opening modal.");
       setIsModalOpen(true);
     }
-  }, [uuid]);
+  }, [uuid, usingSession]);
 
   const handleApiKeySubmit = (key) => {
     localStorage.setItem(`apiKey_${uuid}`, key);
@@ -135,8 +186,9 @@ export default function StreamerPage() {
         console.log(`[StreamerPage] 📥 Loaded ${audioReady.length} unplayed donations to queue`);
 
       } else {
-        // Pagination: Use the protected endpoint to get just the next page of donations
-        const res = await apiClient.get(`/streamer/${uuid}/donations?page=${page}`);
+        // Pagination: Use protected endpoint appropriate for auth method
+        const path = usingSession ? `/v1/streamer/${uuid}/donations?page=${page}` : `/streamer/${uuid}/donations?page=${page}`;
+        const res = await apiClient.get(path);
         newDonations = res.data.donations || [];
         newPagination = res.data.pagination;
         console.log(`[fetchInitialData] Fetched paginated donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
@@ -155,7 +207,7 @@ export default function StreamerPage() {
     } finally {
       setLoading(false);
     }
-  }, [uuid, apiClient]);
+  }, [uuid, apiClient, usingSession]);
 
   // ✅ Mark a donation as played and persist it
   const markAsPlayed = useCallback(async (id) => {
@@ -167,7 +219,8 @@ export default function StreamerPage() {
     playedDonationsRef.current.add(id);
 
     try {
-      await apiClient.post(`/streamer/${uuid}/donations/${id}/played`);
+      const path = usingSession ? `/v1/streamer/${uuid}/donations/${id}/played` : `/streamer/${uuid}/donations/${id}/played`;
+      await apiClient.post(path);
       console.log("✅ Donation marked as played in DB:", id);
     } catch (error) {
       console.error("❌ Error marking donation as played:", error.response?.status, error.response?.data, error);
@@ -175,7 +228,7 @@ export default function StreamerPage() {
       setDonations(prev => prev.map(d => d.id === id ? { ...d, played: false } : d));
       playedDonationsRef.current.delete(id);
     }
-  }, [uuid, apiClient]);
+  }, [uuid, apiClient, usingSession]);
 
   // ✅ Play next queued donation
   const playNext = useCallback(() => {
@@ -189,12 +242,12 @@ export default function StreamerPage() {
     playingRef.current = true;
     setCurrentPlaying(nextDonation.id);
 
-    const audioFilename = nextDonation.audio_url;
-
-    const baseUrl = SOCKET_URL;
-    const donationUrl = `${baseUrl}/public/audios/${encodeURIComponent(audioFilename)}`;
-    const notificationUrlPrimary = `${baseUrl}/public/sounds/notification.mp3`;
-    const notificationUrlFallback = `${baseUrl}/public/audios/notification.mp3`;
+  const audioFilename = nextDonation.audio_url;
+  const donationUrl = getDonationUrl(audioFilename);
+  // Define baseUrl for notification sounds (was missing, causing ReferenceError)
+  const baseUrl = SOCKET_URL;
+  const notificationUrlPrimary = `${baseUrl}/public/sounds/notification.mp3`;
+  const notificationUrlFallback = `${baseUrl}/public/audios/notification.mp3`;
 
     const playDonation = async () => {
       console.log(`[playDonation] Attempting to play donation ${nextDonation.id}. AudioContext state: ${audioContextRef.current?.state}`);
@@ -224,14 +277,20 @@ export default function StreamerPage() {
           }
         }
 
-        console.log(`[playDonation] Fetching donation audio from: ${donationUrl}`);
-        const response = await fetch(donationUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        let audioBuffer = audioBufferCacheRef.current.get(audioFilename);
+        if (!audioBuffer) {
+          console.log(`[playDonation] Fetching donation audio from: ${donationUrl}`);
+          const response = await fetch(donationUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          console.log("[playDonation] Audio fetched, decoding...");
+          const arrayBuffer = await response.arrayBuffer();
+          audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+          audioBufferCacheRef.current.set(audioFilename, audioBuffer);
+        } else {
+          console.log('[playDonation] Using preloaded audio buffer');
         }
-        console.log("[playDonation] Audio fetched, decoding...");
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
         console.log("[playDonation] Audio decoded.");
 
         const source = audioContextRef.current.createBufferSource();
@@ -244,6 +303,12 @@ export default function StreamerPage() {
           setCurrentPlaying(null);
           markAsPlayed(nextDonation.id);
           setQueue((prev) => prev.slice(1));
+          // Cleanup cache entry for the just-played file to free memory
+          audioBufferCacheRef.current.delete(audioFilename);
+          if (currentTimeoutRef.current) {
+            clearTimeout(currentTimeoutRef.current);
+            currentTimeoutRef.current = null;
+          }
         };
 
         console.log("🔊 [playDonation] Playing donation (Web Audio):", donationUrl);
@@ -251,7 +316,7 @@ export default function StreamerPage() {
         audioRef.current = source; // Store the source node for potential stopping
 
         // Fallback: mark as played after audio duration + 1 second in case onended doesn't fire
-        setTimeout(() => {
+        currentTimeoutRef.current = setTimeout(() => {
           console.log("[playDonation] Fallback: Marking as played after timeout.");
           markAsPlayed(nextDonation.id);
         }, (audioBuffer.duration * 1000) + 1000);
@@ -313,7 +378,7 @@ export default function StreamerPage() {
           console.log("🔔 [playNotificationThenDonation] Playing fallback notification (Web Audio):", notificationUrlFallback);
         }
 
-        const source = audioContextRef.current.createBufferSource();
+  const source = audioContextRef.current.createBufferSource();
         source.buffer = notificationAudioBuffer;
         source.connect(gainNodeRef.current);
 
@@ -323,6 +388,7 @@ export default function StreamerPage() {
         };
 
         source.start(0);
+        audioRef.current = source; // allow skip during notification too
       } catch (e) {
         console.error("⚠️ [playNotificationThenDonation] Notification play failed (Web Audio), skipping to donation:", e.name, e.message, e);
         playDonation();
@@ -348,33 +414,32 @@ export default function StreamerPage() {
 
     socket.off("new_donation");
     socket.on("new_donation", (data) => {
-      console.log("💸 [StreamerPage] New donation received via socket:", data);
-      console.log(`[StreamerPage] New donation ID: ${data.id}, Played status from socket: ${data.played}`);
-      const normalized = { ...data }; // Use the 'played' status directly from data
-      // Add to UI donations if we are on the first page
-      if (currentPage === 1) {
-        setDonations((prev) => {
-          // Avoid duplicates
-          if (prev.some((d) => Number(d.id) === Number(normalized.id))) return prev;
-          console.log("[StreamerPage] Adding new donation to UI:", normalized);
-          return [normalized, ...prev];
-        });
-      }
-      // Add to audio queue if playable and not already queued/played in this session
-      if (normalized && normalized.status === 'paid' && normalized.audio_url && !normalized.played && !playedDonationsRef.current.has(normalized.id)) {
-        setQueue((prev) => {
-          if (prev.some((d) => Number(d.id) === Number(normalized.id))) return prev;
-          console.log("[StreamerPage] Adding new donation to audio queue:", normalized);
-          return [...prev, normalized];
-        });
-      }
-      // Increment total count in pagination
-      setPagination((prev) => {
-        const newPagination = prev ? { ...prev, totalCount: (prev.totalCount || 0) + 1 } : prev;
-        console.log("[StreamerPage] Updated pagination after new donation:", newPagination);
-        return newPagination;
-      });
+      donationBufferRef.current.push(data);
     });
+
+    // Flush buffer periodically to batch state updates
+    if (!bufferFlushIntervalRef.current) {
+      bufferFlushIntervalRef.current = setInterval(() => {
+        if (donationBufferRef.current.length === 0) return;
+        const batch = donationBufferRef.current.splice(0, donationBufferRef.current.length);
+        // Merge into donations (prepend on first page only)
+        if (currentPage === 1) {
+          setDonations((prev) => {
+            const existing = new Set(prev.map(d => Number(d.id)));
+            const fresh = batch.filter(b => !existing.has(Number(b.id))).map(b => ({ ...b }));
+            return [...fresh, ...prev];
+          });
+        }
+        // Queue playable
+        setQueue((prev) => {
+          const qIds = new Set(prev.map(d => Number(d.id)));
+          const playable = batch.filter(b => b.status === 'paid' && b.audio_url && !b.played && !playedDonationsRef.current.has(b.id) && !qIds.has(Number(b.id)));
+          return playable.length ? [...prev, ...playable] : prev;
+        });
+        // Update pagination total count
+        setPagination((prev) => prev ? { ...prev, totalCount: (prev.totalCount || 0) + batch.length } : prev);
+      }, 750);
+    }
 
     socket.off("donation_history_reset");
     socket.off("withdrawal_approved"); // Ensure previous listener is removed
@@ -410,6 +475,10 @@ export default function StreamerPage() {
       socket.off("donation_paid");
       socket.off("donation_history_reset");
       socket.off("withdrawal_approved");
+      if (bufferFlushIntervalRef.current) {
+        clearInterval(bufferFlushIntervalRef.current);
+        bufferFlushIntervalRef.current = null;
+      }
     };
   }, [uuid, enabled, currentPage, fetchInitialData]);
 
@@ -460,7 +529,7 @@ export default function StreamerPage() {
     localStorage.setItem("tts_enabled", enabled);
   }, [enabled]);
 
-  // ✅ Keyboard shortcuts for volume control
+  // ✅ Keyboard shortcuts for volume control and skip
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Only handle shortcuts when not typing in input fields
@@ -485,6 +554,24 @@ export default function StreamerPage() {
           e.preventDefault();
           newVolume = volume === 0 ? 0.5 : 0; // Toggle mute
           break;
+        case 's':
+        case 'S':
+          e.preventDefault();
+          // Skip current donation if playing
+          if (currentPlaying) {
+            if (audioRef.current) {
+              if (audioRef.current.stop) {
+                audioRef.current.stop();
+              } else if (audioRef.current.pause) {
+                audioRef.current.pause();
+              }
+            }
+            playingRef.current = false;
+            setCurrentPlaying(null);
+            markAsPlayed(currentPlaying);
+            setQueue((prev) => prev.slice(1));
+          }
+          break;
         default:
           return;
       }
@@ -498,7 +585,7 @@ export default function StreamerPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [volume]);
+  }, [volume, currentPlaying, markAsPlayed]);
 
   // ✅ Initial load and refetch on visibility change
   useEffect(() => {
@@ -571,7 +658,7 @@ return (
     <div className={`${themeClasses} p-3 sm:p-4 md:p-6 lg:p-8 transition-colors duration-300 relative`}>
 
       <ApiKeyModal
-        isOpen={isModalOpen}
+        isOpen={isModalOpen && !usingSession}
         onClose={handleModalClose}
         onSubmit={handleApiKeySubmit}
         title="Streamer API Key Required"
@@ -579,171 +666,221 @@ return (
       />
 <header className="mb-4 sm:mb-6">
         <div className="card p-3 sm:p-4 md:p-6 shadow-xl relative">
-          {/* Theme Toggle - Inside Card at Right Top Corner */}
-          <div className="absolute top-3 right-3 z-10">
+          {/* Header Controls - Theme Toggle and Logout */}
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-3">
+            {usingSession && (
+              <button
+                onClick={async () => {
+                  try { await logout(); } catch {}
+                  navigate(`/streamer/${uuid}/login`);
+                }}
+                className="group relative inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 border border-gray-200 dark:border-gray-600 hover:border-red-200 dark:hover:border-red-800 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md"
+                title="Logout from dashboard"
+              >
+                <svg className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="hidden sm:inline">Logout</span>
+                {/* Tooltip for mobile */}
+                <span className="sm:hidden absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                  Logout
+                </span>
+              </button>
+            )}
+            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
             <ThemeToggle isDarkMode={darkMode} toggleDarkMode={setDarkMode} />
           </div>
           
           <div className="flex flex-col gap-4">
-            {/* Dashboard Title and Streamer Info */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 sm:gap-3 mb-3">
-                <div className="p-1.5 sm:p-2 gradient-primary rounded-xl shadow-lg">
-                  <span className="text-white text-lg sm:text-xl">🎙️</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white truncate">
-                    Habesha TTS Dashboard
-                  </h1>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Real-time donation management</p>
-                </div>
+            {/* Dashboard Title */}
+            <div className="flex items-center gap-2 sm:gap-3 mb-3">
+              <div className="p-1.5 sm:p-2 gradient-primary rounded-xl shadow-lg">
+                <span className="text-white text-lg sm:text-xl">🎙️</span>
               </div>
-              
-              {streamerInfo && (
-                <div className="gradient-surface rounded-xl p-3">
-                  <div className="flex flex-col gap-4">
-                    {/* Streamer Info Row */}
-                    <div className="flex items-center gap-3">
-                      {streamerInfo.profile_picture_url ? (
-                        <img 
-                          src={streamerInfo.profile_picture_url} 
-                          alt="Profile" 
-                          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full gradient-avatar-purple flex items-center justify-center text-white font-bold text-lg sm:text-xl flex-shrink-0">
-                          {(streamerInfo.username || 'S').charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Streamer</p>
-                        <p className="text-base sm:text-xl font-bold text-gray-900 dark:text-white truncate">{streamerInfo.full_name || `@${streamerInfo.username}`}</p>
-                      </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white truncate">
+                  Habesha TTS Dashboard
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Real-time donation management</p>
+              </div>
+            </div>
+            
+            {/* Streamer Info and Balance Row */}
+            {streamerInfo && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                {/* Streamer Info with Balance */}
+                <div className="flex items-center gap-3 flex-1">
+                  {streamerInfo.profile_picture_url ? (
+                    <img 
+                      src={streamerInfo.profile_picture_url} 
+                      alt="Profile" 
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full gradient-avatar-purple flex items-center justify-center text-white font-bold text-lg sm:text-xl flex-shrink-0">
+                      {(streamerInfo.username || 'S').charAt(0).toUpperCase()}
                     </div>
-                    
-                    {/* Balance and Actions Row - Horizontal Alignment */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      <div className="bg-white dark:bg-gray-800 rounded-lg px-4 py-3 shadow-sm flex-1">
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Streamer</p>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <p className="text-base sm:text-xl font-bold text-gray-900 dark:text-white truncate">{streamerInfo.full_name || `@${streamerInfo.username}`}</p>
+                      
+                      {/* Balance Badge */}
+                      <div className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-xs sm:text-sm font-medium shadow-lg">
+                        <span className="text-xs sm:text-sm">💰</span>
                         <Balance 
                           value={streamerInfo.balance} 
-                          className="text-base sm:text-xl text-green-600 dark:text-green-400"
-                          label="Current Balance"
+                          className="font-semibold"
+                          showLabel={false}
                         />
-                      </div>
-                      
-                      <div className="flex gap-3 flex-1 sm:flex-none">
-                        <button
-                          onClick={() => navigate(`/withdraw/${uuid}`)}
-                          className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm:text-base px-4 py-3 flex-1 sm:flex-none min-w-[100px]"
-                          title="Request withdrawal"
-                        >
-                          <span className="text-base sm:text-lg">💸</span>
-                          <span className="ml-2 hidden sm:inline">Withdraw</span>
-                          <span className="sm:hidden">Wd</span>
-                        </button>
-
-                        <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-gray-100 dark:bg-gray-700 shadow-inner flex-1 sm:flex-none min-w-[120px] relative group">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-sm transition-colors duration-200 ${getVolumeColor(volume)}`}>
-                              {getVolumeIcon(volume)}
-                            </span>
-                            <label htmlFor="volume-slider" className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                              Volume {Math.round(volume * 100)}%
-                            </label>
-                          </div>
-                          <div className="relative w-full">
-                            <input
-                              id="volume-slider"
-                              type="range"
-                              min="0"
-                              max="1"
-                              step="0.01"
-                              value={volume}
-                              onChange={(e) => {
-                                const newVolume = Number(e.target.value);
-                                setVolume(newVolume);
-                                localStorage.setItem('tts_volume', newVolume);
-                                // Smooth transition handled by useEffect above
-                              }}
-                              className="range-input w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 transition-all duration-200 hover:scale-105"
-                              style={{
-                                background: `linear-gradient(to right, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} 0%, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} ${volume * 100}%, #D1D5DB ${volume * 100}%, #D1D5DB 100%)`
-                              }}
-                            />
-                            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-                              {Math.round(volume * 100)}%
-                            </div>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={async () => {
-                            if (!enabled) {
-                              try {
-                                // Create or resume a Web Audio context to unlock autoplay policies
-                                if (!audioContextRef.current) {
-                                  const Ctx = window.AudioContext || window.webkitAudioContext;
-                                  if (Ctx) {
-                                    audioContextRef.current = new Ctx();
-                                    gainNodeRef.current = audioContextRef.current.createGain();
-                                    gainNodeRef.current.connect(audioContextRef.current.destination);
-                                    gainNodeRef.current.gain.value = volume; // Set initial volume
-                                  }
-                                }
-                                if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-                                  await audioContextRef.current.resume();
-                                }
-
-                                // Play a brief silent sound via WebAudio (more reliable than HTMLAudio in some browsers)
-                                if (audioContextRef.current) {
-                                  const ctx = audioContextRef.current;
-                                  const buffer = ctx.createBuffer(1, 1, 22050);
-                                  const source = ctx.createBufferSource();
-                                  source.buffer = buffer;
-                                  source.connect(ctx.destination);
-                                  source.start(0);
-                                } else {
-                                  // Fallback: play a tiny silent data URI using HTMLAudioElement
-                                  const silent = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA');
-                                  silent.volume = 0;
-                                  await silent.play();
-                                  silent.pause();
-                                }
-
-                                console.log("Audio permission granted; enabling autoplay.");
-                                setEnabled(true);
-
-                                // If we already have queued items, kick off playback immediately
-                                setTimeout(() => {
-                                  if (!playingRef.current && queue.length > 0) {
-                                    playNext();
-                                  }
-                                }, 50);
-                              } catch (e) {
-                                console.error("Audio autoplay unlock failed:", e);
-                                alert("Could not enable audio automatically. Please check your browser's autoplay settings for this site.");
-                              }
-                            } else {
-                              setEnabled(false);
-                            }
-                          }}
-className={`btn shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm:text-base px-4 py-3 flex-1 sm:flex-none min-w-[100px] ${
-                            enabled 
-                              ? "gradient-success hover:gradient-success-dark text-white" 
-                              : "gradient-gray hover:gradient-gray-dark text-white"
-                          }`}
-                          title={enabled ? "Disable Audio" : "Enable Audio"}
-                        >
-                          <span className="text-base sm:text-lg">{enabled ? "🔊" : "🔇"}</span>
-                          <span className="ml-2 hidden sm:inline">{enabled ? "Audio On" : "Audio Off"}</span>
-                          <span className="sm:hidden">{enabled ? "On" : "Off"}</span>
-                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+             {/* Action Controls - Compact Row */}
+            {streamerInfo && (
+              <div className="flex flex-wrap justify-around gap-2 sm:gap-3 mt-2">
+                {/* Withdraw Button */}
+                <button
+                  onClick={() => navigate(`/withdraw/${uuid}`)}
+                  className="btn btn-primary shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 sm:gap-2.5 min-h-[40px] sm:min-h-[44px]"
+                  title="Request withdrawal"
+                >
+                  <span className="text-sm sm:text-base">💸</span>
+                  <span className="hidden sm:inline font-medium">Withdraw</span>
+                  <span className="sm:hidden font-medium">Wd</span>
+                </button>
+
+                 {/* Audio Toggle Button */}
+                 <button
+                   onClick={async () => {
+                     if (!enabled) {
+                       try {
+                         // Create or resume a Web Audio context to unlock autoplay policies
+                         if (!audioContextRef.current) {
+                           const Ctx = window.AudioContext || window.webkitAudioContext;
+                           if (Ctx) {
+                             audioContextRef.current = new Ctx();
+                             gainNodeRef.current = audioContextRef.current.createGain();
+                             gainNodeRef.current.connect(audioContextRef.current.destination);
+                             gainNodeRef.current.gain.value = volume; // Set initial volume
+                           }
+                         }
+                         if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                           await audioContextRef.current.resume();
+                         }
+
+                         // Play a brief silent sound via WebAudio (more reliable than HTMLAudio in some browsers)
+                         if (audioContextRef.current) {
+                           const ctx = audioContextRef.current;
+                           const buffer = ctx.createBuffer(1, 1, 22050);
+                           const source = ctx.createBufferSource();
+                           source.buffer = buffer;
+                           source.connect(ctx.destination);
+                           source.start(0);
+                         } else {
+                           // Fallback: play a tiny silent data URI using HTMLAudioElement
+                           const silent = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA');
+                           silent.volume = 0;
+                           await silent.play();
+                           silent.pause();
+                         }
+
+                         console.log("Audio permission granted; enabling autoplay.");
+                         setEnabled(true);
+
+                         // If we already have queued items, kick off playback immediately
+                         setTimeout(() => {
+                           if (!playingRef.current && queue.length > 0) {
+                             playNext();
+                           }
+                         }, 50);
+                       } catch (e) {
+                         console.error("Audio autoplay unlock failed:", e);
+                         alert("Could not enable audio automatically. Please check your browser's autoplay settings for this site.");
+                       }
+                     } else {
+                       setEnabled(false);
+                     }
+                   }}
+                   className={`btn shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 sm:gap-2.5 min-h-[40px] sm:min-h-[44px] ${
+                     enabled 
+                       ? "gradient-success hover:gradient-success-dark text-white" 
+                       : "gradient-gray hover:gradient-gray-dark text-white"
+                   }`}
+                   title={enabled ? "Disable Audio" : "Enable Audio"}
+                 >
+                   <span className="text-sm sm:text-base">{enabled ? "🔊" : "🔇"}</span>
+                   <span className="hidden sm:inline font-medium">{enabled ? "Audio On" : "Audio Off"}</span>
+                   <span className="sm:hidden font-medium">{enabled ? "On" : "Off"}</span>
+                 </button>
+
+                 {/* Volume Control */}
+                 <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 shadow-inner min-h-[40px] sm:min-h-[44px] relative group">
+                  <span className={`text-sm sm:text-base transition-colors duration-200 ${getVolumeColor(volume)}`}>
+                    {getVolumeIcon(volume)}
+                  </span>
+                  <div className="relative">
+                    <input
+                      id="volume-slider"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={volume}
+                      onChange={(e) => {
+                        const newVolume = Number(e.target.value);
+                        setVolume(newVolume);
+                        localStorage.setItem('tts_volume', newVolume);
+                        // Smooth transition handled by useEffect above
+                      }}
+                      className="range-input w-20 sm:w-24 h-1.5 sm:h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 transition-all duration-200 hover:scale-105"
+                      style={{
+                        background: `linear-gradient(to right, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} 0%, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} ${volume * 100}%, #D1D5DB ${volume * 100}%, #D1D5DB 100%)`
+                      }}
+                    />
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                      {Math.round(volume * 100)}%
+                    </div>
+                  </div>
+                </div>
+
+                 {/* Skip Button */}
+                 <button
+                   onClick={() => {
+                     if (currentPlaying) {
+                       // Stop current playback and mark as played
+                       if (audioRef.current) {
+                         if (audioRef.current.stop) {
+                           audioRef.current.stop();
+                         } else if (audioRef.current.pause) {
+                           audioRef.current.pause();
+                         }
+                       }
+                       playingRef.current = false;
+                       setCurrentPlaying(null);
+                       markAsPlayed(currentPlaying);
+                       setQueue((prev) => prev.slice(1));
+                     }
+                   }}
+                   disabled={!currentPlaying}
+                   className={`btn shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 sm:gap-2.5 min-h-[40px] sm:min-h-[44px] ${
+                     currentPlaying 
+                       ? "gradient-warning hover:gradient-warning-dark text-white" 
+                       : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                   }`}
+                   title={currentPlaying ? "Skip current donation (S key)" : "No donation playing"}
+                 >
+                   <span className="text-sm sm:text-base">⏭️</span>
+                   <span className="hidden sm:inline font-medium">Skip</span>
+                   <span className="sm:hidden font-medium">Skip</span>
+                 </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -791,7 +928,7 @@ className={`btn shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm
           </div>
         </div>
       </div>
-<div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {loading && donations.length === 0 && (
           <div className="col-span-full flex justify-center p-8 sm:p-12">
             <LoadingSpinner 
@@ -801,7 +938,6 @@ className={`btn shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm
             />
           </div>
         )}
-        
         {!loading && donations.length === 0 ? (
           <div className={`${cardBg} p-6 sm:p-8 lg:p-12 rounded-xl text-center shadow-xl border col-span-full`}>
             <div className="mb-4 sm:mb-6">

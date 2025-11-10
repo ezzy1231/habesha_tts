@@ -73,6 +73,7 @@ const lockInterval = setInterval(async () => {
 import adminRoutes from './routes/admin.js';
 import streamerRoutes from './routes/streamer.js';
 import paymentRoutes from './routes/payment.js';
+import streamerAuthRoutes from './routes/streamerAuth.js';
 
 import { ttsQueue } from './queue-optimized.js';
 
@@ -86,10 +87,11 @@ console.log('🚀 Using centralized queue manager with built-in worker and event
 app.use(cors({
   origin: (origin, callback) => {
     let allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+    const developmentOrigins = ["http://localhost:3000", "http://localhost:5173"];
     if (allowedOrigin && !allowedOrigin.startsWith("http")) {
       allowedOrigin = `https://${allowedOrigin}`;
     }
-    if (!origin || origin === allowedOrigin) {
+    if (!origin || developmentOrigins.includes(origin) || origin === allowedOrigin) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -97,11 +99,13 @@ app.use(cors({
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Admin-Token"],
+  credentials: true,
 }));
 app.use(express.json());
 app.use('/public', express.static('public'));
 
 // --- API Routes ---
+app.use('/api/v1/streamer', streamerAuthRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/streamer', streamerRoutes);
 app.use('/api/payment', paymentRoutes);

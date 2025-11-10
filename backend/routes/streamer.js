@@ -13,7 +13,7 @@ const router = express.Router();
 router.get("/:uuid/donations", protectStreamer, async (req, res) => {
   // The middleware has already validated the streamer and attached their ID to req.streamerId
   const page = parseInt(req.query.page) || 1;
-  const limit = 15;
+  const limit = parseInt(process.env.DONATIONS_PAGE_SIZE || '9');
   const offset = (page - 1) * limit;
 
   try {
@@ -58,7 +58,7 @@ router.get("/:uuid/donations", protectStreamer, async (req, res) => {
 router.get("/:uuid", async (req, res) => {
   const { uuid } = req.params;
   const page = parseInt(req.query.page) || 1;
-  const limit = 15; // Use a smaller limit for pagination
+  const limit = parseInt(process.env.DONATIONS_PAGE_SIZE || '9'); // default to 9 (3x3)
   const offset = (page - 1) * limit;
 
   try {

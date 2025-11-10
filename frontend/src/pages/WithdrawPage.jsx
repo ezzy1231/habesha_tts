@@ -4,6 +4,7 @@ import axios from "axios";
 import io from "socket.io-client";
 import Balance from "../components/Balance";
 import ApiKeyModal from '../components/ApiKeyModal';
+import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -19,6 +20,9 @@ export default function WithdrawPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [streamerBalance, setStreamerBalance] = useState(0);
+  const { isAuthenticated } = useAuth();
+  const REQUIRE_JWT = (import.meta.env.VITE_REQUIRE_JWT_DASHBOARD || 'false').toLowerCase() === 'true';
+  const usingSession = REQUIRE_JWT && isAuthenticated;
   const [apiKey, setApiKey] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
@@ -29,25 +33,32 @@ export default function WithdrawPage() {
 
   // Create a memoized axios instance that includes the API key
   const apiClient = useMemo(() => {
+    if (usingSession) {
+      return axios.create({
+        baseURL: import.meta.env.VITE_API_URL,
+        withCredentials: true,
+      });
+    }
     if (!apiKey) return null;
-
     return axios.create({
       baseURL: import.meta.env.VITE_API_URL,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
+      headers: { 'Authorization': `Bearer ${apiKey}` }
     });
-  }, [apiKey]);
+  }, [apiKey, usingSession]);
 
   // On initial load, check for API Key
   useEffect(() => {
+    if (usingSession) {
+      setIsModalOpen(false);
+      return;
+    }
     const key = localStorage.getItem(`apiKey_${uuid}`);
     if (key) {
       setApiKey(key);
     } else {
       setIsModalOpen(true);
     }
-  }, [uuid]);
+  }, [uuid, usingSession]);
 
   const handleApiKeySubmit = (key) => {
     localStorage.setItem(`apiKey_${uuid}`, key);
@@ -65,17 +76,18 @@ export default function WithdrawPage() {
 
   useEffect(() => {
     const fetchStreamerBalance = async () => {
-      if (!apiClient) return; // Don't fetch if apiClient is not ready
+      if (!apiClient) return;
       try {
+        // Public streamer info endpoint remains /streamer/:uuid
         const res = await apiClient.get(`/streamer/${uuid}`);
         setStreamerBalance(res.data.streamer.balance);
       } catch (err) {
         console.error("Error fetching streamer balance:", err);
         setMessage("Failed to load streamer balance.");
-        if (err.response?.status === 403 || err.response?.status === 401) {
+        if (!usingSession && (err.response?.status === 403 || err.response?.status === 401)) {
           alert("Forbidden: Invalid API Key. Please refresh the page and enter the correct key.");
           localStorage.removeItem(`apiKey_${uuid}`);
-          setApiKey(null); // Clear the bad key
+          setApiKey(null);
         }
       }
     };
@@ -125,7 +137,8 @@ export default function WithdrawPage() {
 
     setLoading(true);
     try {
-      await apiClient.post(`/streamer/${uuid}/withdraw`, {
+      const path = usingSession ? `/v1/streamer/${uuid}/withdraw` : `/streamer/${uuid}/withdraw`;
+      await apiClient.post(path, {
         amount: withdrawalAmount,
         telebirrUsername: telebirrUsername.trim(),
         phoneNumber: phoneNumber.trim()
@@ -153,13 +166,15 @@ export default function WithdrawPage() {
 
   return (
     <div className={`${themeClasses} p-6 md:p-10`}>
-      <ApiKeyModal
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
-        onSubmit={handleApiKeySubmit}
-        title="Streamer API Key Required"
-        message="Please enter your secret API Key to submit a withdrawal request."
-      />
+      {!usingSession && (
+        <ApiKeyModal
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onSubmit={handleApiKeySubmit}
+          title="Streamer API Key Required"
+          message="Please enter your secret API Key to submit a withdrawal request."
+        />
+      )}
       <div className="max-w-md mx-auto">
         <button
           onClick={() => navigate(`/streamer/${uuid}`)}
