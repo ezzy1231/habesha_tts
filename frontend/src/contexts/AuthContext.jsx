@@ -11,7 +11,7 @@ export function AuthProvider({ children }) {
   const fetchMe = useCallback(async () => {
     setLoading(true);
     try {
-  const res = await fetch(`/api/v1/streamer/me`, { credentials: 'include' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/streamer/me`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-  await fetch(`/api/v1/streamer/logout`, { method: 'POST', credentials: 'include' });
+      await fetch(`${import.meta.env.VITE_API_URL}/v1/streamer/logout`, { method: 'POST', credentials: 'include' });
     } catch {}
     setUser(null);
   };

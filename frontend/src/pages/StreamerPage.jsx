@@ -87,7 +87,7 @@ export default function StreamerPage() {
   const apiClient = useMemo(() => {
     if (usingSession) {
       return axios.create({
-        baseURL: '/api', // same-origin via Vite proxy for cookies
+        baseURL: import.meta.env.VITE_API_URL,
         withCredentials: true,
       });
     }
@@ -172,7 +172,7 @@ export default function StreamerPage() {
       if (page === 1) {
         // Initial load: Use the public endpoint that gets everything.
         // We still wait for apiClient to be ready to ensure the user has authenticated.
-  const res = await axios.get(`/api/streamer/${uuid}?page=${page}`);
+    const res = await axios.get(`${import.meta.env.VITE_API_URL}/streamer/${uuid}?page=${page}`);
         setStreamerInfo(res.data.streamer);
         console.log("[StreamerPage] Fetched streamer balance from API:", res.data.streamer.balance);
         newDonations = res.data.donations || [];
