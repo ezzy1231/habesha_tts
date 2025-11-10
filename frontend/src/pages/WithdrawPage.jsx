@@ -35,7 +35,7 @@ export default function WithdrawPage() {
   const apiClient = useMemo(() => {
     if (usingSession) {
       return axios.create({
-        baseURL: import.meta.env.VITE_API_URL,
+        baseURL: '/api',
         withCredentials: true,
       });
     }

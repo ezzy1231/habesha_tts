@@ -20,7 +20,7 @@ export default function StreamerLogin() {
     let timer;
     (async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/streamer/${uuid}`);
+  const res = await fetch(`/api/streamer/${uuid}`);
         if (!res.ok) throw new Error('Streamer not found');
         const data = await res.json();
         setStreamer(data.streamer);
@@ -47,7 +47,7 @@ export default function StreamerLogin() {
     setSending(true);
     setError(null);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/streamer/request-otp`, {
+  const res = await fetch(`/api/v1/streamer/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -73,7 +73,7 @@ export default function StreamerLogin() {
     setVerifying(true);
     setError(null);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/streamer/verify-otp`, {
+  const res = await fetch(`/api/v1/streamer/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

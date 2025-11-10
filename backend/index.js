@@ -81,21 +81,35 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
+// --- Allowed Origins (Dev + Prod) ---
+const localIp = ip.address();
+let configuredFrontend = process.env.FRONTEND_URL || 'http://localhost:5173';
+if (configuredFrontend && !configuredFrontend.startsWith('http')) {
+  // Normalize bare domains to https
+  configuredFrontend = `https://${configuredFrontend}`;
+}
+const devOrigins = new Set([
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  `http://${localIp}:5173`,
+  'http://localhost:3000',
+]);
+const allowedOriginsSet = new Set([configuredFrontend, ...devOrigins]);
+const isDevEnv = (process.env.NODE_ENV || 'development') !== 'production';
+
 console.log('🚀 Using centralized queue manager with built-in worker and event listeners.');
 
 // --- Middleware ---
 app.use(cors({
   origin: (origin, callback) => {
-    let allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
-    const developmentOrigins = ["http://localhost:3000", "http://localhost:5173"];
-    if (allowedOrigin && !allowedOrigin.startsWith("http")) {
-      allowedOrigin = `https://${allowedOrigin}`;
+    // Allow same-origin (no Origin header) and explicit allowed origins
+    if (!origin) return callback(null, true);
+    if (allowedOriginsSet.has(origin)) return callback(null, true);
+    // In dev, allow local network hosts (e.g., 192.168.x.x:5173, 10.x.x.x:5173)
+    if (isDevEnv && /^http:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+):\d+$/.test(origin)) {
+      return callback(null, true);
     }
-    if (!origin || developmentOrigins.includes(origin) || origin === allowedOrigin) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    return callback(new Error('Not allowed by CORS'));
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Admin-Token"],
@@ -113,8 +127,10 @@ app.use('/api/payment', paymentRoutes);
 // --- Socket.IO Setup ---
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    methods: ["GET", "POST"]
+    // Allow the same set as HTTP above
+    origin: Array.from(allowedOriginsSet),
+    methods: ["GET", "POST"],
+    credentials: true,
   }
 });
 
