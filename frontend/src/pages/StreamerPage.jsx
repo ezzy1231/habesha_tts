@@ -23,6 +23,7 @@ export default function StreamerPage() {
   const usingSession = REQUIRE_JWT && isAuthenticated;
   const [donations, setDonations] = useState([]);
   const donationBufferRef = useRef([]);
+  const processedDonationIdsRef = useRef(new Set());
   const bufferFlushIntervalRef = useRef(null);
   const [enabled, setEnabled] = useState(false);
   const [queue, setQueue] = useState([]);
@@ -53,6 +54,11 @@ export default function StreamerPage() {
   const getDonationUrl = useCallback((filename) => {
     const baseUrl = SOCKET_URL;
     return `${baseUrl}/public/audios/${encodeURIComponent(filename)}`;
+  }, []);
+
+  const getDonationCacheKey = useCallback((id) => {
+    const numericId = Number(id);
+    return Number.isFinite(numericId) ? numericId : String(id);
   }, []);
 
   // Preload next donation's audio buffer to reduce gaps
@@ -172,9 +178,16 @@ export default function StreamerPage() {
       if (page === 1) {
         // Initial load: Use the public endpoint that gets everything.
         // We still wait for apiClient to be ready to ensure the user has authenticated.
-    const res = await axios.get(`${import.meta.env.VITE_API_URL}/streamer/${uuid}?page=${page}`);
-        setStreamerInfo(res.data.streamer);
-        console.log("[StreamerPage] Fetched streamer balance from API:", res.data.streamer.balance);
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/streamer/${uuid}?page=${page}`);
+        const rawStreamer = res.data.streamer;
+        const normalizedStreamer = rawStreamer ? {
+          ...rawStreamer,
+          balance: typeof rawStreamer.balance === 'number'
+            ? rawStreamer.balance
+            : Number(rawStreamer.balance || 0),
+        } : null;
+        setStreamerInfo(normalizedStreamer);
+        console.log("[StreamerPage] Fetched streamer balance from API:", normalizedStreamer?.balance);
         newDonations = res.data.donations || [];
         newPagination = res.data.pagination;
         console.log(`[fetchInitialData] Fetched donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
@@ -194,6 +207,12 @@ export default function StreamerPage() {
         console.log(`[fetchInitialData] Fetched paginated donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
       }
       
+      if (page === 1) {
+        processedDonationIdsRef.current = new Set(newDonations.map(d => getDonationCacheKey(d.id)));
+      } else {
+        newDonations.forEach(d => processedDonationIdsRef.current.add(getDonationCacheKey(d.id)));
+      }
+
       setDonations(newDonations);
       setPagination(newPagination);
 
@@ -207,16 +226,17 @@ export default function StreamerPage() {
     } finally {
       setLoading(false);
     }
-  }, [uuid, apiClient, usingSession]);
+  }, [uuid, apiClient, usingSession, getDonationCacheKey]);
 
   // ✅ Mark a donation as played and persist it
   const markAsPlayed = useCallback(async (id) => {
     if (!apiClient) return;
-    if (playedDonationsRef.current.has(id)) return;
+    const cacheKey = getDonationCacheKey(id);
+    if (playedDonationsRef.current.has(cacheKey)) return;
 
     // Update the UI immediately
     setDonations(prev => prev.map(d => d.id === id ? { ...d, played: true } : d));
-    playedDonationsRef.current.add(id);
+    playedDonationsRef.current.add(cacheKey);
 
     try {
       const path = usingSession ? `/v1/streamer/${uuid}/donations/${id}/played` : `/streamer/${uuid}/donations/${id}/played`;
@@ -226,9 +246,9 @@ export default function StreamerPage() {
       console.error("❌ Error marking donation as played:", error.response?.status, error.response?.data, error);
       // If API fails, revert the UI update
       setDonations(prev => prev.map(d => d.id === id ? { ...d, played: false } : d));
-      playedDonationsRef.current.delete(id);
+      playedDonationsRef.current.delete(cacheKey);
     }
-  }, [uuid, apiClient, usingSession]);
+  }, [uuid, apiClient, usingSession, getDonationCacheKey]);
 
   // ✅ Play next queued donation
   const playNext = useCallback(() => {
@@ -422,22 +442,59 @@ export default function StreamerPage() {
       bufferFlushIntervalRef.current = setInterval(() => {
         if (donationBufferRef.current.length === 0) return;
         const batch = donationBufferRef.current.splice(0, donationBufferRef.current.length);
+        const uniqueBatch = [];
+
+        batch.forEach((item) => {
+          const cacheKey = getDonationCacheKey(item.id);
+          if (processedDonationIdsRef.current.has(cacheKey)) {
+            return;
+          }
+          processedDonationIdsRef.current.add(cacheKey);
+          uniqueBatch.push(item);
+        });
+
+        if (uniqueBatch.length === 0) {
+          return;
+        }
+
+        const balanceIncrement = uniqueBatch.reduce((sum, donation) => {
+          const amount = donation?.status === 'paid' ? Number(donation.amount || 0) : 0;
+          return sum + (Number.isFinite(amount) ? amount : 0);
+        }, 0);
+
         // Merge into donations (prepend on first page only)
         if (currentPage === 1) {
           setDonations((prev) => {
-            const existing = new Set(prev.map(d => Number(d.id)));
-            const fresh = batch.filter(b => !existing.has(Number(b.id))).map(b => ({ ...b }));
+            const existing = new Set(prev.map(d => getDonationCacheKey(d.id)));
+            const fresh = uniqueBatch.filter(b => !existing.has(getDonationCacheKey(b.id))).map(b => ({ ...b }));
+            if (fresh.length === 0) return prev;
             return [...fresh, ...prev];
           });
         }
         // Queue playable
         setQueue((prev) => {
-          const qIds = new Set(prev.map(d => Number(d.id)));
-          const playable = batch.filter(b => b.status === 'paid' && b.audio_url && !b.played && !playedDonationsRef.current.has(b.id) && !qIds.has(Number(b.id)));
+          const qIds = new Set(prev.map(d => getDonationCacheKey(d.id)));
+          const playable = uniqueBatch.filter(b => {
+            const cacheKey = getDonationCacheKey(b.id);
+            return b.status === 'paid' && b.audio_url && !b.played && !playedDonationsRef.current.has(cacheKey) && !qIds.has(cacheKey);
+          });
           return playable.length ? [...prev, ...playable] : prev;
         });
         // Update pagination total count
-        setPagination((prev) => prev ? { ...prev, totalCount: (prev.totalCount || 0) + batch.length } : prev);
+        setPagination((prev) => prev ? { ...prev, totalCount: (prev.totalCount || 0) + uniqueBatch.length } : prev);
+
+        if (balanceIncrement !== 0) {
+          setStreamerInfo((prev) => {
+            if (!prev) return prev;
+            const currentBalance = typeof prev.balance === 'number' ? prev.balance : Number(prev.balance || 0);
+            const nextBalance = currentBalance + balanceIncrement;
+            const normalizedBalance = Math.round(nextBalance * 100) / 100;
+            return {
+              ...prev,
+              balance: Number.isFinite(normalizedBalance) ? normalizedBalance : currentBalance,
+            };
+          });
+        }
       }, 750);
     }
 
@@ -445,10 +502,18 @@ export default function StreamerPage() {
     socket.off("withdrawal_approved"); // Ensure previous listener is removed
     socket.on("withdrawal_approved", (data) => {
       console.log("💸 Withdrawal approved received:", data);
-      setStreamerInfo(prev => ({
-        ...prev,
-        balance: typeof data?.newBalance === 'number' ? data.newBalance : (prev?.balance ?? 0)
-      }));
+      setStreamerInfo(prev => {
+        if (!prev) return prev;
+        const parsed = Number(data?.newBalance);
+        const rawNextBalance = Number.isFinite(parsed)
+          ? parsed
+          : (typeof data?.newBalance === 'number' ? data.newBalance : Number(prev.balance || 0));
+        const normalizedBalance = Math.round(rawNextBalance * 100) / 100;
+        return {
+          ...prev,
+          balance: Number.isFinite(normalizedBalance) ? normalizedBalance : prev.balance,
+        };
+      });
       // Optionally, clear donations or show a message
     });
     socket.on("donation_history_reset", (data) => {
@@ -457,6 +522,7 @@ export default function StreamerPage() {
       setDonations([]);
       setQueue([]);
       playedDonationsRef.current = new Set();
+    processedDonationIdsRef.current = new Set();
       // Stop any current playback
       if (audioRef.current) {
         audioRef.current.pause();
@@ -480,7 +546,7 @@ export default function StreamerPage() {
         bufferFlushIntervalRef.current = null;
       }
     };
-  }, [uuid, enabled, currentPage, fetchInitialData]);
+  }, [uuid, enabled, currentPage, fetchInitialData, getDonationCacheKey]);
 
   // ✅ Watch for queue changes
   useEffect(() => {
