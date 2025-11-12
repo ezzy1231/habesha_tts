@@ -3,6 +3,7 @@ import db from "../db-postgres.js";
 import { bot, reloadSettings } from "../../bot/bot.js";
 import { generateStreamerLink } from "../utils/generateLink.js";
 import { getStreamerBalance, insertLedgerEntry } from "../utils/balance.js";
+import { emitAdminEvent } from "../utils/adminNotifications.js";
 import crypto from "crypto";
 import { url } from "inspector";
 
@@ -333,6 +334,7 @@ router.post("/streamer-requests/:id/approve", async (req, res) => {
     }
 
     res.json({ success: true, message: "Streamer approved." });
+    emitAdminEvent('streamer_request_updated', { telegramId: id, status: 'approved' });
   } catch (error) {
     console.error("Error approving streamer:", error);
     res.status(500).json({ error: "Failed to approve streamer." });
@@ -361,6 +363,7 @@ router.post("/streamer-requests/:id/reject", async (req, res) => {
     }
 
     res.json({ success: true, message: "Streamer rejected." });
+    emitAdminEvent('streamer_request_updated', { telegramId: id, status: 'rejected' });
   } catch (error) {
     console.error("Error rejecting streamer:", error);
     res.status(500).json({ error: "Failed to reject streamer." });
@@ -441,6 +444,13 @@ router.post("/recharges/:id/approve", async (req, res) => {
       console.error("Error sending bot message for approved recharge:", botError);
     }
 
+    emitAdminEvent('recharge_updated', {
+      rechargeId: Number(id),
+      status: 'approved',
+      amount,
+      donorId: recharge.donor_id,
+    });
+
     return res.json({ success: true, balance: newBalance });
   } catch (error) {
     console.error("Error approving recharge:", error);
@@ -468,6 +478,12 @@ router.post("/recharges/:id/reject", async (req, res) => {
     } catch (botError) {
       console.error("Error sending bot message for rejected recharge:", botError);
     }
+
+    emitAdminEvent('recharge_updated', {
+      rechargeId: Number(id),
+      status: 'rejected',
+      donorId: recharge.donor_id,
+    });
 
     return res.json({ success: true });
   } catch (error) {
@@ -660,6 +676,14 @@ router.post("/withdrawals/:id/approve", async (req, res) => {
     console.error("Error sending bot message for approved withdrawal:", botError);
   }
 
+  emitAdminEvent('withdrawal_updated', {
+    withdrawalId: Number(id),
+    status: 'approved',
+    amount: withdrawalAmount,
+    streamerId: withdrawal.user_id,
+    newBalance,
+  });
+
   return res.json({ success: true, newBalance });
 });
 router.post("/withdrawals/:id/reject", async (req, res) => {
@@ -682,6 +706,13 @@ router.post("/withdrawals/:id/reject", async (req, res) => {
     } catch (botError) {
       console.error("Error sending bot message for rejected withdrawal:", botError);
     }
+
+    emitAdminEvent('withdrawal_updated', {
+      withdrawalId: Number(id),
+      status: 'rejected',
+      amount: Number(withdrawal.amount),
+      streamerId: withdrawal.user_id,
+    });
 
     return res.json({ success: true });
   } catch (error) {
@@ -847,6 +878,7 @@ router.post("/complaints/:id/respond", express.json(), async (req, res) => {
         }
       });
       await db.query("UPDATE complaints SET responded = TRUE WHERE id = $1", [id]);
+      emitAdminEvent('complaint_updated', { complaintId: Number(id), status: 'responded' });
       res.json({ success: true, message: 'Response sent successfully.' });
     } else {
       throw new Error('Bot is not initialized.');

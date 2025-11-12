@@ -6,6 +6,7 @@ import { signStreamerToken } from '../utils/token.js';
 import { logOtpAction } from '../utils/auditLog.js';
 import { streamerSessionAuth } from '../middleware/streamerSessionAuth.js';
 import { getStreamerBalance } from '../utils/balance.js';
+import { emitAdminEvent } from '../utils/adminNotifications.js';
 
 // Feature flag to allow safe rollout
 const ENABLE_STREAMER_OTP = (process.env.ENABLE_STREAMER_OTP || 'true').toLowerCase() === 'true';
@@ -291,10 +292,17 @@ router.post('/:uuid/withdraw', streamerSessionAuth, express.json(), async (req, 
       return res.status(400).json({ error: 'Insufficient balance' });
     }
 
-    await db.query(
-      'INSERT INTO withdrawals (user_id, amount, telebirr_username, phone_number, status) VALUES ($1, $2, $3, $4, \'pending\')',
+    const insertRes = await db.query(
+      'INSERT INTO withdrawals (user_id, amount, telebirr_username, phone_number, status) VALUES ($1, $2, $3, $4, \'pending\') RETURNING id',
       [req.streamerId, Number(amount), telebirrUsername, phoneNumber]
     );
+
+    const withdrawalId = insertRes.rows[0]?.id;
+    emitAdminEvent('withdrawal_created', {
+      withdrawalId,
+      streamerId: req.streamerId,
+      amount: Number(amount),
+    });
     return res.json({ success: true, message: 'Withdrawal request submitted' });
   } catch (e) {
     return res.status(500).json({ error: 'Failed to submit withdrawal request' });

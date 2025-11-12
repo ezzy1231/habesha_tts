@@ -1515,6 +1515,7 @@ StreamerRequests.propTypes = {
 export default function AdminDashboard() {
   const [tab, setTab] = useState('overview');
   const [pendingCounts, setPendingCounts] = useState({ recharges: 0, withdrawals: 0, streamerRequests: 0, complaints: 0 });
+  const [toasts, setToasts] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [adminToken, setAdminToken] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1523,6 +1524,7 @@ export default function AdminDashboard() {
     const saved = localStorage.getItem('theme');
     return saved === 'dark';
   });
+  const toastTimersRef = useRef([]);
 
   // On initial load, check for Admin Token
   useEffect(() => {
@@ -1562,6 +1564,113 @@ export default function AdminDashboard() {
     localStorage.setItem('theme', nextTheme);
   };
 
+  const removeToast = useCallback((toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+    toastTimersRef.current = toastTimersRef.current.filter((entry) => {
+      if (entry.id === toastId) {
+        clearTimeout(entry.timer);
+        return false;
+      }
+      return true;
+    });
+  }, []);
+
+  const addToast = useCallback((event) => {
+    if (!event || !event.type) return;
+
+    const formatAmount = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? `Br ${num.toFixed(2)}` : 'Br --';
+    };
+
+    const capitalize = (value) => {
+      if (!value || typeof value !== 'string') return '';
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    };
+
+    const payload = event.payload || {};
+    let title = 'Admin Update';
+    let description = 'Check the admin dashboard for details.';
+    let icon = 'ℹ️';
+
+    switch (event.type) {
+      case 'donation_paid': {
+        icon = '💰';
+        title = 'Donation Paid';
+        const donor = payload.donorName || 'New donor';
+        description = `${donor} sent ${formatAmount(payload.amount)}.`;
+        break;
+      }
+      case 'withdrawal_created': {
+        icon = '💸';
+        title = 'New Withdrawal Request';
+        description = `${formatAmount(payload.amount)} awaiting approval.`;
+        break;
+      }
+      case 'withdrawal_updated': {
+        icon = '💸';
+        title = `Withdrawal ${capitalize(payload.status)}`;
+        description = `${formatAmount(payload.amount)} for streamer #${payload.streamerId || '—'}.`;
+        break;
+      }
+      case 'recharge_created': {
+        icon = '🔄';
+        title = 'Recharge Submitted';
+        description = `Donor #${payload.donorId || '—'} uploaded proof.`;
+        break;
+      }
+      case 'recharge_updated': {
+        icon = '🔄';
+        title = `Recharge ${capitalize(payload.status)}`;
+        description = `Donation balance updated for donor #${payload.donorId || '—'}.`;
+        break;
+      }
+      case 'streamer_request_created': {
+        icon = '👥';
+        title = 'Streamer Request Received';
+        description = `${payload.fullName || 'New applicant'} is waiting for review.`;
+        break;
+      }
+      case 'streamer_request_updated': {
+        icon = '👥';
+        title = `Streamer Request ${capitalize(payload.status)}`;
+        description = `Telegram ID ${payload.telegramId || '—'} ${payload.status || 'updated'}.`;
+        break;
+      }
+      case 'complaint_created': {
+        icon = '📝';
+        title = 'New Complaint';
+        description = 'Check the complaints tab for the latest submission.';
+        break;
+      }
+      case 'complaint_updated': {
+        icon = '📝';
+        title = 'Complaint Responded';
+        description = 'Marked as responded successfully.';
+        break;
+      }
+      default: {
+        icon = 'ℹ️';
+        title = 'Admin Update';
+        description = 'Dashboard data changed.';
+      }
+    }
+
+    const toastId = `${event.type}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const newToast = {
+      id: toastId,
+      icon,
+      title,
+      description,
+      timestamp: event.timestamp,
+    };
+
+    setToasts((prev) => [...prev, newToast]);
+
+    const timer = setTimeout(() => removeToast(toastId), 6000);
+    toastTimersRef.current.push({ id: toastId, timer });
+  }, [removeToast]);
+
   const apiClient = useMemo(() => {
     if (!adminToken) return null;
     return axios.create({
@@ -1570,9 +1679,37 @@ export default function AdminDashboard() {
     });
   }, [adminToken]);
 
+  useEffect(() => {
+    return () => {
+      toastTimersRef.current.forEach((entry) => clearTimeout(entry.timer));
+      toastTimersRef.current = [];
+    };
+  }, []);
+
   const refreshData = useCallback(() => {
     setRefreshKey(k => k + 1);
   }, []);
+
+  const fetchCounts = useCallback(async () => {
+    if (!apiClient) return;
+    try {
+      const rechargesRes = await apiClient.get(`/recharges`);
+      const withdrawalsRes = await apiClient.get(`/withdrawals`);
+      const streamerRequestsRes = await apiClient.get(`/streamer-requests`);
+      const complaintsRes = await apiClient.get(`/complaints/pending-count`);
+      const pendingRecharges = rechargesRes.data.recharges.filter(r => r.status === 'pending').length;
+      const pendingWithdrawals = withdrawalsRes.data.withdrawals.filter(w => w.status === 'pending').length;
+      const pendingStreamerRequests = streamerRequestsRes.data.requests.filter(r => r.registration_status === 'pending').length;
+      setPendingCounts({ recharges: pendingRecharges, withdrawals: pendingWithdrawals, streamerRequests: pendingStreamerRequests, complaints: complaintsRes.data.count });
+    } catch (error) {
+      console.error("Error fetching pending counts:", error);
+      if (error.response?.status === 401) {
+        alert("Invalid Admin Token. Please refresh and enter the correct token.");
+        localStorage.removeItem('adminToken');
+        setAdminToken(null);
+      }
+    }
+  }, [apiClient]);
 
   useEffect(() => {
     socket.emit('join_admin_room');
@@ -1593,38 +1730,23 @@ export default function AdminDashboard() {
   }, [refreshData]);
 
   useEffect(() => {
-    const fetchCounts = async () => {
-      if (!apiClient) return;
-      try {
-        const rechargesRes = await apiClient.get(`/recharges`);
-        const withdrawalsRes = await apiClient.get(`/withdrawals`);
-        const streamerRequestsRes = await apiClient.get(`/streamer-requests`);
-        const complaintsRes = await apiClient.get(`/complaints/pending-count`);
-        const pendingRecharges = rechargesRes.data.recharges.filter(r => r.status === 'pending').length;
-        const pendingWithdrawals = withdrawalsRes.data.withdrawals.filter(w => w.status === 'pending').length;
-        const pendingStreamerRequests = streamerRequestsRes.data.requests.filter(r => r.registration_status === 'pending').length;
-        setPendingCounts({ recharges: pendingRecharges, withdrawals: pendingWithdrawals, streamerRequests: pendingStreamerRequests, complaints: complaintsRes.data.count });
-      } catch (error) {
-        console.error("Error fetching pending counts:", error);
-        if (error.response?.status === 401) {
-          alert("Invalid Admin Token. Please refresh and enter the correct token.");
-          localStorage.removeItem('adminToken');
-          setAdminToken(null);
-        }
-      }
-    };
+    fetchCounts();
+  }, [fetchCounts]);
 
-    fetchCounts(); // Fetch immediately on mount
+  useEffect(() => {
+    if (!apiClient) return;
 
-    socket.on('admin_update', (data) => {
+    const handleAdminUpdate = (data) => {
       console.log('[AdminDashboard] Admin update received via socket:', data);
-      fetchCounts(); // Re-fetch counts on any admin-related update
-    });
-
-    return () => {
-      socket.off('admin_update');
+      fetchCounts();
+      addToast(data);
     };
-  }, [apiClient]);
+
+    socket.on('admin_update', handleAdminUpdate);
+    return () => {
+      socket.off('admin_update', handleAdminUpdate);
+    };
+  }, [apiClient, fetchCounts, addToast]);
 
   if (!apiClient) {
     return (
@@ -1740,6 +1862,43 @@ export default function AdminDashboard() {
           {tab==='settings' && <Settings apiClient={apiClient} />}
         </div>
       </div>
+
+      {toasts.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 max-w-xs sm:max-w-sm">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 rounded-xl p-4 w-72 sm:w-80 animate-fade-in"
+              style={{ boxShadow: '0 12px 25px -12px rgba(15, 23, 42, 0.35)' }}
+            >
+              <div className="flex items-start gap-3">
+                <div className="text-2xl leading-none">
+                  {toast.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                    {toast.title}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-snug">
+                    {toast.description}
+                  </p>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mt-3">
+                    {toast.timestamp ? 'Updated just now' : 'Live update'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeToast(toast.id)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                  aria-label="Dismiss notification"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

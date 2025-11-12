@@ -4,6 +4,7 @@ import db from "../backend/db-postgres.js";
 import { generateStreamerLink } from "../backend/utils/generateLink.js";
 import { ttsQueue } from '../backend/queue-optimized.js';
 import crypto from 'crypto';
+import { emitAdminEvent } from "../backend/utils/adminNotifications.js";
 
 dotenv.config();
 
@@ -250,13 +251,20 @@ bot.onText(/\/reset/, async (msg) => {
       const username = msg.from.username || msg.from.first_name;
 
       try {
-        await db.query(
+        const insertRes = await db.query(
           `INSERT INTO users (telegram_id, username, role, registration_status, full_name, social_link, phone_number, profile_picture_file_id)
-           VALUES ($1, $2, 'streamer', 'pending', $3, $4, $5, $6)`,
+           VALUES ($1, $2, 'streamer', 'pending', $3, $4, $5, $6) RETURNING id`,
           [tgId, username, fullName, socialLink, phoneNumber, fileId]
         );
         userStates.delete(tgId);
         bot.sendMessage(chatId, '✅ ምዝገባዎ ተጠናቅቋል!\n\n⏳ ጥያቄዎ በመገምገም ላይ ነው። ይፀድቅ ወይም ውድቅ ሲደረግ መልዕክት ይደርስዎታል።');
+        emitAdminEvent('streamer_request_created', {
+          telegramId: tgId,
+          fullName,
+          username,
+          phoneNumber,
+          userId: insertRes.rows[0]?.id,
+        });
       } catch (error) {
         console.error("Error creating pending streamer registration:", error);
         bot.sendMessage(chatId, '❌ በምዝገባ ወቅት ስህተት ተፈጥሯል። እባክዎ ቆይተው እንደገና ይሞክሩ።');
@@ -356,9 +364,17 @@ bot.onText(/\/reset/, async (msg) => {
           bot.sendMessage(chatId, '❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት። /start ይጫኑ እና "እንደ ለጋሽ ይመዝገቡ" ይምረጡ።');
           return;
         }
-        await db.query("INSERT INTO recharges (donor_id, name_on_payment, screenshot_file_id, status, amount) VALUES ($1, $2, $3, 'pending', NULL)", [tgId, state.name_on_payment, fileId]);
+        const rechargeInsert = await db.query(
+          "INSERT INTO recharges (donor_id, name_on_payment, screenshot_file_id, status, amount) VALUES ($1, $2, $3, 'pending', NULL) RETURNING id",
+          [tgId, state.name_on_payment, fileId]
+        );
         userStates.delete(tgId);
         bot.sendMessage(chatId, '✅ የመሙያ ጥያቄዎ ገብቷል! አስተዳዳሪ በቅርቡ ገምግሞ ያጸድቃል።');
+        emitAdminEvent('recharge_created', {
+          rechargeId: rechargeInsert.rows[0]?.id,
+          donorId: tgId,
+          nameOnPayment: state.name_on_payment,
+        });
       } catch (error) {
         console.error("Error creating recharge request:", error);
         bot.sendMessage(chatId, '❌ የመሙያ ጥያቄ መፍጠር አልተቻለም።');
@@ -369,8 +385,8 @@ bot.onText(/\/reset/, async (msg) => {
     // --- Complaint Submission Flow ---
     if (state.step === 'awaiting_complaint' && text) {
       try {
-        await db.query(
-          "INSERT INTO complaints (telegram_id, complaint) VALUES ($1, $2)",
+        const complaintInsert = await db.query(
+          "INSERT INTO complaints (telegram_id, complaint) VALUES ($1, $2) RETURNING id",
           [tgId, text.trim()]
         );
         userStates.delete(tgId);
@@ -380,6 +396,10 @@ bot.onText(/\/reset/, async (msg) => {
               [{ text: '💰 Send Another Donation', callback_data: 'quick_donate' }]
             ]
           }
+        });
+        emitAdminEvent('complaint_created', {
+          complaintId: complaintInsert.rows[0]?.id,
+          telegramId: tgId,
         });
       } catch (error) {
         console.error("Error saving complaint:", error);

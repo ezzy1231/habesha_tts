@@ -5,6 +5,7 @@ import db from "../db-postgres.js";
 import { protectStreamer } from "../middleware/auth.js";
 import { bot } from '../../bot/bot.js';
 import { getStreamerBalance } from "../utils/balance.js";
+import { emitAdminEvent } from "../utils/adminNotifications.js";
 
 console.log(" streamer.js router loaded");
 
@@ -156,8 +157,17 @@ router.post("/:uuid/withdraw", protectStreamer, express.json(), async (req, res)
       return res.status(400).json({ error: "Insufficient balance" });
     }
 
-    await db.query("INSERT INTO withdrawals (user_id, amount, telebirr_username, phone_number, status) VALUES ($1, $2, $3, $4, 'pending')",
-      [req.streamerId, amount, telebirrUsername, phoneNumber]);
+    const insertRes = await db.query(
+      "INSERT INTO withdrawals (user_id, amount, telebirr_username, phone_number, status) VALUES ($1, $2, $3, $4, 'pending') RETURNING id",
+      [req.streamerId, Number(amount), telebirrUsername, phoneNumber]
+    );
+
+    const withdrawalId = insertRes.rows[0]?.id;
+    emitAdminEvent('withdrawal_created', {
+      withdrawalId,
+      streamerId: req.streamerId,
+      amount: Number(amount),
+    });
 
     res.json({ success: true, message: "Withdrawal request submitted" });
   } catch (error) {

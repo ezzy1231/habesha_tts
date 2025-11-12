@@ -2,6 +2,7 @@ import express from "express";
 import db from "../db-postgres.js";
 import { generateTTS } from "../../bot/utils/tts.js";
 import { insertLedgerEntry } from "../utils/balance.js";
+import { emitAdminEvent } from "../utils/adminNotifications.js";
 
 const router = express.Router();
 
@@ -120,6 +121,13 @@ router.post("/confirm", express.urlencoded({ extended: true }), async (req, res)
        console.warn("[Payment Confirm] Socket.IO or streamer not available for emission.");
      }
 
+      emitAdminEvent('donation_paid', {
+        donationId: donation.id,
+        streamerId: donation.streamer_id,
+        amount: amt,
+        donorName,
+      });
+
     // Notify donor via Telegram (best effort)
     try {
       const { bot } = await import('../../bot/bot.js');
@@ -210,6 +218,13 @@ router.post("/confirm", express.urlencoded({ extended: true }), async (req, res)
      } else {
        console.log("❌ Could not emit Socket.IO event: io =", !!io, "streamer =", !!streamer);
      }
+
+    emitAdminEvent('donation_paid', {
+      donationId,
+      streamerId: streamer_id,
+      amount: Number(amount),
+      donorName: null,
+    });
 
     res.json({ success: true, donationId, audioFile });
   } catch (error) {
