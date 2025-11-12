@@ -4,6 +4,7 @@ import express from "express";
 import db from "../db-postgres.js";
 import { protectStreamer } from "../middleware/auth.js";
 import { bot } from '../../bot/bot.js';
+import { getStreamerBalance } from "../utils/balance.js";
 
 console.log(" streamer.js router loaded");
 
@@ -104,14 +105,7 @@ router.get("/:uuid", async (req, res) => {
     const totalCount = parseInt(stats.count);
     const totalEarned = Number(stats.totalAmount || 0);
 
-    const approvedWithdrawalsRes = await db.query(`
-      SELECT SUM(amount) as "totalWithdrawn"
-      FROM withdrawals
-      WHERE user_id = $1 AND status = 'approved'
-    `, [streamer.telegram_id]);
-    const totalWithdrawn = Number(approvedWithdrawalsRes.rows[0].totalWithdrawn || 0);
-
-    const balance = totalEarned - totalWithdrawn;
+    const balance = await getStreamerBalance(streamer.telegram_id);
 
     const donations = (donationsRes.rows || []).map(d => ({
       ...d,
@@ -156,15 +150,9 @@ router.post("/:uuid/withdraw", protectStreamer, express.json(), async (req, res)
   }
 
   try {
-    // We can use req.streamerId from the middleware, but we need the balance, so we still query.
-    const streamerRes = await db.query(`
-      SELECT balance
-      FROM users
-      WHERE telegram_id = $1
-    `, [req.streamerId]);
-    const streamer = streamerRes.rows[0];
+    const balance = await getStreamerBalance(req.streamerId);
 
-    if (amount > streamer.balance) {
+    if (amount > balance) {
       return res.status(400).json({ error: "Insufficient balance" });
     }
 

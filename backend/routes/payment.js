@@ -1,6 +1,7 @@
 import express from "express";
 import db from "../db-postgres.js";
 import { generateTTS } from "../../bot/utils/tts.js";
+import { insertLedgerEntry } from "../utils/balance.js";
 
 const router = express.Router();
 
@@ -68,13 +69,34 @@ router.post("/confirm", express.urlencoded({ extended: true }), async (req, res)
      const audioFile = await generateTTS(donationId, spokenText);
      console.log(`[Payment Confirm] Audio file generated: ${audioFile}`);
     
-    // Update donation status, amount, and audio URL
+    const client = await db.getClient();
     try {
-      await db.query("UPDATE donations SET status='paid', amount=$1, audio_file=$2 WHERE id=$3", [amt, audioFile, donationId]);
+      await client.query('BEGIN');
+      await client.query(
+        "UPDATE donations SET status='paid', amount=$1, audio_file=$2 WHERE id=$3",
+        [amt, audioFile, donationId]
+      );
+
+      await insertLedgerEntry({
+        client,
+        userTelegramId: donation.streamer_id,
+        refType: 'donation',
+        refId: donation.id,
+        entryType: 'credit',
+        amount: amt,
+        description: `Donation ${donation.id} paid`,
+        createdAt: donation.created_at,
+        idempotencyKey: `donation:${donation.id}:credit`,
+      });
+
+      await client.query('COMMIT');
       console.log(`[Payment Confirm] Donation ${donationId} status updated to 'paid'.`);
     } catch (dbError) {
-      console.error("[Payment Confirm] Database UPDATE error:", dbError);
+      await client.query('ROLLBACK');
+      console.error("[Payment Confirm] Transaction failed:", dbError);
       return res.status(500).send("<h2>❌ Database update failed</h2>");
+    } finally {
+      client.release();
     }
 
     // Prepare donation data for real-time emission

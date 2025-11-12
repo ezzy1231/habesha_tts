@@ -2,6 +2,7 @@ import express from "express";
 import db from "../db-postgres.js";
 import { bot, reloadSettings } from "../../bot/bot.js";
 import { generateStreamerLink } from "../utils/generateLink.js";
+import { getStreamerBalance, insertLedgerEntry } from "../utils/balance.js";
 import crypto from "crypto";
 import { url } from "inspector";
 
@@ -548,72 +549,118 @@ router.get("/withdrawals", async (req, res) => {
 router.post("/withdrawals/:id/approve", async (req, res) => {
   const { id } = req.params;
 
+  let client;
+  let withdrawal;
+  let streamerUser;
+  let newBalance = 0;
+  let withdrawalAmount = 0;
+
   try {
-    const withdrawalRes = await db.query("SELECT * FROM withdrawals WHERE id = $1", [id]);
-    const withdrawal = withdrawalRes.rows[0];
+    client = await db.getClient();
+    await client.query('BEGIN');
 
-    if (!withdrawal) return res.status(404).json({ error: "Withdrawal not found" });
-    if (withdrawal.status !== 'pending') return res.status(400).json({ error: "Withdrawal not pending" });
+    const withdrawalRes = await client.query("SELECT * FROM withdrawals WHERE id = $1", [id]);
+    withdrawal = withdrawalRes.rows[0];
 
-    const streamerUserRes = await db.query("SELECT * FROM users WHERE telegram_id = $1 AND role = 'streamer'", [withdrawal.user_id]);
-    const streamerUser = streamerUserRes.rows[0];
+    if (!withdrawal) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: "Withdrawal not found" });
+    }
+    if (withdrawal.status !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: "Withdrawal not pending" });
+    }
 
-    if (!streamerUser) return res.status(404).json({ error: "Streamer not found" });
+    const streamerUserRes = await client.query("SELECT * FROM users WHERE telegram_id = $1 AND role = 'streamer'", [withdrawal.user_id]);
+    streamerUser = streamerUserRes.rows[0];
 
-    // Calculate balance
-    const donationsRes = await db.query("SELECT amount FROM donations WHERE streamer_id = $1 AND status = 'paid'", [streamerUser.telegram_id]);
-    const donations = donationsRes.rows;
-    const totalEarned = donations.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    if (!streamerUser) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: "Streamer not found" });
+    }
 
-    const approvedWithdrawalsRes = await db.query("SELECT amount FROM withdrawals WHERE user_id = $1 AND status = 'approved'", [streamerUser.telegram_id]);
-    const approvedWithdrawals = approvedWithdrawalsRes.rows;
-    const totalWithdrawn = approvedWithdrawals.reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+    withdrawalAmount = Number.parseFloat(withdrawal.amount);
+    if (!Number.isFinite(withdrawalAmount) || withdrawalAmount <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: "Invalid withdrawal amount" });
+    }
 
-    const balance = totalEarned - totalWithdrawn;
+    const balance = await getStreamerBalance(streamerUser.telegram_id, { client });
 
-    if (balance < withdrawal.amount) {
-      await db.query("UPDATE withdrawals SET status = 'rejected' WHERE id = $1", [id]);
+    if (balance < withdrawalAmount) {
+      await client.query("UPDATE withdrawals SET status = 'rejected' WHERE id = $1", [id]);
+      await client.query('COMMIT');
+
       try {
-        if (bot) bot.sendMessage(streamerUser.telegram_id, `❌ Your withdrawal request of Br ${withdrawal.amount.toFixed(2)} was rejected due to insufficient balance.`);
+        if (bot) {
+          await bot.sendMessage(streamerUser.telegram_id, `❌ Your withdrawal request of Br ${withdrawalAmount.toFixed(2)} was rejected due to insufficient balance.`);
+        }
       } catch (botError) {
         console.error("Error sending bot message for rejected withdrawal (insufficient balance):", botError);
       }
+
       return res.status(400).json({ error: "Insufficient balance" });
     }
 
-    // Deduct amount from streamer's balance
-    const newBalance = balance - withdrawal.amount;
-    await db.query("UPDATE users SET balance = $1 WHERE telegram_id = $2", [newBalance, streamerUser.telegram_id]);
-    await db.query("UPDATE withdrawals SET status = 'approved' WHERE id = $1", [id]);
+    newBalance = Number((balance - withdrawalAmount).toFixed(2));
 
-    console.log("Admin approval: withdrawal.streamer_id =", withdrawal.user_id, "found streamer =", !!streamerUser);
+    await client.query("UPDATE users SET balance = $1 WHERE telegram_id = $2", [newBalance, streamerUser.telegram_id]);
+    await client.query("UPDATE withdrawals SET status = 'approved' WHERE id = $1", [id]);
 
-    if (global.socketIO && streamerUser) {
-      global.socketIO.to(streamerUser.link_uuid).emit("withdrawal_approved", {
-        message: `Your withdrawal of Br ${withdrawal.amount.toFixed(2)} was approved. New balance: Br ${newBalance.toFixed(2)}.`, // Assuming telegram_id is used as link_uuid for socket rooms
-        streamer_id: streamerUser.telegram_id,
-        newBalance,
-      });
-      console.log("📢 Emitted withdrawal_approved to:", streamerUser.link_uuid);
-    } else {
-      console.log("❌ Could not emit withdrawal_approved event: global.socketIO =", !!global.socketIO, "streamer =", !!streamerUser);
-    }
+    await insertLedgerEntry({
+      client,
+      userTelegramId: streamerUser.telegram_id,
+      refType: 'withdrawal',
+      refId: withdrawal.id,
+      entryType: 'debit',
+      amount: withdrawalAmount,
+      description: `Withdrawal ${withdrawal.id} approved`,
+      createdAt: withdrawal.created_at,
+      idempotencyKey: `withdrawal:${withdrawal.id}:debit`,
+    });
 
-    try {
-      if (bot) {
-        const payoutAmount = (withdrawal.amount * 0.6).toFixed(2);
-        const message = `✅ Your withdrawal of Br ${withdrawal.amount.toFixed(2)} was approved.\n\nYou will receive Br ${payoutAmount} (60% payout).\n\nNew balance: Br ${newBalance.toFixed(2)}.`;
-        bot.sendMessage(streamerUser.telegram_id, message);
-      }
-    } catch (botError) {
-      console.error("Error sending bot message for approved withdrawal:", botError);
-    }
-
-    return res.json({ success: true, newBalance });
+    await client.query('COMMIT');
   } catch (error) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error("Error during rollback for withdrawal approval:", rollbackError);
+      }
+    }
     console.error("Error approving withdrawal:", error);
     res.status(500).json({ error: "Failed to approve withdrawal" });
+    return;
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
+
+  console.log("Admin approval: withdrawal.streamer_id =", withdrawal.user_id, "found streamer =", !!streamerUser);
+
+  if (global.socketIO && streamerUser) {
+    global.socketIO.to(streamerUser.link_uuid).emit("withdrawal_approved", {
+      message: `Your withdrawal of Br ${withdrawalAmount.toFixed(2)} was approved. New balance: Br ${newBalance.toFixed(2)}.`,
+      streamer_id: streamerUser.telegram_id,
+      newBalance,
+    });
+    console.log("📢 Emitted withdrawal_approved to:", streamerUser.link_uuid);
+  } else {
+    console.log("❌ Could not emit withdrawal_approved event: global.socketIO =", !!global.socketIO, "streamer =", !!streamerUser);
+  }
+
+  try {
+    if (bot) {
+      const payoutAmount = (withdrawalAmount * 0.6).toFixed(2);
+      const message = `✅ Your withdrawal of Br ${withdrawalAmount.toFixed(2)} was approved.\n\nYou will receive Br ${payoutAmount} (60% payout).\n\nNew balance: Br ${newBalance.toFixed(2)}.`;
+      bot.sendMessage(streamerUser.telegram_id, message);
+    }
+  } catch (botError) {
+    console.error("Error sending bot message for approved withdrawal:", botError);
+  }
+
+  return res.json({ success: true, newBalance });
 });
 router.post("/withdrawals/:id/reject", async (req, res) => {
   const { id } = req.params;

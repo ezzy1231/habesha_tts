@@ -5,6 +5,7 @@ import { otpRequestLimiter, otpVerifyLimiter } from '../middleware/rateLimiter.j
 import { signStreamerToken } from '../utils/token.js';
 import { logOtpAction } from '../utils/auditLog.js';
 import { streamerSessionAuth } from '../middleware/streamerSessionAuth.js';
+import { getStreamerBalance } from '../utils/balance.js';
 
 // Feature flag to allow safe rollout
 const ENABLE_STREAMER_OTP = (process.env.ENABLE_STREAMER_OTP || 'true').toLowerCase() === 'true';
@@ -285,11 +286,8 @@ router.post('/:uuid/withdraw', streamerSessionAuth, express.json(), async (req, 
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    // Check balance (align with existing non-JWT route logic)
-    const balRes = await db.query('SELECT balance FROM users WHERE telegram_id = $1', [req.streamerId]);
-    const row = balRes.rows[0];
-    const currentBalance = Number(row?.balance || 0);
-    if (Number(amount) > currentBalance) {
+  const currentBalance = await getStreamerBalance(req.streamerId);
+  if (Number(amount) > currentBalance) {
       return res.status(400).json({ error: 'Insufficient balance' });
     }
 
