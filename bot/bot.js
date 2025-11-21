@@ -270,8 +270,8 @@ bot.onText(///reset/, async (msg) => {
 
       try {
         const insertRes = await db.query(
-          `INSERT INTO users (telegram_id, username, role, registration_status, full_name, social_link, phone_number, profile_picture_file_id)`
-          `VALUES ($1, $2, 'streamer', 'pending', $3, $4, $5, $6) RETURNING id`,
+          `INSERT INTO users (telegram_id, username, role, registration_status, full_name, social_link, phone_number, profile_picture_file_id)
+           VALUES ($1, $2, 'streamer', 'pending', $3, $4, $5, $6) RETURNING id`,
           [tgId, username, fullName, socialLink, phoneNumber, fileId]
         );
         userStates.delete(tgId);
@@ -342,7 +342,7 @@ bot.onText(///reset/, async (msg) => {
           return;
         }
         const buttons = streamers.map(s => ([{ text: s.full_name || s.username, callback_data: `choose_streamer_${s.telegram_id}` }]));
-        bot.sendMessage(chatId, "ልገሳ ለመላክ Streamer ይምረጡ:", { reply_markup: { inline_keyboard: buttons } });
+        bot.sendMessage(msg.chat.id, "ልገሳ ለመላክ Streamer ይምረጡ:", { reply_markup: { inline_keyboard: buttons } });
         return;
       }
 
@@ -457,9 +457,7 @@ bot.onText(///reset/, async (msg) => {
       if (data === "register_streamer") {
         // Start the multi-step registration process
         userStates.set(tgId, { step: 'await_streamer_full_name' });
-        bot.sendMessage(chatId, "✅ የ Streamer ምዝገባ ተጀምሯል።
-
-እባክዎ ሙሉ ስምዎን ያስገቡ:");
+        bot.sendMessage(chatId, "✅ የ Streamer ምዝገባ ተጀምሯል።\n\nእባክዎ ሙሉ ስምዎን ያስገቡ:");
       } else { // register_donor
         const { rows: [{ id: userId }] } = await db.query("INSERT INTO users (telegram_id, username, display_name, role) VALUES ($1, $2, $3, 'donor') RETURNING id", [tgId, username, username]);
         const pending = userStates.get(tgId);
