@@ -15,7 +15,27 @@ import { useAuth } from '../contexts/AuthContext';
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const socket = io(SOCKET_URL, { transports: ["websocket"], reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000 });
 const DEFAULT_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/sounds/notification.mp3`;
+const ALTERNATE_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/sounds/Notifications.mp3`;
 const FALLBACK_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/audios/notification.mp3`;
+const FALLBACK_NOTIFICATION_SOUNDS = [
+  {
+    id: 1,
+    slug: 'default_bell',
+    label: 'Default Bell',
+    description: 'Classic alert bell',
+    filePath: '/public/sounds/notification.mp3',
+    isFallback: true,
+  },
+  {
+    id: 2,
+    slug: 'sound_soft_bell',
+    label: 'Soft Bell',
+    description: 'Gentle alternate bell',
+    filePath: '/public/sounds/Notifications.mp3',
+    isFallback: true,
+  },
+];
+const LOCAL_NOTIFICATION_SOUND_KEY = 'streamer_notification_sound_choice';
 
 export default function StreamerPage() {
   const { uuid } = useParams();
@@ -58,6 +78,8 @@ export default function StreamerPage() {
   const [notificationSoundError, setNotificationSoundError] = useState(null);
   const [updatingNotificationSound, setUpdatingNotificationSound] = useState(false);
   const [previewingNotificationSound, setPreviewingNotificationSound] = useState(false);
+  const [notificationSoundApiReady, setNotificationSoundApiReady] = useState(true);
+  const [localNotificationSoundSlug, setLocalNotificationSoundSlug] = useState(() => localStorage.getItem(LOCAL_NOTIFICATION_SOUND_KEY) || '__default__');
   // Helper to build donation audio URL
   const getDonationUrl = useCallback((filename) => {
     const baseUrl = SOCKET_URL;
@@ -80,9 +102,19 @@ export default function StreamerPage() {
     return DEFAULT_NOTIFICATION_SOUND_URL;
   }, []);
 
+  const getFallbackSoundBySlug = useCallback((slug) => {
+    if (!slug || slug === '__default__') return FALLBACK_NOTIFICATION_SOUNDS[0];
+    return FALLBACK_NOTIFICATION_SOUNDS.find((sound) => sound.slug === slug) || FALLBACK_NOTIFICATION_SOUNDS[0];
+  }, []);
+
   const notificationSoundPreference = useMemo(() => {
-    return selectedNotificationSound || streamerInfo?.notification_sound_meta || null;
-  }, [selectedNotificationSound, streamerInfo?.notification_sound_meta]);
+    if (selectedNotificationSound) return selectedNotificationSound;
+    if (streamerInfo?.notification_sound_meta) return streamerInfo.notification_sound_meta;
+    if (!notificationSoundApiReady) {
+      return getFallbackSoundBySlug(localNotificationSoundSlug);
+    }
+    return null;
+  }, [selectedNotificationSound, streamerInfo?.notification_sound_meta, notificationSoundApiReady, getFallbackSoundBySlug, localNotificationSoundSlug]);
 
   // Preload next donation's audio buffer to reduce gaps
   useEffect(() => {
@@ -188,8 +220,24 @@ export default function StreamerPage() {
     }
   }, [volume]);
 
+  const persistLocalNotificationSound = useCallback((slugValue) => {
+    const normalized = slugValue || '__default__';
+    if (normalized === '__default__') {
+      localStorage.removeItem(LOCAL_NOTIFICATION_SOUND_KEY);
+    } else {
+      localStorage.setItem(LOCAL_NOTIFICATION_SOUND_KEY, normalized);
+    }
+    setLocalNotificationSoundSlug(normalized);
+    const fallbackSound = getFallbackSoundBySlug(normalized);
+    setSelectedNotificationSound(fallbackSound);
+  }, [getFallbackSoundBySlug]);
+
   const updateNotificationSoundPreference = useCallback(async ({ slug, reset = false }) => {
-    if (!apiClient) return;
+    const targetSlug = reset ? '__default__' : (slug || '__default__');
+    if (!apiClient || !notificationSoundApiReady) {
+      persistLocalNotificationSound(targetSlug);
+      return;
+    }
     setNotificationSoundError(null);
     setUpdatingNotificationSound(true);
     try {
@@ -206,13 +254,14 @@ export default function StreamerPage() {
           notification_sound_meta: nextSound,
         };
       });
+      persistLocalNotificationSound(nextSound?.slug || targetSlug);
     } catch (error) {
       setNotificationSoundError(error?.response?.data?.error || error?.message || 'Failed to update notification sound');
-      throw error;
+      persistLocalNotificationSound(targetSlug);
     } finally {
       setUpdatingNotificationSound(false);
     }
-  }, [apiClient, usingSession, uuid]);
+  }, [apiClient, usingSession, uuid, notificationSoundApiReady, persistLocalNotificationSound]);
 
   const handleNotificationSoundSelect = async (event) => {
     const value = event.target.value;
@@ -333,8 +382,13 @@ export default function StreamerPage() {
         if (data?.selectedSound) {
           setSelectedNotificationSound(data.selectedSound);
         }
+        setNotificationSoundApiReady(true);
       } catch (error) {
         if (cancelled) return;
+        setNotificationSoundApiReady(false);
+        setNotificationSounds(FALLBACK_NOTIFICATION_SOUNDS);
+        const fallbackSelection = getFallbackSoundBySlug(localNotificationSoundSlug);
+        setSelectedNotificationSound(fallbackSelection);
         setNotificationSoundError(error?.response?.data?.error || error?.message || 'Failed to load notification sounds');
       } finally {
         if (!cancelled) {
@@ -346,7 +400,7 @@ export default function StreamerPage() {
     return () => {
       cancelled = true;
     };
-  }, [apiClient, streamerInfo, usingSession, uuid]);
+  }, [apiClient, streamerInfo, usingSession, uuid, getFallbackSoundBySlug, localNotificationSoundSlug]);
 
   // ✅ Mark a donation as played and persist it
   const markAsPlayed = useCallback(async (id) => {
@@ -537,8 +591,10 @@ export default function StreamerPage() {
     playNotificationThenDonation();
   }, [enabled, queue, setCurrentPlaying, markAsPlayed, getDonationUrl, resolveNotificationSoundUrl, notificationSoundPreference]);
 
-  const notificationSoundSelectValue = notificationSoundPreference?.slug || '__default__';
-  const notificationSoundLabel = notificationSoundPreference?.label || 'Default Bell';
+  const notificationSoundSelectValue = notificationSoundPreference?.slug
+    || (!notificationSoundApiReady ? localNotificationSoundSlug : '__default__');
+  const notificationSoundLabel = notificationSoundPreference?.label
+    || (notificationSoundSelectValue === 'sound_soft_bell' ? 'Soft Bell' : 'Default Bell');
 
 
 
@@ -1172,6 +1228,11 @@ return (
               )}
               {notificationSoundError && (
                 <p className="text-xs text-red-500 dark:text-red-400">{notificationSoundError}</p>
+              )}
+              {!notificationSoundApiReady && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Using built-in notification sounds while the server syncs.
+                </p>
               )}
               {!notificationSoundLoading && !notificationSounds.length && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">No custom sounds available yet. Default bell will play.</p>
