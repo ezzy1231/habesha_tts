@@ -202,14 +202,18 @@ router.post("/:uuid/donations/:donationId/played", protectStreamer, async (req, 
     console.log("✅ Donation marked as played:", donationId);
 
     // Clean up: delete the audio file after a delay to allow for playback
-    // if (donation.audio_file && donation.audio_file !== 'demo_audio.mp3') {
-    //   setTimeout(() => {
-    //     const audioFileName = path.basename(donation.audio_file);
-    //     const audioPath = path.join(process.cwd(), 'public', 'audios', audioFileName);
-    //     fs.remove(audioPath).catch(err => console.error('Error deleting audio file:', err));
-    //     console.log("🗑️ Deleted audio file after delay:", audioFileName);
-    //   }, 60000); // 60-second delay
-    // }
+    if (donation.audio_file && donation.audio_file !== 'demo_audio.mp3') {
+      const audioFileName = path.basename(donation.audio_file);
+      const audioPath = path.join(process.cwd(), 'public', 'audios', audioFileName);
+      
+      console.log(`🕒 Scheduled deletion for: ${audioFileName} in 60 seconds`);
+      
+      setTimeout(() => {
+        fs.remove(audioPath)
+          .then(() => console.log("🗑️ Deleted audio file after delay:", audioFileName))
+          .catch(err => console.error("Error deleting audio file:", err.message));
+      }, 60000); // 60-second delay
+    }
 
     res.json({ success: true });
   } catch (error) {
