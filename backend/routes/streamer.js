@@ -6,6 +6,13 @@ import { protectStreamer } from "../middleware/auth.js";
 import { bot } from '../../bot/bot.js';
 import { getStreamerBalance } from "../utils/balance.js";
 import { emitAdminEvent } from "../utils/adminNotifications.js";
+import { validateSchema } from "../middleware/validateSchema.js";
+import {
+  listNotificationSounds,
+  findNotificationSound,
+  buildNotificationSoundStorageValue,
+  notificationSoundUpdateSchema,
+} from "../utils/notificationSounds.js";
 
 console.log(" streamer.js router loaded");
 
@@ -56,6 +63,59 @@ router.get("/:uuid/donations", protectStreamer, async (req, res) => {
   }
 });
 
+router.get("/:uuid/notification-sounds", protectStreamer, async (req, res) => {
+  try {
+    const [catalog, userPreference] = await Promise.all([
+      listNotificationSounds(),
+      db.query('SELECT notification_sound FROM users WHERE telegram_id = $1', [req.streamerId]),
+    ]);
+
+    const rawValue = userPreference.rows?.[0]?.notification_sound ?? null;
+    const selectedSound = rawValue ? await findNotificationSound({ value: rawValue }, { includeInactive: true }) : null;
+
+    res.json({
+      sounds: catalog,
+      selectedSound,
+      selectedValue: rawValue,
+    });
+  } catch (error) {
+    console.error("Error fetching notification sounds:", error);
+    res.status(500).json({ error: "Failed to fetch notification sounds" });
+  }
+});
+
+router.put(
+  "/:uuid/notification-sound",
+  protectStreamer,
+  validateSchema(notificationSoundUpdateSchema),
+  async (req, res) => {
+    const { soundSlug, soundId, reset } = req.body || {};
+
+    try {
+      if (reset) {
+        await db.query('UPDATE users SET notification_sound = NULL WHERE telegram_id = $1', [req.streamerId]);
+        return res.json({ success: true, selectedSound: null, selectedValue: null });
+      }
+
+      const sound = await findNotificationSound({ slug: soundSlug, id: soundId });
+      if (!sound) {
+        return res.status(404).json({ error: 'Notification sound not found' });
+      }
+
+      const storageValue = await buildNotificationSoundStorageValue(sound);
+      if (typeof storageValue === 'undefined' || storageValue === null) {
+        return res.status(500).json({ error: 'Failed to derive storage value' });
+      }
+
+      await db.query('UPDATE users SET notification_sound = $1 WHERE telegram_id = $2', [storageValue, req.streamerId]);
+      res.json({ success: true, selectedSound: sound, selectedValue: storageValue });
+    } catch (error) {
+      console.error('Error updating notification sound:', error);
+      res.status(500).json({ error: 'Failed to update notification sound' });
+    }
+  }
+);
+
 // Get streamer info by UUID - REMAINS PUBLIC
 router.get("/:uuid", async (req, res) => {
   const { uuid } = req.params;
@@ -65,7 +125,7 @@ router.get("/:uuid", async (req, res) => {
 
   try {
     const streamerRes = await db.query(`
-      SELECT telegram_id, username, balance, link_uuid, profile_picture_file_id, full_name
+      SELECT telegram_id, username, balance, link_uuid, profile_picture_file_id, full_name, notification_sound
       FROM users
       WHERE link_uuid = $1 AND role = 'streamer'
     `, [uuid]);
@@ -115,6 +175,11 @@ router.get("/:uuid", async (req, res) => {
 
     console.log(`Found paginated donations: ${donations.length}`);
 
+    const notificationSoundValue = streamer.notification_sound ?? null;
+    const notificationSound = notificationSoundValue
+      ? await findNotificationSound({ value: notificationSoundValue }, { includeInactive: true })
+      : null;
+
     res.json({
       streamer: {
         telegram_id: streamer.telegram_id,
@@ -123,6 +188,8 @@ router.get("/:uuid", async (req, res) => {
         balance: balance, // Use the freshly calculated, always-correct value
         link_uuid: streamer.link_uuid,
         profile_picture_url,
+        notification_sound: notificationSoundValue,
+        notification_sound_meta: notificationSound,
       },
       donations,
       pagination: {

@@ -9,6 +9,12 @@ import { streamerSessionAuth } from '../middleware/streamerSessionAuth.js';
 import { getStreamerBalance } from '../utils/balance.js';
 import { emitAdminEvent } from '../utils/adminNotifications.js';
 import { validateSchema } from '../middleware/validateSchema.js';
+import {
+  listNotificationSounds,
+  findNotificationSound,
+  buildNotificationSoundStorageValue,
+  notificationSoundUpdateSchema,
+} from '../utils/notificationSounds.js';
 
 // Feature flag to allow safe rollout
 const ENABLE_STREAMER_OTP = (process.env.ENABLE_STREAMER_OTP || 'true').toLowerCase() === 'true';
@@ -24,6 +30,15 @@ const withdrawSchema = z.object({
     .trim()
     .regex(/^2519\d{8}$/, 'Phone number must be in the format 2519XXXXXXXX'),
 });
+
+async function ensureStreamerOwnsUuid(uuid, streamerId) {
+  const res = await db.query('SELECT telegram_id FROM users WHERE link_uuid = $1 AND role = \'streamer\' LIMIT 1', [uuid]);
+  const record = res.rows[0];
+  if (!record) {
+    return false;
+  }
+  return String(record.telegram_id) === String(streamerId);
+}
 
 // Centralized cookie options to support cross-site setups
 function buildCookieOptions(maxAgeMs) {
@@ -225,9 +240,8 @@ router.get('/:uuid/donations', streamerSessionAuth, async (req, res) => {
   const offset = (page - 1) * limit;
   try {
     // Validate streamer and UUID pair
-    const sRes = await db.query('SELECT telegram_id FROM users WHERE link_uuid = $1 AND role = \'streamer\' LIMIT 1', [uuid]);
-    const s = sRes.rows[0];
-    if (!s || String(s.telegram_id) !== String(req.streamerId)) {
+    const ownsUuid = await ensureStreamerOwnsUuid(uuid, req.streamerId);
+    if (!ownsUuid) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     const donationsRes = await db.query(`
@@ -266,9 +280,8 @@ router.post('/:uuid/donations/:donationId/played', streamerSessionAuth, async (r
   const id = parseInt(donationId);
   if (!id) return res.status(400).json({ error: 'Invalid donation id' });
   try {
-    const sRes = await db.query('SELECT telegram_id FROM users WHERE link_uuid = $1 AND role = \'streamer\' LIMIT 1', [uuid]);
-    const s = sRes.rows[0];
-    if (!s || String(s.telegram_id) !== String(req.streamerId)) {
+    const ownsUuid = await ensureStreamerOwnsUuid(uuid, req.streamerId);
+    if (!ownsUuid) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     const dRes = await db.query('SELECT id FROM donations WHERE id = $1 AND streamer_id = $2', [id, req.streamerId]);
@@ -291,9 +304,8 @@ router.post(
   const { amount, telebirrUsername, phoneNumber } = req.body || {};
   try {
     // Validate UUID belongs to session user
-    const sRes = await db.query('SELECT telegram_id FROM users WHERE link_uuid = $1 AND role = \'streamer\' LIMIT 1', [uuid]);
-    const s = sRes.rows[0];
-    if (!s || String(s.telegram_id) !== String(req.streamerId)) {
+    const ownsUuid = await ensureStreamerOwnsUuid(uuid, req.streamerId);
+    if (!ownsUuid) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -317,5 +329,70 @@ router.post(
   } catch (e) {
     return res.status(500).json({ error: 'Failed to submit withdrawal request' });
   }
+  }
+);
+
+router.get('/:uuid/notification-sounds', streamerSessionAuth, async (req, res) => {
+  const { uuid } = req.params;
+  try {
+    const ownsUuid = await ensureStreamerOwnsUuid(uuid, req.streamerId);
+    if (!ownsUuid) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const [catalog, userPreference] = await Promise.all([
+      listNotificationSounds(),
+      db.query('SELECT notification_sound FROM users WHERE telegram_id = $1', [req.streamerId]),
+    ]);
+
+    const rawValue = userPreference.rows?.[0]?.notification_sound ?? null;
+    const selectedSound = rawValue ? await findNotificationSound({ value: rawValue }, { includeInactive: true }) : null;
+
+    res.json({
+      sounds: catalog,
+      selectedSound,
+      selectedValue: rawValue,
+    });
+  } catch (e) {
+    console.error('[notification-sounds] Failed to fetch catalog:', e);
+    res.status(500).json({ error: 'Failed to fetch notification sounds' });
+  }
+});
+
+router.put(
+  '/:uuid/notification-sound',
+  streamerSessionAuth,
+  validateSchema(notificationSoundUpdateSchema),
+  async (req, res) => {
+    const { uuid } = req.params;
+    const { soundSlug, soundId, reset } = req.body || {};
+
+    try {
+      const ownsUuid = await ensureStreamerOwnsUuid(uuid, req.streamerId);
+      if (!ownsUuid) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      if (reset) {
+        await db.query('UPDATE users SET notification_sound = NULL WHERE telegram_id = $1', [req.streamerId]);
+        return res.json({ success: true, selectedSound: null, selectedValue: null });
+      }
+
+      const sound = await findNotificationSound({ slug: soundSlug, id: soundId });
+      if (!sound) {
+        return res.status(404).json({ error: 'Notification sound not found' });
+      }
+
+      const storageValue = await buildNotificationSoundStorageValue(sound);
+      if (typeof storageValue === 'undefined' || storageValue === null) {
+        return res.status(500).json({ error: 'Failed to derive storage value' });
+      }
+
+      await db.query('UPDATE users SET notification_sound = $1 WHERE telegram_id = $2', [storageValue, req.streamerId]);
+      res.json({ success: true, selectedSound: sound, selectedValue: storageValue });
+    } catch (e) {
+      console.error('[notification-sounds] Failed to update selection:', e);
+      res.status(500).json({ error: 'Failed to update notification sound' });
+    }
   }
 );
