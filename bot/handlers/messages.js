@@ -1,0 +1,249 @@
+export const registerMessageFlows = (bot, deps = {}) => {
+  if (!bot) return;
+
+  const {
+    db,
+    getUserByTelegramId,
+    userStates,
+    pendingDonations,
+    getSettings,
+    emitAdminEvent,
+  } = deps;
+
+  if (!db || !getUserByTelegramId || !userStates || !pendingDonations || !getSettings || !emitAdminEvent) {
+    console.warn('[Bot] Missing dependencies for message handlers; skipping registration.');
+    return;
+  }
+
+  bot.on('message', async (msg) => {
+    if (msg.text && msg.text.startsWith('/')) return;
+
+    const {
+      chat: { id: chatId },
+      from: { id: fromId },
+      text,
+      photo,
+    } = msg;
+
+    const tgId = String(fromId);
+    const state = await userStates.get(tgId);
+    if (!state) return;
+
+    if (state.step === 'await_streamer_full_name' && text) {
+      await userStates.set(tgId, { step: 'await_streamer_social_link', fullName: text.trim() });
+      await bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል።\n\n🔗 እባክዎ የ TikTok ወይም YouTube መለያዎን ሊንክ ያስገቡ:');
+      return;
+    }
+
+    if (state.step === 'await_streamer_social_link' && text) {
+      if (!text.startsWith('http://') && !text.startsWith('https://')) {
+        await bot.sendMessage(chatId, '❌ ልክ ያልሆነ ሊንክ ነው። እባክዎ በ http:// ወይም https:// የሚጀምር ሊንክ ያስገቡ።');
+        return;
+      }
+      await userStates.set(tgId, { ...state, step: 'await_streamer_phone_number', socialLink: text.trim() });
+      await bot.sendMessage(chatId, '✅ ሊንኩ ተቀብሏል።\n\n📞 እባክዎ ስልክ ቁጥርዎን ያስገቡ (ለምሳሌ: 2519XXXXXXXX):');
+      return;
+    }
+
+    if (state.step === 'await_streamer_phone_number' && text) {
+      const phoneNumber = text.trim();
+      if (!/^2519\d{8}$/.test(phoneNumber)) {
+        await bot.sendMessage(chatId, '❌ ልክ ያልሆነ ስልክ ቁጥር ነው። እባክዎ በ 2519 የሚጀምር እና 12 አሃዞች ያለው ስልክ ቁጥር ያስገቡ።');
+        return;
+      }
+      await userStates.set(tgId, { ...state, step: 'await_streamer_picture', phoneNumber });
+      await bot.sendMessage(chatId, '✅ ስልክ ቁጥርዎ ተቀብሏል።\n\n📸 እባክዎ ፕሮፋይል ፎቶዎን ይላኩ:');
+      return;
+    }
+
+    if (state.step === 'await_streamer_picture' && photo) {
+      const fileId = photo[photo.length - 1].file_id;
+      const { fullName, socialLink, phoneNumber } = state;
+      const username = msg.from.username || msg.from.first_name;
+
+      try {
+        const insertRes = await db.query(
+          `INSERT INTO users (telegram_id, username, role, registration_status, full_name, social_link, phone_number, profile_picture_file_id)
+           VALUES ($1, $2, 'streamer', 'pending', $3, $4, $5, $6) RETURNING id`,
+          [tgId, username, fullName, socialLink, phoneNumber, fileId]
+        );
+        await userStates.delete(tgId);
+        await bot.sendMessage(chatId, '✅ ምዝገባዎ ተጠናቅቋል!\n\n⏳ ጥያቄዎ በመገምገም ላይ ነው። ይፀድቅ ወይም ውድቅ ሲደረግ መልዕክት ይደርስዎታል።');
+        emitAdminEvent('streamer_request_created', {
+          telegramId: tgId,
+          fullName,
+          username,
+          phoneNumber,
+          userId: insertRes.rows[0]?.id,
+        });
+      } catch (error) {
+        console.error('Error creating pending streamer registration:', error);
+        await bot.sendMessage(chatId, '❌ በምዝገባ ወቅት ስህተት ተፈጥሯል። እባክዎ ቆይተው እንደገና ይሞክሩ።');
+      }
+      return;
+    }
+
+    if (state.step === 'set_display_name' && text) {
+      try {
+        await db.query('UPDATE users SET display_name = $1 WHERE id = $2', [text.trim(), state.user_id]);
+        const afterReg = state.after_registration;
+        if (afterReg === 'recharge') {
+          await userStates.set(tgId, { step: 'recharge_name' });
+          await bot.sendMessage(
+            chatId,
+            '✅ ስምዎ ተቀብሏል።\n\n💳 የቴሌብር መሙያ: ወደ 251-939976687 ገንዘብ ይላኩ።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:'
+          );
+        } else {
+          await userStates.delete(tgId);
+          await bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል። አሁን ብር /recharge ያድርጉ።');
+        }
+      } catch (error) {
+        console.error('Error updating display name:', error);
+        await bot.sendMessage(chatId, '❌ ስምዎን ማስቀመጥ አልተቻለም።');
+      }
+      return;
+    }
+
+    if (state.step === 'awaiting_donation' && text) {
+      const { streamerId } = state;
+      const { maxChars, stepChars, basePrice, incrementPrice, filteredWords } = await getSettings();
+      const length = Array.from(text).length;
+
+      if (length === 0 || text === '0') {
+        await bot.sendMessage(chatId, '⚠️ መልዕክት ባዶ ሊሆን አይችልም።');
+        return;
+      }
+      if (length > maxChars) {
+        await bot.sendMessage(chatId, `⚠️ መልዕክቱ በጣም ረጅም ነው (${length}/${maxChars}).`);
+        return;
+      }
+
+      const lowerCaseText = text.normalize('NFC').toLowerCase();
+      const foundFilteredWord = filteredWords.some((word) => lowerCaseText.includes(word));
+
+      if (foundFilteredWord) {
+        await userStates.delete(tgId);
+        await bot.sendMessage(chatId, '❌ መልዕክትዎ ተቀባይነት የሌላቸው ቃላትን ይዟል። እባክዎ መልዕክትዎን ቀይረው እንደገና ይሞክሩ።');
+
+        const streamers = (
+          await db.query(
+            "SELECT telegram_id, username, full_name FROM users WHERE role = 'streamer' AND registration_status = 'approved' ORDER BY streamer_order ASC"
+          )
+        ).rows;
+        if (streamers.length === 0) {
+          await bot.sendMessage(chatId, '⚠️ እስካሁን ምንም Streamer የለም።');
+          return;
+        }
+        const buttons = streamers.map((s) => [{ text: s.full_name || s.username, callback_data: `choose_streamer_${s.telegram_id}` }]);
+        await bot.sendMessage(chatId, 'ልገሳ ለመላክ Streamer ይምረጡ:', {
+          reply_markup: { inline_keyboard: buttons },
+        });
+        return;
+      }
+
+      const steps = Math.max(1, Math.ceil(length / stepChars));
+      const computedAmount = basePrice + (steps - 1) * incrementPrice;
+
+      const {
+        rows: [{ id: donationId }],
+      } = await db.query(
+        'INSERT INTO donations (streamer_id, donor_id, message, amount, status) VALUES ($1, $2, $3, $4, \'pending_payment\') RETURNING id',
+        [streamerId, tgId, text, computedAmount]
+      );
+
+      const userPendingDonations = (await pendingDonations.get(tgId)) || [];
+      await pendingDonations.set(tgId, [...userPendingDonations, { donationId, streamerId, text, chars: length, amount: computedAmount }]);
+      await userStates.delete(tgId);
+
+      const inline_keyboard = [
+        [
+          { text: '👩 ሴት (መደበኛ)', callback_data: `voice_cloud_am-ET-Standard-A_${donationId}` },
+          { text: '🧑‍🦱 ወንድ (መደበኛ)', callback_data: `voice_cloud_am-ET-Standard-B_${donationId}` },
+        ],
+        [
+          { text: '👩 ሴት (Wavenet)', callback_data: `voice_cloud_am-ET-Wavenet-A_${donationId}` },
+          { text: '🧑‍🦱 ወንድ (Wavenet)', callback_data: `voice_cloud_am-ET-Wavenet-B_${donationId}` },
+        ],
+      ];
+
+      if (String(process.env.ENABLE_GEMINI_TTS).toLowerCase() === 'true') {
+        inline_keyboard.push(
+          [
+            { text: '👩 Kore (Gemini)', callback_data: `voice_gemini_Kore_${donationId}` },
+            { text: '🧑‍🦱 Charon (Gemini)', callback_data: `voice_gemini_Charon_${donationId}` },
+          ],
+          [
+            { text: '👩 Aoede (HD Gemini)', callback_data: `voice_gemini_Aoede_${donationId}` },
+            { text: '🧑‍🦱 Achird (Friendly Gemini)', callback_data: `voice_gemini_Achird_${donationId}` },
+          ],
+          [
+            { text: '👩 Leda (Female Gemini)', callback_data: `voice_gemini_Leda_${donationId}` },
+            { text: '🧑‍🦱 Enceladus (Male Gemini)', callback_data: `voice_gemini_Enceladus_${donationId}` },
+          ],
+        );
+      }
+
+      await bot.sendMessage(
+        chatId,
+        `✅ ልገሳዎ ተዘጋጅቷል!\n💬 መልዕክት: "${text}"\n💵 ዋጋ: ${computedAmount} ብር\n\n🗣 ድምፅ ይምረጡ:`,
+        { reply_markup: { inline_keyboard } }
+      );
+      return;
+    }
+
+    if (state.step === 'recharge_name' && text) {
+      await userStates.set(tgId, { step: 'recharge_photo', name_on_payment: text.trim() });
+      await bot.sendMessage(chatId, '📸 እባክዎ የክፍያዎን ቅጽበታዊ ገጽታ (screenshot) ይላኩ።');
+      return;
+    }
+
+    if (state.step === 'recharge_photo' && photo) {
+      const fileId = photo[photo.length - 1].file_id;
+      try {
+        const user = await getUserByTelegramId(tgId);
+        if (!user || user.role !== 'donor') {
+          await userStates.delete(tgId);
+          await bot.sendMessage(chatId, '❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት። /start ይጫኑ እና "እንደ ለጋሽ ይመዝገቡ" ይምረጡ።');
+          return;
+        }
+        const rechargeInsert = await db.query(
+          'INSERT INTO recharges (donor_id, name_on_payment, screenshot_file_id, status, amount) VALUES ($1, $2, $3, \'pending\', NULL) RETURNING id',
+          [tgId, state.name_on_payment, fileId]
+        );
+        await userStates.delete(tgId);
+        await bot.sendMessage(chatId, '✅ የመሙያ ጥያቄዎ ገብቷል! አስተዳዳሪ በቅርቡ ገምግሞ ያጸድቃል።');
+        emitAdminEvent('recharge_created', {
+          rechargeId: rechargeInsert.rows[0]?.id,
+          donorId: tgId,
+          nameOnPayment: state.name_on_payment,
+        });
+      } catch (error) {
+        console.error('Error creating recharge request:', error);
+        await bot.sendMessage(chatId, '❌ የመሙያ ጥያቄ መፍጠር አልተቻለም።');
+      }
+      return;
+    }
+
+    if (state.step === 'awaiting_complaint' && text) {
+      try {
+        const complaintInsert = await db.query(
+          'INSERT INTO complaints (telegram_id, complaint) VALUES ($1, $2) RETURNING id',
+          [tgId, text.trim()]
+        );
+        await userStates.delete(tgId);
+        await bot.sendMessage(chatId, '✅ ቅሬታዎ በተሳካ ሁኔታ ገብቷል። እናመሰግናለን!', {
+          reply_markup: {
+            inline_keyboard: [[{ text: '💰 Send Another Donation', callback_data: 'quick_donate' }]],
+          },
+        });
+        emitAdminEvent('complaint_created', {
+          complaintId: complaintInsert.rows[0]?.id,
+          telegramId: tgId,
+        });
+      } catch (error) {
+        console.error('Error saving complaint:', error);
+        await bot.sendMessage(chatId, '❌ ቅሬታዎን ማስገባት አልተቻለም። እባክዎ ቆይተው እንደገና ይሞክሩ።');
+      }
+    }
+  });
+};
