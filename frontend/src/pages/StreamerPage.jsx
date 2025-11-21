@@ -378,7 +378,11 @@ export default function StreamerPage() {
         const path = usingSession ? `/v1/streamer/${uuid}/notification-sounds` : `/streamer/${uuid}/notification-sounds`;
         const { data } = await apiClient.get(path);
         if (cancelled) return;
-        setNotificationSounds(Array.isArray(data?.sounds) ? data.sounds : []);
+        const allowedSlugs = new Set(['sound_default_ping', 'sound_soft_bell']);
+        const catalog = Array.isArray(data?.sounds)
+          ? data.sounds.filter((sound) => allowedSlugs.has(sound.slug))
+          : [];
+        setNotificationSounds(catalog);
         if (data?.selectedSound) {
           setSelectedNotificationSound(data.selectedSound);
         }
