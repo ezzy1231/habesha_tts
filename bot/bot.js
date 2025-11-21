@@ -9,27 +9,20 @@ import { emitAdminEvent } from "../backend/utils/adminNotifications.js";
 dotenv.config();
 
 // --- Bot Singleton Initialization ---
-let bot = null;
-
-const initBot = () => {
-  if (bot) return bot;
-  
+const bot = (() => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
     console.warn("[Telegram] TELEGRAM_BOT_TOKEN not set. Bot will not start.");
     return null;
   }
+  const botInstance = new TelegramBot(token, { polling: true });
+  botInstance.on("polling_error", (err) => console.error("[Telegram] Polling Error:", err?.response?.body || err.message));
+  botInstance.on("webhook_error", (err) => console.error("[Telegram] Webhook Error:", err?.response?.body || err.message));
   
-  console.log('📱 Initializing Telegram Bot...');
-  bot = new TelegramBot(token, { polling: true });
   
-  bot.on("polling_error", (err) => console.error("[Telegram] Polling Error:", err?.response?.body || err.message));
-  bot.on("webhook_error", (err) => console.error("[Telegram] Webhook Error:", err?.response?.body || err.message));
-
-  setupBotHandlers(bot);
-  
-  return bot;
-};
+  console.log('📱 Telegram Bot singleton initialized.');
+  return botInstance;
+})();
 
 // --- Settings Management ---
 let settingsCache = null;
@@ -89,8 +82,6 @@ async function reloadSettings() {
 
 // --- Helper Functions ---
 const safeAnswerCallback = async (queryId, options = {}) => {
-  // We need 'bot' to be active here. It should be if we are handling a callback. 
-  if (!bot) return; 
   try {
     await bot.answerCallbackQuery(queryId, options);
   } catch (error) {
@@ -112,15 +103,14 @@ async function getUserByTelegramId(id) {
   return res.rows[0] || null;
 }
 
-// --- Bot Event Handlers Wrapper ---
-const setupBotHandlers = (bot) => {
-  if (!bot) return;
+// --- Bot Event Handlers ---
+if (bot) {
 
   //================================================================================
   // TEXT-BASED COMMANDS (/start, /donate, etc.)
   //================================================================================
 
-  bot.onText(///start/, async (msg) => {
+  bot.onText(/\/start/, async (msg) => {
     const { chat: { id: chatId }, from: { id: fromId, first_name } } = msg;
     const tgId = String(fromId);
     userStates.delete(tgId); // Clear any previous state
@@ -139,7 +129,7 @@ const setupBotHandlers = (bot) => {
     }
   });
 
-  bot.onText(///donate/, async (msg) => {
+  bot.onText(/\/donate/, async (msg) => {
     const tgId = String(msg.from.id);
     const user = await getUserByTelegramId(tgId);
     if (!user || user.role !== "donor") {
@@ -155,14 +145,14 @@ const setupBotHandlers = (bot) => {
     bot.sendMessage(msg.chat.id, "ልገሳ ለመላክ Streamer ይምረጡ:", { reply_markup: { inline_keyboard: buttons } });
   });
 
-  bot.onText(///balance/, async (msg) => {
+  bot.onText(/\/balance/, async (msg) => {
     const tgId = String(msg.from.id);
     const user = await getUserByTelegramId(tgId);
     if (!user || user.role !== 'donor') return;
     bot.sendMessage(msg.chat.id, `💼 የ Wallet ቀሪ ሂሳብ: ${Number(user.balance || 0).toFixed(2)} ብር`);
   });
 
-bot.onText(///reset/, async (msg) => {
+bot.onText(/\/reset/, async (msg) => {
     const tgId = String(msg.from.id);
     const chatId = msg.chat.id;
     
@@ -181,7 +171,7 @@ bot.onText(///reset/, async (msg) => {
     }
   });
 
-  bot.onText(///recharge/, async (msg) => {
+  bot.onText(/\/recharge/, async (msg) => {
     const tgId = String(msg.from.id);
     const user = await getUserByTelegramId(tgId);
     if (!user || user.role !== 'donor') {
@@ -190,12 +180,10 @@ bot.onText(///reset/, async (msg) => {
       return;
     }
     userStates.set(tgId, { step: 'recharge_name' });
-    bot.sendMessage(msg.chat.id, '💳 የቴሌብር መሙያ: ቢያንስ 100 ብር ወደ 251-939976687 ገንዘብ ይላኩ።
-
-💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:');
+    bot.sendMessage(msg.chat.id, '💳 የቴሌብር መሙያ: ቢያንስ 100 ብር ወደ 251-939976687 ገንዘብ ይላኩ።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:');
   });
 
-  bot.onText(///quickdonate/, async (msg) => {
+  bot.onText(/\/quickdonate/, async (msg) => {
     const tgId = String(msg.from.id);
     const user = await getUserByTelegramId(tgId);
     if (!user || user.role !== "donor") {
@@ -209,7 +197,7 @@ bot.onText(///reset/, async (msg) => {
     bot.sendMessage(msg.chat.id, "ልገሳ ለመላክ Streamer ይምረጡ:", { reply_markup: { inline_keyboard: buttons } });
   });
 
-  bot.onText(///complaint/, async (msg) => {
+  bot.onText(/\/complaint/, async (msg) => {
     const tgId = String(msg.from.id);
     userStates.set(tgId, { step: 'awaiting_complaint' });
     bot.sendMessage(msg.chat.id, "📝 እባክዎ ቅሬታዎን ወይም አስተያየትዎን ያስገቡ:");
@@ -233,9 +221,7 @@ bot.onText(///reset/, async (msg) => {
     // --- Streamer Registration Flow ---
     if (state.step === 'await_streamer_full_name' && text) {
       userStates.set(tgId, { step: 'await_streamer_social_link', fullName: text.trim() });
-      bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል።
-
-🔗 እባክዎ የ TikTok ወይም YouTube መለያዎን ሊንክ ያስገቡ:');
+      bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል።\n\n🔗 እባክዎ የ TikTok ወይም YouTube መለያዎን ሊንክ ያስገቡ:');
       return;
     }
     if (state.step === 'await_streamer_social_link' && text) {
@@ -245,9 +231,7 @@ bot.onText(///reset/, async (msg) => {
         return;
       }
       userStates.set(tgId, { ...state, step: 'await_streamer_phone_number', socialLink: text.trim() });
-      bot.sendMessage(chatId, '✅ ሊንኩ ተቀብሏል።
-
-📞 እባክዎ ስልክ ቁጥርዎን ያስገቡ (ለምሳሌ: 2519XXXXXXXX):');
+      bot.sendMessage(chatId, '✅ ሊንኩ ተቀብሏል።\n\n📞 እባክዎ ስልክ ቁጥርዎን ያስገቡ (ለምሳሌ: 2519XXXXXXXX):');
       return;
     }
     if (state.step === 'await_streamer_phone_number' && text) {
@@ -258,9 +242,7 @@ bot.onText(///reset/, async (msg) => {
         return;
       }
       userStates.set(tgId, { ...state, step: 'await_streamer_picture', phoneNumber: phoneNumber });
-      bot.sendMessage(chatId, '✅ ስልክ ቁጥርዎ ተቀብሏል።
-
-📸 እባክዎ ፕሮፋይል ፎቶዎን ይላኩ:');
+      bot.sendMessage(chatId, '✅ ስልክ ቁጥርዎ ተቀብሏል።\n\n📸 እባክዎ ፕሮፋይል ፎቶዎን ይላኩ:');
       return;
     }
     if (state.step === 'await_streamer_picture' && photo) {
@@ -275,9 +257,7 @@ bot.onText(///reset/, async (msg) => {
           [tgId, username, fullName, socialLink, phoneNumber, fileId]
         );
         userStates.delete(tgId);
-        bot.sendMessage(chatId, '✅ ምዝገባዎ ተጠናቅቋል!
-
-⏳ ጥያቄዎ በመገምገም ላይ ነው። ይፀድቅ ወይም ውድቅ ሲደረግ መልዕክት ይደርስዎታል።');
+        bot.sendMessage(chatId, '✅ ምዝገባዎ ተጠናቅቋል!\n\n⏳ ጥያቄዎ በመገምገም ላይ ነው። ይፀድቅ ወይም ውድቅ ሲደረግ መልዕክት ይደርስዎታል።');
         emitAdminEvent('streamer_request_created', {
           telegramId: tgId,
           fullName,
@@ -301,11 +281,7 @@ bot.onText(///reset/, async (msg) => {
         if (afterReg === 'recharge') {
           // Continue into recharge flow directly
           userStates.set(tgId, { step: 'recharge_name' });
-          bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል።
-
-💳 የቴሌብር መሙያ: ወደ 251-939976687 ገንዘብ ይላኩ።
-
-💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:');
+          bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል።\n\n💳 የቴሌብር መሙያ: ወደ 251-939976687 ገንዘብ ይላኩ።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:');
         } else {
           userStates.delete(tgId);
           bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል። አሁን ብር /recharge ያድርጉ።');
@@ -342,7 +318,7 @@ bot.onText(///reset/, async (msg) => {
           return;
         }
         const buttons = streamers.map(s => ([{ text: s.full_name || s.username, callback_data: `choose_streamer_${s.telegram_id}` }]));
-        bot.sendMessage(msg.chat.id, "ልገሳ ለመላክ Streamer ይምረጡ:", { reply_markup: { inline_keyboard: buttons } });
+        bot.sendMessage(chatId, "ልገሳ ለመላክ Streamer ይምረጡ:", { reply_markup: { inline_keyboard: buttons } });
         return;
       }
 
@@ -356,8 +332,8 @@ bot.onText(///reset/, async (msg) => {
       userStates.delete(tgId);
 
       const inline_keyboard = [
-        [{ text: "👩ሴት (መደበኛ)", callback_data: `voice_cloud_am-ET-Standard-A_${donationId}` }, { text: "🧑‍🦱 ወንድ (መደበኛ)", callback_data: `voice_cloud_am-ET-Standard-B_${donationId}` }],
-        [{ text: "👩ሴት (Wavenet)", callback_data: `voice_cloud_am-ET-Wavenet-A_${donationId}` }, { text: "🧑‍🦱 ወንድ (Wavenet)", callback_data: `voice_cloud_am-ET-Wavenet-B_${donationId}` }],
+        [{ text: "👩 ሴት (መደበኛ)", callback_data: `voice_cloud_am-ET-Standard-A_${donationId}` }, { text: "🧑‍🦱 ወንድ (መደበኛ)", callback_data: `voice_cloud_am-ET-Standard-B_${donationId}` }],
+        [{ text: "👩 ሴት (Wavenet)", callback_data: `voice_cloud_am-ET-Wavenet-A_${donationId}` }, { text: "🧑‍🦱 ወንድ (Wavenet)", callback_data: `voice_cloud_am-ET-Wavenet-B_${donationId}` }],
       ];
 
       if (String(process.env.ENABLE_GEMINI_TTS).toLowerCase() === 'true') {
@@ -369,11 +345,7 @@ bot.onText(///reset/, async (msg) => {
         );
       }
 
-      bot.sendMessage(chatId, `✅ ልገሳዎ ተዘጋጅቷል!
-💬 መልዕክት: "${text}"
-💵 ዋጋ: ${computedAmount} ብር
-
-🗣 ድምፅ ይምረጡ:`, { reply_markup: { inline_keyboard } });
+      bot.sendMessage(chatId, `✅ ልገሳዎ ተዘጋጅቷል!\n💬 መልዕክት: "${text}"\n💵 ዋጋ: ${computedAmount} ብር\n\n🗣 ድምፅ ይምረጡ:`, { reply_markup: { inline_keyboard } });
       return;
     }
 
@@ -491,9 +463,7 @@ bot.onText(///reset/, async (msg) => {
 
       pending.engine = engine;
       pending.voice = voice;
-      bot.sendMessage(chatId, `🗣 ድምፅ ወደ ${voice} ተቀይሯል።
-
-💰 ዋጋ: ${pending.amount} ብር። የመክፈያ ዘዴ ይምረጡ:`, {
+      bot.sendMessage(chatId, `🗣 ድምፅ ወደ ${voice} ተቀይሯል።\n\n💰 ዋጋ: ${pending.amount} ብር። የመክፈያ ዘዴ ይምረጡ:`, {
         reply_markup: { inline_keyboard: [[{ text: `👛 ከ Wallet ይክፈሉ`, callback_data: `paywallet_${donationId}` }]] }
       });
       safeAnswerCallback(query.id);
@@ -569,4 +539,4 @@ bot.onText(///reset/, async (msg) => {
   });
 }
 
-export { bot, initBot, reloadSettings };
+export { bot, reloadSettings };

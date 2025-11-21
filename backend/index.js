@@ -170,7 +170,7 @@ server.listen(PORT, '0.0.0.0', () => {
     try {
       console.log('🔑 Lock acquired. Initializing Telegram bot...');
       const mod = await import('../bot/bot.js');
-      bot = mod.initBot();
+      bot = mod.bot;
     } catch (e) {
       console.error('❌ Failed to initialize Telegram bot:', e?.message || e);
     }
