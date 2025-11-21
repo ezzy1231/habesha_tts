@@ -14,6 +14,8 @@ import { useAuth } from '../contexts/AuthContext';
 
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const socket = io(SOCKET_URL, { transports: ["websocket"], reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000 });
+const DEFAULT_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/sounds/notification.mp3`;
+const FALLBACK_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/audios/notification.mp3`;
 
 export default function StreamerPage() {
   const { uuid } = useParams();
@@ -50,6 +52,12 @@ export default function StreamerPage() {
     const savedVolume = localStorage.getItem('tts_volume');
     return savedVolume !== null ? Number(savedVolume) : 1;
   });
+  const [notificationSounds, setNotificationSounds] = useState([]);
+  const [selectedNotificationSound, setSelectedNotificationSound] = useState(null);
+  const [notificationSoundLoading, setNotificationSoundLoading] = useState(false);
+  const [notificationSoundError, setNotificationSoundError] = useState(null);
+  const [updatingNotificationSound, setUpdatingNotificationSound] = useState(false);
+  const [previewingNotificationSound, setPreviewingNotificationSound] = useState(false);
   // Helper to build donation audio URL
   const getDonationUrl = useCallback((filename) => {
     const baseUrl = SOCKET_URL;
@@ -60,6 +68,21 @@ export default function StreamerPage() {
     const numericId = Number(id);
     return Number.isFinite(numericId) ? numericId : String(id);
   }, []);
+
+  const resolveNotificationSoundUrl = useCallback((soundMeta) => {
+    if (soundMeta?.filePath) {
+      if (/^https?:\/\//i.test(soundMeta.filePath)) {
+        return soundMeta.filePath;
+      }
+      const normalized = soundMeta.filePath.startsWith('/') ? soundMeta.filePath : `/${soundMeta.filePath}`;
+      return `${SOCKET_URL}${normalized}`;
+    }
+    return DEFAULT_NOTIFICATION_SOUND_URL;
+  }, []);
+
+  const notificationSoundPreference = useMemo(() => {
+    return selectedNotificationSound || streamerInfo?.notification_sound_meta || null;
+  }, [selectedNotificationSound, streamerInfo?.notification_sound_meta]);
 
   // Preload next donation's audio buffer to reduce gaps
   useEffect(() => {
@@ -165,6 +188,62 @@ export default function StreamerPage() {
     }
   }, [volume]);
 
+  const updateNotificationSoundPreference = useCallback(async ({ slug, reset = false }) => {
+    if (!apiClient) return;
+    setNotificationSoundError(null);
+    setUpdatingNotificationSound(true);
+    try {
+      const path = usingSession ? `/v1/streamer/${uuid}/notification-sound` : `/streamer/${uuid}/notification-sound`;
+      const payload = reset ? { reset: true } : { soundSlug: slug };
+      const { data } = await apiClient.put(path, payload);
+      const nextSound = data?.selectedSound || null;
+      setSelectedNotificationSound(nextSound);
+      setStreamerInfo((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          notification_sound: data?.selectedValue ?? null,
+          notification_sound_meta: nextSound,
+        };
+      });
+    } catch (error) {
+      setNotificationSoundError(error?.response?.data?.error || error?.message || 'Failed to update notification sound');
+      throw error;
+    } finally {
+      setUpdatingNotificationSound(false);
+    }
+  }, [apiClient, usingSession, uuid]);
+
+  const handleNotificationSoundSelect = async (event) => {
+    const value = event.target.value;
+    if (!value) return;
+    if (value === '__default__') {
+      await updateNotificationSoundPreference({ reset: true });
+      return;
+    }
+    await updateNotificationSoundPreference({ slug: value });
+  };
+
+  const handleResetNotificationSound = async () => {
+    await updateNotificationSoundPreference({ reset: true });
+  };
+
+  const handlePreviewNotificationSound = async () => {
+    setNotificationSoundError(null);
+    const soundMeta = notificationSoundPreference;
+    const previewUrl = resolveNotificationSoundUrl(soundMeta);
+    try {
+      setPreviewingNotificationSound(true);
+      const audio = new Audio(previewUrl);
+      audio.volume = volume;
+      await audio.play();
+    } catch (error) {
+      setNotificationSoundError(error?.message || 'Failed to preview notification sound');
+    } finally {
+      setPreviewingNotificationSound(false);
+    }
+  };
+
   // ✅ Fetch streamer info + donation history
   const fetchInitialData = useCallback(async (page = 1) => {
     if (!apiClient) return; // Don't fetch if the client isn't ready
@@ -228,6 +307,47 @@ export default function StreamerPage() {
     }
   }, [uuid, apiClient, usingSession, getDonationCacheKey]);
 
+  useEffect(() => {
+    if (!streamerInfo) {
+      setSelectedNotificationSound(null);
+      return;
+    }
+    if (streamerInfo.notification_sound_meta) {
+      setSelectedNotificationSound(streamerInfo.notification_sound_meta);
+    } else if (!streamerInfo.notification_sound_meta) {
+      setSelectedNotificationSound(null);
+    }
+  }, [streamerInfo]);
+
+  useEffect(() => {
+    if (!apiClient || !streamerInfo) return;
+    let cancelled = false;
+    const fetchSounds = async () => {
+      setNotificationSoundLoading(true);
+      setNotificationSoundError(null);
+      try {
+        const path = usingSession ? `/v1/streamer/${uuid}/notification-sounds` : `/streamer/${uuid}/notification-sounds`;
+        const { data } = await apiClient.get(path);
+        if (cancelled) return;
+        setNotificationSounds(Array.isArray(data?.sounds) ? data.sounds : []);
+        if (data?.selectedSound) {
+          setSelectedNotificationSound(data.selectedSound);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        setNotificationSoundError(error?.response?.data?.error || error?.message || 'Failed to load notification sounds');
+      } finally {
+        if (!cancelled) {
+          setNotificationSoundLoading(false);
+        }
+      }
+    };
+    fetchSounds();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiClient, streamerInfo, usingSession, uuid]);
+
   // ✅ Mark a donation as played and persist it
   const markAsPlayed = useCallback(async (id) => {
     if (!apiClient) return;
@@ -264,10 +384,8 @@ export default function StreamerPage() {
 
   const audioFilename = nextDonation.audio_url;
   const donationUrl = getDonationUrl(audioFilename);
-  // Define baseUrl for notification sounds (was missing, causing ReferenceError)
-  const baseUrl = SOCKET_URL;
-  const notificationUrlPrimary = `${baseUrl}/public/sounds/notification.mp3`;
-  const notificationUrlFallback = `${baseUrl}/public/audios/notification.mp3`;
+  const notificationUrlPrimary = resolveNotificationSoundUrl(notificationSoundPreference);
+  const notificationUrlFallback = FALLBACK_NOTIFICATION_SOUND_URL;
 
     const playDonation = async () => {
       console.log(`[playDonation] Attempting to play donation ${nextDonation.id}. AudioContext state: ${audioContextRef.current?.state}`);
@@ -417,7 +535,10 @@ export default function StreamerPage() {
 
     // Start sequence
     playNotificationThenDonation();
-  }, [enabled, queue, setCurrentPlaying, markAsPlayed]);
+  }, [enabled, queue, setCurrentPlaying, markAsPlayed, getDonationUrl, resolveNotificationSoundUrl, notificationSoundPreference]);
+
+  const notificationSoundSelectValue = notificationSoundPreference?.slug || '__default__';
+  const notificationSoundLabel = notificationSoundPreference?.label || 'Default Bell';
 
 
 
@@ -994,6 +1115,70 @@ return (
           </div>
         </div>
       </div>
+
+          <div className={`${cardBg} p-3 sm:p-4 rounded-xl mb-4 sm:mb-6 shadow-xl border`}>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 sm:p-3 gradient-primary rounded-xl shadow-lg">
+                    <span className="text-white text-lg sm:text-2xl">🔔</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1">Notification Sound</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+                      Current: <span className="font-semibold">{notificationSoundLabel}</span>
+                    </p>
+                    {notificationSoundPreference?.description && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {notificationSoundPreference.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <select
+                    value={notificationSoundSelectValue}
+                    onChange={handleNotificationSoundSelect}
+                    disabled={notificationSoundLoading || updatingNotificationSound || !notificationSounds.length}
+                    className="flex-1 min-w-[180px] border rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-inner"
+                  >
+                    <option value="__default__">Default Bell</option>
+                    {notificationSounds.map((sound) => (
+                      <option key={sound.slug || sound.id} value={sound.slug || sound.id}>
+                        {sound.label || sound.slug || sound.id}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handlePreviewNotificationSound}
+                      disabled={previewingNotificationSound}
+                      className="btn btn-secondary flex-1 sm:flex-none"
+                    >
+                      {previewingNotificationSound ? 'Previewing...' : 'Preview'}
+                    </button>
+                    <button
+                      onClick={handleResetNotificationSound}
+                      disabled={updatingNotificationSound}
+                      className="btn btn-outline flex-1 sm:flex-none"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {notificationSoundLoading && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">Loading notification sounds...</p>
+              )}
+              {notificationSoundError && (
+                <p className="text-xs text-red-500 dark:text-red-400">{notificationSoundError}</p>
+              )}
+              {!notificationSoundLoading && !notificationSounds.length && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">No custom sounds available yet. Default bell will play.</p>
+              )}
+            </div>
+          </div>
+
       <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {loading && donations.length === 0 && (
           <div className="col-span-full flex justify-center p-8 sm:p-12">
