@@ -1,5 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
+import { z } from 'zod';
 import db from '../db-postgres.js';
 import { otpRequestLimiter, otpVerifyLimiter } from '../middleware/rateLimiter.js';
 import { signStreamerToken } from '../utils/token.js';
@@ -7,12 +8,22 @@ import { logOtpAction } from '../utils/auditLog.js';
 import { streamerSessionAuth } from '../middleware/streamerSessionAuth.js';
 import { getStreamerBalance } from '../utils/balance.js';
 import { emitAdminEvent } from '../utils/adminNotifications.js';
+import { validateSchema } from '../middleware/validateSchema.js';
 
 // Feature flag to allow safe rollout
 const ENABLE_STREAMER_OTP = (process.env.ENABLE_STREAMER_OTP || 'true').toLowerCase() === 'true';
 
 const router = express.Router();
 router.use(express.json());
+
+const withdrawSchema = z.object({
+  amount: z.coerce.number().positive('Amount must be greater than zero'),
+  telebirrUsername: z.string().trim().min(3, 'Telebirr username is required').max(64, 'Telebirr username is too long'),
+  phoneNumber: z
+    .string()
+    .trim()
+    .regex(/^2519\d{8}$/, 'Phone number must be in the format 2519XXXXXXXX'),
+});
 
 // Centralized cookie options to support cross-site setups
 function buildCookieOptions(maxAgeMs) {
@@ -270,15 +281,14 @@ router.post('/:uuid/donations/:donationId/played', streamerSessionAuth, async (r
 });
 
 // POST /api/v1/streamer/:uuid/withdraw (JWT session)
-router.post('/:uuid/withdraw', streamerSessionAuth, express.json(), async (req, res) => {
+router.post(
+  '/:uuid/withdraw',
+  streamerSessionAuth,
+  express.json(),
+  validateSchema(withdrawSchema),
+  async (req, res) => {
   const { uuid } = req.params;
   const { amount, telebirrUsername, phoneNumber } = req.body || {};
-  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-    return res.status(400).json({ error: 'Invalid amount' });
-  }
-  if (!telebirrUsername || !phoneNumber) {
-    return res.status(400).json({ error: 'Telebirr username and phone number are required' });
-  }
   try {
     // Validate UUID belongs to session user
     const sRes = await db.query('SELECT telegram_id FROM users WHERE link_uuid = $1 AND role = \'streamer\' LIMIT 1', [uuid]);
@@ -288,23 +298,24 @@ router.post('/:uuid/withdraw', streamerSessionAuth, express.json(), async (req, 
     }
 
   const currentBalance = await getStreamerBalance(req.streamerId);
-  if (Number(amount) > currentBalance) {
+  if (amount > currentBalance) {
       return res.status(400).json({ error: 'Insufficient balance' });
     }
 
     const insertRes = await db.query(
       'INSERT INTO withdrawals (user_id, amount, telebirr_username, phone_number, status) VALUES ($1, $2, $3, $4, \'pending\') RETURNING id',
-      [req.streamerId, Number(amount), telebirrUsername, phoneNumber]
+      [req.streamerId, amount, telebirrUsername, phoneNumber]
     );
 
     const withdrawalId = insertRes.rows[0]?.id;
     emitAdminEvent('withdrawal_created', {
       withdrawalId,
       streamerId: req.streamerId,
-      amount: Number(amount),
+      amount,
     });
     return res.json({ success: true, message: 'Withdrawal request submitted' });
   } catch (e) {
     return res.status(500).json({ error: 'Failed to submit withdrawal request' });
   }
-});
+  }
+);

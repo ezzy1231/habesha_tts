@@ -1,10 +1,23 @@
 import express from "express";
+import { z } from "zod";
 import db from "../db-postgres.js";
 import { generateTTS } from "../../bot/utils/tts.js";
 import { insertLedgerEntry } from "../utils/balance.js";
 import { emitAdminEvent } from "../utils/adminNotifications.js";
+import { validateSchema } from "../middleware/validateSchema.js";
 
 const router = express.Router();
+
+const confirmDonationSchema = z.object({
+  donationId: z.coerce.number().int().positive("donationId must be a positive integer"),
+});
+
+const mockPaymentSchema = z.object({
+  donor_id: z.coerce.number().int().positive("donor_id must be a positive integer"),
+  streamer_id: z.coerce.number().int().positive("streamer_id must be a positive integer"),
+  amount: z.coerce.number().positive("amount must be greater than zero"),
+  text: z.string().trim().min(1, "text is required").max(800, "text is too long"),
+});
 
 // Demo payment page (HTML)
 router.get("/mock-pay", (req, res) => {
@@ -23,20 +36,19 @@ router.get("/mock-pay", (req, res) => {
   `);
 });
 
-router.post("/confirm", express.urlencoded({ extended: true }), async (req, res) => {
-  const { donationId } = req.body;
+router.post(
+  "/confirm",
+  express.urlencoded({ extended: true }),
+  validateSchema(confirmDonationSchema),
+  async (req, res) => {
+    const { donationId } = req.body;
 
-  // --- Input Validation ---
-  if (!donationId) {
-    return res.status(400).send("<h2>❌ Bad Request: Missing donationId</h2>");
-  }
+    const io = req.app.get("io");
+    console.log(`[Payment Confirm] Received request for donationId: ${donationId}`);
 
-  const io = req.app.get("io");
-  console.log(`[Payment Confirm] Received request for donationId: ${donationId}`);
-
-  try {
-    // Get donation details
-    const donationRes = await db.query(`
+    try {
+      // Get donation details
+      const donationRes = await db.query(`
         SELECT d.id, d.donor_id, d.streamer_id, d.message AS text, d.amount, d.status, d.audio_file, d.played, d.created_at,
                u_donor.username AS donor_username, u_streamer.link_uuid
         FROM donations d
@@ -44,8 +56,8 @@ router.post("/confirm", express.urlencoded({ extended: true }), async (req, res)
         LEFT JOIN users u_streamer ON u_streamer.telegram_id = d.streamer_id
         WHERE d.id = $1
       `, [donationId]);
-    const donation = donationRes.rows[0];
-    console.log("[Payment Confirm] Donation fetched:", donation);
+      const donation = donationRes.rows[0];
+      console.log("[Payment Confirm] Donation fetched:", donation);
 
      if (!donation) {
        console.error(`[Payment Confirm] Donation not found for ID: ${donationId}`);
@@ -152,86 +164,87 @@ router.post("/confirm", express.urlencoded({ extended: true }), async (req, res)
         </body>
       </html>
     `);
-  } catch (error) {
-    console.error("Payment confirmation error:", error);
-    res.status(500).send("<h2>❌ Payment processing failed</h2>");
+    } catch (error) {
+      console.error("Payment confirmation error:", error);
+      res.status(500).send("<h2>❌ Payment processing failed</h2>");
+    }
   }
-});
+);
 
 // API endpoint for mock payments (for testing)
- router.post("/mock", async (req, res) => {
-  const { donor_id, streamer_id, amount, text } = req.body;
+router.post(
+  "/mock",
+  express.json(),
+  validateSchema(mockPaymentSchema),
+  async (req, res) => {
+    const { donor_id, streamer_id, amount, text } = req.body;
 
-  // --- Input Validation ---
-  if (!donor_id || !streamer_id || !amount || !text) {
-    return res.status(400).json({ error: "Bad Request: Missing required fields (donor_id, streamer_id, amount, text)." });
-  }
+    const io = req.app.get("io");
+    console.log("Mock payment request body:", req.body);
 
-  const io = req.app.get("io");
-  console.log("Mock payment request body:", req.body);
-
-  try {
-    const insertRes = await db.query(
-      "INSERT INTO donations (donor_id, streamer_id, amount, message, status) VALUES ($1, $2, $3, $4, 'paid') RETURNING id",
-      [donor_id, streamer_id, amount, text]
-    );
-    const donationId = insertRes.rows[0].id;
-
-    // Generate TTS
-    const spokenText = `<speak>${text}</speak>`;
-    let audioFile;
     try {
-      audioFile = await generateTTS(donationId, spokenText);
-    } catch (ttsError) {
-      console.error("❌ TTS failed, using demo audio:", ttsError.message);
-      audioFile = "demo_audio.mp3";
-    }
-    await db.query("UPDATE donations SET audio_file = $1 WHERE id = $2", [audioFile, donationId]);
+      const insertRes = await db.query(
+        "INSERT INTO donations (donor_id, streamer_id, amount, message, status) VALUES ($1, $2, $3, $4, 'paid') RETURNING id",
+        [donor_id, streamer_id, amount, text]
+      );
+      const donationId = insertRes.rows[0].id;
 
-    // Get streamer UUID to emit event to their room
-    const streamerRes = await db.query("SELECT link_uuid FROM users WHERE telegram_id = $1 AND role = 'streamer'", [streamer_id]);
-    const streamer = streamerRes.rows[0];
-
-    if (!streamer) {
-      console.error("❌ Streamer not found for ID:", streamer_id);
-      return res.status(400).json({ error: "Invalid streamer ID" });
-    }
-
-     // Prepare donation data for emission
-    const donationData = {
-      id: donationId,
-      text,
-      amount: parseFloat(amount),
-      audio_url: audioFile,
-      status: "paid",
-    };
-
-    // Emit real-time event
-    console.log("🔍 Debug mock: io =", io, "streamer =", streamer);
-    if (io && streamer) {
+      // Generate TTS
+      const spokenText = `<speak>${text}</speak>`;
+      let audioFile;
       try {
-        io.to(streamer.link_uuid).emit("new_donation", donationData);
-        console.log("📢 Emitted new_donation to:", streamer.link_uuid);
-      } catch (emitError) {
-        console.error("❌ Socket.IO emit failed:", emitError);
+        audioFile = await generateTTS(donationId, spokenText);
+      } catch (ttsError) {
+        console.error("❌ TTS failed, using demo audio:", ttsError.message);
+        audioFile = "demo_audio.mp3";
       }
-     } else {
-       console.log("❌ Could not emit Socket.IO event: io =", !!io, "streamer =", !!streamer);
-     }
+      await db.query("UPDATE donations SET audio_file = $1 WHERE id = $2", [audioFile, donationId]);
 
-    emitAdminEvent('donation_paid', {
-      donationId,
-      streamerId: streamer_id,
-      amount: Number(amount),
-      donorName: null,
-    });
+      // Get streamer UUID to emit event to their room
+      const streamerRes = await db.query("SELECT link_uuid FROM users WHERE telegram_id = $1 AND role = 'streamer'", [streamer_id]);
+      const streamer = streamerRes.rows[0];
 
-    res.json({ success: true, donationId, audioFile });
-  } catch (error) {
-    console.error("Mock payment error:", error);
-    console.error("Error stack:", error.stack);
-    res.status(500).json({ error: "Payment processing failed" });
+      if (!streamer) {
+        console.error("❌ Streamer not found for ID:", streamer_id);
+        return res.status(400).json({ error: "Invalid streamer ID" });
+      }
+
+      // Prepare donation data for emission
+      const donationData = {
+        id: donationId,
+        text,
+        amount,
+        audio_url: audioFile,
+        status: "paid",
+      };
+
+      // Emit real-time event
+      console.log("🔍 Debug mock: io =", io, "streamer =", streamer);
+      if (io && streamer) {
+        try {
+          io.to(streamer.link_uuid).emit("new_donation", donationData);
+          console.log("📢 Emitted new_donation to:", streamer.link_uuid);
+        } catch (emitError) {
+          console.error("❌ Socket.IO emit failed:", emitError);
+        }
+      } else {
+        console.log("❌ Could not emit Socket.IO event: io =", !!io, "streamer =", !!streamer);
+      }
+
+      emitAdminEvent('donation_paid', {
+        donationId,
+        streamerId: streamer_id,
+        amount,
+        donorName: null,
+      });
+
+      res.json({ success: true, donationId, audioFile });
+    } catch (error) {
+      console.error("Mock payment error:", error);
+      console.error("Error stack:", error.stack);
+      res.status(500).json({ error: "Payment processing failed" });
+    }
   }
-});
+);
 
 export default router;

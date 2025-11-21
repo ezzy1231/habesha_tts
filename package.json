@@ -18,18 +18,19 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "express-rate-limit": "^7.0.0",
     "fs-extra": "^11.1.1",
     "google-auth-library": "^9.15.1",
     "ioredis": "^5.8.2",
     "ip": "^2.0.1",
+    "jsonwebtoken": "^9.0.2",
     "node-telegram-bot-api": "^0.64.0",
     "pg": "^8.16.3",
     "raygun": "^2.1.2",
     "rollbar": "^2.26.5",
     "socket.io": "^4.7.2",
     "uuid": "^9.0.1",
-    "jsonwebtoken": "^9.0.2",
-    "express-rate-limit": "^7.0.0"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
