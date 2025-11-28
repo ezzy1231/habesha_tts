@@ -124,6 +124,58 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/streamer', streamerRoutes);
 app.use('/api/payment', paymentRoutes);
 
+// --- Health Check Endpoint ---
+app.get('/health', async (req, res) => {
+  try {
+    // Check Redis connection
+    let redisStatus = 'disconnected';
+    try {
+      await redis.ping();
+      redisStatus = 'connected';
+    } catch (e) {
+      console.error('Health check - Redis ping failed:', e.message);
+    }
+
+    // Check database connection
+    let dbStatus = 'disconnected';
+    try {
+      await db.get('SELECT 1');
+      dbStatus = 'connected';
+    } catch (e) {
+      console.error('Health check - DB query failed:', e.message);
+    }
+
+    // Check bot status
+    const botStatus = lockAcquired ? 'active' : 'inactive';
+
+    const health = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      services: {
+        redis: redisStatus,
+        database: dbStatus,
+        bot: botStatus,
+      },
+      environment: process.env.NODE_ENV || 'development',
+    };
+
+    // Return 503 if critical services are down
+    if (redisStatus === 'disconnected' || dbStatus === 'disconnected') {
+      return res.status(503).json({ ...health, status: 'unhealthy' });
+    }
+
+    res.status(200).json(health);
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(503).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
 // --- Socket.IO Setup ---
 const io = new Server(server, {
   cors: {

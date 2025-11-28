@@ -1,0 +1,54 @@
+name: 'Deploy Habesha TTS to Cloud Run'
+
+on:
+  push:
+    branches:
+      - 'release'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: 'tts-donation-demo'
+  REGION: 'us-central1'
+  SERVICE: 'habeshatts-backend'
+
+jobs:
+  deploy:
+    runs-on: 'ubuntu-latest'
+
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v4'
+
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: 'Deploy to Cloud Run'
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --source . \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --memory 1Gi \
+            --cpu 1 \
+            --timeout 300 \
+            --max-instances 10 \
+            --min-instances 1 \
+            --set-env-vars "NODE_ENV=production,BASE_URL=https://habeshatts-backend-62326829300.us-central1.run.app,FRONTEND_URL=https://habeshatts.netlify.app,TTS_OUTPUT_PATH=./public/audios,JWT_EXPIRES_IN=3d,BOT_STATE_DUAL_WRITE=false,BOT_STATE_ENABLED_REDIS=true,ADMIN_ALLOW_UNPROTECTED=false,COOKIE_SAMESITE=none,COOKIE_SECURE=true,CROSS_SITE_COOKIES=true,ENABLE_STREAMER_OTP=true,LEDGER_READ_FALLBACK=true,ENABLE_GEMINI_TTS=true,GEMINI_TTS_MODEL=gemini-2.5-pro-tts,GEMINI_TTS_AUDIO_ENCODING=MP3,GEMINI_TTS_VOICE=Puck,GOOGLE_APPLICATION_CREDENTIALS=/secrets/google-credentials.json" \
+            --update-secrets="TELEGRAM_BOT_TOKEN=telegram-bot-token:latest,JWT_SECRET=jwt-secret:latest,ADMIN_TOKEN=admin-token:latest,GEMINI_API_KEY=gemini-api-key:latest,DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,/secrets/google-credentials.json=google-credentials:latest"
+
+      - name: 'Show Deployment Status'
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE }} \
+            --region ${{ env.REGION }} \
+            --format="value(status.url)")
+          
+          echo "✅ Deployment complete!"
+          echo "🌐 Service URL: $SERVICE_URL"
+          echo "📱 Telegram webhook will auto-configure on startup"
+          echo "📊 Logs: https://console.cloud.google.com/run/detail/${{ env.REGION }}/${{ env.SERVICE }}/logs?project=${{ env.PROJECT_ID }}"
