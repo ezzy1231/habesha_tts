@@ -82,11 +82,37 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
 // --- Allowed Origins (Dev + Prod) ---
+const normalizeOrigin = (value) => {
+  if (!value) return null;
+  let trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!/^https?:\/\//i.test(trimmed)) {
+    trimmed = `https://${trimmed}`;
+  }
+  // Remove trailing slash for consistent comparisons
+  return trimmed.replace(/\/$/, '');
+};
+
 const localIp = ip.address();
-let configuredFrontend = process.env.FRONTEND_URL || 'http://localhost:5173';
-if (configuredFrontend && !configuredFrontend.startsWith('http')) {
-  // Normalize bare domains to https
-  configuredFrontend = `https://${configuredFrontend}`;
+const configuredOrigins = new Set();
+
+const rawOriginEnvValues = [
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URLS,
+  process.env.ALLOWED_ORIGINS,
+];
+
+rawOriginEnvValues.forEach((entry) => {
+  if (!entry) return;
+  entry.split(',').forEach((chunk) => {
+    const normalized = normalizeOrigin(chunk);
+    if (normalized) configuredOrigins.add(normalized);
+  });
+});
+
+// Backwards compatibility: default frontend when nothing configured
+if (configuredOrigins.size === 0) {
+  configuredOrigins.add('http://localhost:5173');
 }
 const devOrigins = new Set([
   'http://localhost:5173',
@@ -94,7 +120,7 @@ const devOrigins = new Set([
   `http://${localIp}:5173`,
   'http://localhost:3000',
 ]);
-const allowedOriginsSet = new Set([configuredFrontend, ...devOrigins]);
+const allowedOriginsSet = new Set([...configuredOrigins, ...devOrigins]);
 const isDevEnv = (process.env.NODE_ENV || 'development') !== 'production';
 
 console.log('🚀 Using centralized queue manager with built-in worker and event listeners.');
@@ -104,7 +130,8 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow same-origin (no Origin header) and explicit allowed origins
     if (!origin) return callback(null, true);
-    if (allowedOriginsSet.has(origin)) return callback(null, true);
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (allowedOriginsSet.has(normalizedOrigin)) return callback(null, true);
     // In dev, allow local network hosts (e.g., 192.168.x.x:5173, 10.x.x.x:5173)
     if (isDevEnv && /^http:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+):\d+$/.test(origin)) {
       return callback(null, true);
