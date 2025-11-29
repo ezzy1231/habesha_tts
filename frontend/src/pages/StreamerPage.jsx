@@ -55,6 +55,9 @@ export default function StreamerPage() {
     const saved = localStorage.getItem('theme') || localStorage.getItem('streamer_theme');
     return saved === 'dark';
   });
+  const wakeLockRef = useRef(null);
+  const keepAliveIntervalRef = useRef(null);
+  const KEEP_ALIVE_INTERVAL_MS = Number(import.meta.env.VITE_STREAMER_KEEPALIVE_MS || 45000);
   const [streamerInfo, setStreamerInfo] = useState(null);
   const playedDonationsRef = useRef(new Set());
   const [loading, setLoading] = useState(true);
@@ -363,11 +366,13 @@ export default function StreamerPage() {
   };
 
   // ✅ Fetch streamer info + donation history
-  const fetchInitialData = useCallback(async (page = 1) => {
+  const fetchInitialData = useCallback(async (page = 1, { silent = false } = {}) => {
     if (!apiClient) return; // Don't fetch if the client isn't ready
     console.log(`Fetching data for streamer ${uuid} page ${page}`);
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       let newDonations;
       let newPagination;
@@ -421,7 +426,9 @@ export default function StreamerPage() {
         setApiKey(null); // Clear the bad key
       }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [uuid, apiClient, usingSession, getDonationCacheKey]);
 
@@ -496,6 +503,36 @@ export default function StreamerPage() {
       playedDonationsRef.current.delete(cacheKey);
     }
   }, [uuid, apiClient, usingSession, getDonationCacheKey]);
+
+  const requestWakeLock = useCallback(async () => {
+    if (typeof navigator === 'undefined') return;
+    const wakeLockApi = navigator.wakeLock;
+    if (!wakeLockApi?.request) return;
+    if (document.visibilityState === 'hidden') return;
+    if (wakeLockRef.current) return;
+    try {
+      const sentinel = await wakeLockApi.request('screen');
+      wakeLockRef.current = sentinel;
+      sentinel.addEventListener('release', () => {
+        console.log('[WakeLock] Screen lock released');
+        wakeLockRef.current = null;
+      }, { once: true });
+      console.log('[WakeLock] Screen lock acquired');
+    } catch (err) {
+      console.warn('[WakeLock] Unable to acquire screen lock:', err?.message || err);
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(async () => {
+    if (!wakeLockRef.current) return;
+    try {
+      await wakeLockRef.current.release();
+    } catch (err) {
+      console.warn('[WakeLock] Failed to release screen lock:', err?.message || err);
+    } finally {
+      wakeLockRef.current = null;
+    }
+  }, []);
 
   // ✅ Play next queued donation
   const playNext = useCallback(() => {
@@ -823,6 +860,40 @@ export default function StreamerPage() {
     }
   }, [enabled]);
 
+  useEffect(() => {
+    const wakeLockSupported = typeof navigator !== 'undefined' && !!navigator.wakeLock?.request;
+    if (!wakeLockSupported) return undefined;
+    if (!enabled) {
+      releaseWakeLock();
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const acquire = () => {
+      if (cancelled) return;
+      requestWakeLock();
+    };
+
+    acquire();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && enabled) {
+        acquire();
+      } else if (document.visibilityState === 'hidden') {
+        releaseWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', handleVisibility);
+      releaseWakeLock();
+    };
+  }, [enabled, requestWakeLock, releaseWakeLock]);
+
   // ✅ Load audio enabled state from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("tts_enabled");
@@ -908,7 +979,7 @@ export default function StreamerPage() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && apiClient) {
         console.log("Page is visible again, refetching data...");
-        fetchInitialData(1);
+        fetchInitialData(1, { silent: true });
       }
     };
 
@@ -924,6 +995,26 @@ export default function StreamerPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [uuid, fetchInitialData, apiClient]);
+
+  useEffect(() => {
+    if (keepAliveIntervalRef.current) {
+      clearInterval(keepAliveIntervalRef.current);
+      keepAliveIntervalRef.current = null;
+    }
+    if (!apiClient || currentPage !== 1) return;
+    if (!Number.isFinite(KEEP_ALIVE_INTERVAL_MS) || KEEP_ALIVE_INTERVAL_MS <= 0) return;
+
+    keepAliveIntervalRef.current = setInterval(() => {
+      fetchInitialData(1, { silent: true });
+    }, KEEP_ALIVE_INTERVAL_MS);
+
+    return () => {
+      if (keepAliveIntervalRef.current) {
+        clearInterval(keepAliveIntervalRef.current);
+        keepAliveIntervalRef.current = null;
+      }
+    };
+  }, [apiClient, currentPage, fetchInitialData, KEEP_ALIVE_INTERVAL_MS]);
 
 
 
