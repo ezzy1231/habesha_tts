@@ -27,9 +27,12 @@ export const registerCallbacks = (bot, deps = {}) => {
       return false;
     }
 
+    const streamerEmojis = ['🥇', '🥈', '🥉', '🎮', '🕹️', '🎰', '🧩', '🎧', '🎫', '🎟️'];
+    
     const formatStreamerLabel = (streamer, index) => {
       const displayName = streamer.full_name || streamer.username;
-      return `🎙️ ${displayName} · #${index + 1}`;
+      const emoji = streamerEmojis[index % streamerEmojis.length];
+      return `${emoji} ${displayName}`;
     };
 
     const buttons = [];
@@ -49,7 +52,8 @@ export const registerCallbacks = (bot, deps = {}) => {
       buttons.push(row);
     }
 
-    await bot.sendMessage(chatId, 'ልገሳ ለመላክ Streamer ይምረጡ:', {
+    await bot.sendMessage(chatId, '🎯 *ልገሳ ለመላክ Streamer ይምረጡ* 👇', {
+      parse_mode: 'Markdown',
       reply_markup: { inline_keyboard: buttons },
     });
     return true;
@@ -159,7 +163,7 @@ export const registerCallbacks = (bot, deps = {}) => {
         }
 
         const donorName = donation.donor_name;
-        const spokenText = `<speak>ልገሳ ከ <break time="0.4s"/> ${donorName} <break time="0.4s"/> የብር መጠን ${pending.amount} ብር <break time="0.4s"/> መልዕክት <break time="1s"/> ${donation.message}</speak>`;
+        const spokenText = `<speak>ልገሳ ከ <break time="0.4s"/> ${donorName} <break time="0.4s"/> መልዕክት <break time="1s"/> ${donation.message}</speak>`;
 
         let stylePrompt = '';
         if (pending.engine === 'gemini') {

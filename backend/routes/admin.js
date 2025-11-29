@@ -438,8 +438,8 @@ router.post("/recharges/:id/approve", async (req, res) => {
     await db.query("UPDATE recharges SET status = 'approved', amount = $1 WHERE id = $2", [amount, id]);
 
     try {
-      if (bot) bot.sendMessage(donorUser.telegram_id, `✅ Your recharge of Br ${amount.toFixed(2)} was approved. New balance: Br ${newBalance.toFixed(2)}`, {
-        reply_markup: { inline_keyboard: [[{ text: '💰 Send Donation', callback_data: 'quick_donate' }]] }
+      if (bot) bot.sendMessage(donorUser.telegram_id, `✅ የ ${amount.toFixed(2)} ብር ሪቻርጅዎ ጸድቋል። አዲስ ቀሪ ሂሳብ: ${newBalance.toFixed(2)} ብር`, {
+        reply_markup: { inline_keyboard: [[{ text: '💰 ልገሳ ላክ', callback_data: 'quick_donate' }]] }
       });
     } catch (botError) {
       console.error("Error sending bot message for approved recharge:", botError);
@@ -475,7 +475,7 @@ router.post("/recharges/:id/reject", async (req, res) => {
     const donorUser = donorUserRes.rows[0];
 
     try {
-      if (bot && donorUser) bot.sendMessage(donorUser.telegram_id, `❌ Your recharge was rejected.`);
+      if (bot && donorUser) bot.sendMessage(donorUser.telegram_id, `❌ ሪቻርጅዎ ውድቅ ተደርጓል።`);
     } catch (botError) {
       console.error("Error sending bot message for rejected recharge:", botError);
     }

@@ -194,11 +194,11 @@ async function handleSuccess(result) {
     if (bot && chatId) {
       promises.push(
         bot.sendMessage(chatId, 
-          `✅ Payment successful! Your donation of Br ${price.toFixed(2)} has been sent.\nNew balance: Br ${newDonorBalance.toFixed(2)}`, 
+          `✅ ክፍያ ተሳክቷል! የ ${price.toFixed(2)} ብር ልገሳዎ ተልኳል።\nአዲስ ቀሪ ሂሳብ: ${newDonorBalance.toFixed(2)} ብር`, 
           {
             reply_markup: {
               inline_keyboard: [
-                [{ text: '💰 Send Another Donation', callback_data: 'quick_donate' }]
+                [{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]
               ]
             }
           }

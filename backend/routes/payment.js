@@ -145,7 +145,7 @@ router.post(
       const { bot } = await import('../../bot/bot.js');
       console.log(`[Payment Confirm] Attempting Telegram confirmation: bot=${!!bot}, donor_id=${donation.donor_id}`);
       if (bot && donation.donor_id) {
-        await bot.sendMessage(String(donation.donor_id), `✅ Payment successful! Your donation of Br ${amt.toFixed(2)} has been sent.`);
+        await bot.sendMessage(String(donation.donor_id), `✅ ክፍያ ተሳክቷል! የ ${amt.toFixed(2)} ብር ልገሳዎ ተልኳል።`);
         console.log(`[Payment Confirm] Telegram confirmation sent to donor ${donation.donor_id}`);
       } else {
         console.warn('[Payment Confirm] Skipping Telegram confirmation (bot or donor_id missing).');

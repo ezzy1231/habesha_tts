@@ -65,10 +65,10 @@ async function handleJobSuccess(job, result) {
     // Notify the donor
     if (bot && chatId) {
       console.log(`[Worker] Sending Telegram confirmation to chatId ${chatId}`);
-      await bot.sendMessage(chatId, `✅ Payment successful! Your donation of Br ${price.toFixed(2)} has been sent.\nNew balance: Br ${newDonorBalance.toFixed(2)}`, {
+      await bot.sendMessage(chatId, `✅ ክፍያ ተሳክቷል! የ ${price.toFixed(2)} ብር ልገሳዎ ተልኳል።\nአዲስ ቀሪ ሂሳብ: ${newDonorBalance.toFixed(2)} ብር`, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '💰 Send Another Donation', callback_data: 'quick_donate' }]
+            [{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]
           ]
         }
       });
