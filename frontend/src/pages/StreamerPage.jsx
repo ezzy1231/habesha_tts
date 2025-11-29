@@ -13,6 +13,7 @@ import ApiKeyModal from '../components/ApiKeyModal';
 import { useAuth } from '../contexts/AuthContext';
 
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const FORCE_HTML_AUDIO = (import.meta.env.VITE_FORCE_HTML_AUDIO || 'false').toLowerCase() === 'true';
 const socket = io(SOCKET_URL, { transports: ["websocket"], reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000 });
 const DEFAULT_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/sounds/notification.mp3`;
 const ALTERNATE_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/sounds/Notifications.mp3`;
@@ -67,6 +68,7 @@ export default function StreamerPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const audioRef = useRef(null);
   const playingRef = useRef(false);
+  const htmlAudioElementRef = useRef(null);
   const audioContextRef = useRef(null);
   const gainNodeRef = useRef(null);
   const audioBufferCacheRef = useRef(new Map()); // key: audio_filename, value: AudioBuffer
@@ -85,6 +87,12 @@ export default function StreamerPage() {
   const [notificationSoundApiReady, setNotificationSoundApiReady] = useState(true);
   const [localNotificationSoundSlug, setLocalNotificationSoundSlug] = useState(() => localStorage.getItem(LOCAL_NOTIFICATION_SOUND_KEY) || '__default__');
   const audioUnlockedRef = useRef(false);
+  const isIOSDevice = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    return /iPad|iPhone|iPod/.test(ua);
+  }, []);
+  const preferHtmlAudio = useMemo(() => FORCE_HTML_AUDIO || isIOSDevice, [isIOSDevice]);
 
   const ensureAudioContext = useCallback(() => {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -289,6 +297,9 @@ export default function StreamerPage() {
       gainNodeRef.current.gain.cancelScheduledValues(currentTime);
       gainNodeRef.current.gain.setValueAtTime(gainNodeRef.current.gain.value, currentTime);
       gainNodeRef.current.gain.linearRampToValueAtTime(volume, currentTime + 0.1); // Smooth 100ms transition
+    }
+    if (htmlAudioElementRef.current) {
+      htmlAudioElementRef.current.volume = volume;
     }
   }, [volume]);
 
@@ -504,6 +515,31 @@ export default function StreamerPage() {
     }
   }, [uuid, apiClient, usingSession, getDonationCacheKey]);
 
+  const completePlayback = useCallback((donationId, { audioFilename } = {}) => {
+    playingRef.current = false;
+    setCurrentPlaying(null);
+    markAsPlayed(donationId);
+    setQueue((prev) => {
+      if (!prev.length) return prev;
+      const targetKey = getDonationCacheKey(donationId);
+      const firstKey = getDonationCacheKey(prev[0].id);
+      if (firstKey === targetKey) {
+        return prev.slice(1);
+      }
+      return prev.filter((item) => getDonationCacheKey(item.id) !== targetKey);
+    });
+    if (audioFilename) {
+      audioBufferCacheRef.current.delete(audioFilename);
+    }
+    if (currentTimeoutRef.current) {
+      clearTimeout(currentTimeoutRef.current);
+      currentTimeoutRef.current = null;
+    }
+    if (htmlAudioElementRef.current) {
+      htmlAudioElementRef.current = null;
+    }
+  }, [markAsPlayed, getDonationCacheKey]);
+
   const requestWakeLock = useCallback(async () => {
     if (typeof navigator === 'undefined') return;
     const wakeLockApi = navigator.wakeLock;
@@ -546,19 +582,54 @@ export default function StreamerPage() {
     playingRef.current = true;
     setCurrentPlaying(nextDonation.id);
 
-  const audioFilename = nextDonation.audio_url;
-  const donationUrl = getDonationUrl(audioFilename);
-  const notificationUrlPrimary = resolveNotificationSoundUrl(notificationSoundPreference);
-  const notificationUrlFallback = FALLBACK_NOTIFICATION_SOUND_URL;
+    const audioFilename = nextDonation.audio_url;
+    const donationUrl = getDonationUrl(audioFilename);
+    const notificationUrlPrimary = resolveNotificationSoundUrl(notificationSoundPreference);
+    const notificationUrlFallback = FALLBACK_NOTIFICATION_SOUND_URL;
+
+    const playDonationHtml = async () => {
+      try {
+        const audioEl = new Audio(donationUrl);
+        audioEl.preload = 'auto';
+        audioEl.crossOrigin = 'anonymous';
+        audioEl.playsInline = true;
+        audioEl.volume = volumeRef.current ?? volume;
+        audioEl.muted = false;
+
+        htmlAudioElementRef.current = audioEl;
+        audioRef.current = audioEl;
+
+        const finish = () => {
+          completePlayback(nextDonation.id, { audioFilename });
+        };
+
+        audioEl.addEventListener('ended', finish, { once: true });
+        audioEl.addEventListener('error', (err) => {
+          console.error('❌ [playDonationHtml] error:', err);
+          finish();
+        }, { once: true });
+
+        currentTimeoutRef.current = setTimeout(() => {
+          console.warn('[playDonationHtml] timeout reached, marking donation as played');
+          finish();
+        }, 60000);
+
+        await audioEl.play();
+      } catch (err) {
+        console.error('❌ [playDonationHtml] Failed to play donation via HTML audio:', err?.message || err);
+        completePlayback(nextDonation.id, { audioFilename });
+      }
+    };
 
     const playDonation = async () => {
+      if (preferHtmlAudio) {
+        await playDonationHtml();
+        return;
+      }
       console.log(`[playDonation] Attempting to play donation ${nextDonation.id}. AudioContext state: ${audioContextRef.current?.state}`);
       if (!audioContextRef.current) {
         console.error("❌ [playDonation] AudioContext not initialized.");
-        playingRef.current = false;
-        setCurrentPlaying(null);
-        markAsPlayed(nextDonation.id);
-        setQueue((prev) => prev.slice(1));
+        completePlayback(nextDonation.id, { audioFilename });
         return;
       }
 
@@ -571,10 +642,7 @@ export default function StreamerPage() {
             console.log("[playDonation] AudioContext resumed successfully. State:", audioContextRef.current.state);
           } catch (e) {
             console.error("❌ [playDonation] Failed to resume AudioContext for donation:", e.name, e.message, e);
-            playingRef.current = false;
-            setCurrentPlaying(null);
-            markAsPlayed(nextDonation.id);
-            setQueue((prev) => prev.slice(1));
+            completePlayback(nextDonation.id, { audioFilename });
             return;
           }
         }
@@ -601,16 +669,7 @@ export default function StreamerPage() {
 
         source.onended = () => {
           console.log("✅ [playDonation] Finished donation (Web Audio):", nextDonation.id);
-          playingRef.current = false;
-          setCurrentPlaying(null);
-          markAsPlayed(nextDonation.id);
-          setQueue((prev) => prev.slice(1));
-          // Cleanup cache entry for the just-played file to free memory
-          audioBufferCacheRef.current.delete(audioFilename);
-          if (currentTimeoutRef.current) {
-            clearTimeout(currentTimeoutRef.current);
-            currentTimeoutRef.current = null;
-          }
+          completePlayback(nextDonation.id, { audioFilename });
         };
 
         console.log("🔊 [playDonation] Playing donation (Web Audio):", donationUrl);
@@ -620,7 +679,7 @@ export default function StreamerPage() {
         // Fallback: mark as played after audio duration + 1 second in case onended doesn't fire
         currentTimeoutRef.current = setTimeout(() => {
           console.log("[playDonation] Fallback: Marking as played after timeout.");
-          markAsPlayed(nextDonation.id);
+          completePlayback(nextDonation.id, { audioFilename });
         }, (audioBuffer.duration * 1000) + 1000);
       } catch (err) {
         console.error("❌ [playDonation] Donation audio error (Web Audio):", err.name, err.message, err);
@@ -630,14 +689,31 @@ export default function StreamerPage() {
           setCurrentPlaying(null);
           return;
         }
-        playingRef.current = false;
-        setCurrentPlaying(null);
-        markAsPlayed(nextDonation.id);
-        setQueue((prev) => prev.slice(1));
+        completePlayback(nextDonation.id, { audioFilename });
       }
     };
 
     const playNotificationThenDonation = async () => {
+      if (preferHtmlAudio) {
+        const playNotificationHtml = async () => {
+          const urlToUse = notificationUrlPrimary || notificationUrlFallback;
+          if (!urlToUse) return;
+          try {
+            const audioEl = new Audio(urlToUse);
+            audioEl.preload = 'auto';
+            audioEl.crossOrigin = 'anonymous';
+            audioEl.playsInline = true;
+            audioEl.volume = Math.min(1, (volumeRef.current ?? volume) * 0.6);
+            await audioEl.play();
+          } catch (err) {
+            console.warn('⚠️ [playNotificationHtml] Failed:', err?.message || err);
+          }
+        };
+
+        await playNotificationHtml();
+        await playDonationHtml();
+        return;
+      }
       console.log(`[playNotificationThenDonation] Attempting to play notification. AudioContext state: ${audioContextRef.current?.state}`);
       if (!audioContextRef.current) {
         console.error("❌ [playNotificationThenDonation] AudioContext not initialized for notification.");
@@ -699,7 +775,7 @@ export default function StreamerPage() {
 
     // Start sequence
     playNotificationThenDonation();
-  }, [enabled, queue, setCurrentPlaying, markAsPlayed, getDonationUrl, resolveNotificationSoundUrl, notificationSoundPreference]);
+  }, [enabled, queue, setCurrentPlaying, markAsPlayed, getDonationUrl, resolveNotificationSoundUrl, notificationSoundPreference, preferHtmlAudio, volume, completePlayback]);
 
   const notificationSoundSelectValue = notificationSoundPreference?.slug
     || (!notificationSoundApiReady ? localNotificationSoundSlug : '__default__');
@@ -953,10 +1029,7 @@ export default function StreamerPage() {
                 audioRef.current.pause();
               }
             }
-            playingRef.current = false;
-            setCurrentPlaying(null);
-            markAsPlayed(currentPlaying);
-            setQueue((prev) => prev.slice(1));
+            completePlayback(currentPlaying);
           }
           break;
         default:
@@ -972,7 +1045,7 @@ export default function StreamerPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [volume, currentPlaying, markAsPlayed]);
+  }, [volume, currentPlaying, completePlayback]);
 
   // ✅ Initial load and refetch on visibility change
   useEffect(() => {
@@ -1258,10 +1331,7 @@ return (
                            audioRef.current.pause();
                          }
                        }
-                       playingRef.current = false;
-                       setCurrentPlaying(null);
-                       markAsPlayed(currentPlaying);
-                       setQueue((prev) => prev.slice(1));
+                        completePlayback(currentPlaying);
                      }
                    }}
                    disabled={!currentPlaying}
