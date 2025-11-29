@@ -874,7 +874,7 @@ router.post("/complaints/:id/respond", express.json(), async (req, res) => {
       await bot.sendMessage(complaint.telegram_id, `Admin Response:\n\n${message}`, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '💰 Send Another Donation', callback_data: 'quick_donate' }]
+            [{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]
           ]
         }
       });

@@ -14,6 +14,8 @@ export const registerCommands = (bot, deps = {}) => {
     return;
   }
 
+  const streamerEmojis = ['🥇', '🥈', '🥉', '🎮', '🕹️', '🎰', '🧩', '🎧', '🎫', '🎟️'];
+
   const sendStreamerSelectionMenu = async (chatId) => {
     const streamers = (
       await db.query(
@@ -26,14 +28,31 @@ export const registerCommands = (bot, deps = {}) => {
       return false;
     }
 
-    const buttons = streamers.map((s) => [
-      {
-        text: s.full_name || s.username,
-        callback_data: `choose_streamer_${s.telegram_id}`,
-      },
-    ]);
+    const formatStreamerLabel = (streamer, index) => {
+      const displayName = streamer.full_name || streamer.username;
+      const emoji = streamerEmojis[index % streamerEmojis.length];
+      return `${emoji} ${displayName}`;
+    };
 
-    await bot.sendMessage(chatId, "ልገሳ ለመላክ Streamer ይምረጡ:", {
+    const buttons = [];
+    for (let i = 0; i < streamers.length; i += 2) {
+      const row = [
+        {
+          text: formatStreamerLabel(streamers[i], i),
+          callback_data: `choose_streamer_${streamers[i].telegram_id}`,
+        },
+      ];
+      if (streamers[i + 1]) {
+        row.push({
+          text: formatStreamerLabel(streamers[i + 1], i + 1),
+          callback_data: `choose_streamer_${streamers[i + 1].telegram_id}`,
+        });
+      }
+      buttons.push(row);
+    }
+
+    await bot.sendMessage(chatId, '🎯 *ልገሳ ለመላክ Streamer ይምረጡ* 👇', {
+      parse_mode: 'Markdown',
       reply_markup: { inline_keyboard: buttons },
     });
     return true;

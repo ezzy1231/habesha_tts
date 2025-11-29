@@ -90,10 +90,10 @@ async function handleJobFailure(job, error) {
       await db.query("UPDATE donations SET status='failed_moderation' WHERE id=$1", [donationId]);
       
       if (bot && chatId) {
-        await bot.sendMessage(chatId, '❌ Your message was rejected by content filters and could not be read. You have not been charged.', {
+        await bot.sendMessage(chatId, '❌ መልዕክትዎ በይዘት ማጣሪያ ውድቅ ተደርጓል። ክፍያ አልተቀነሰም።', {
           reply_markup: {
             inline_keyboard: [
-              [{ text: '💰 Send New Donation', callback_data: 'quick_donate' }]
+              [{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]
             ]
           }
         });

@@ -107,10 +107,10 @@ ttsQueue.on('failed', async (job, err) => {
       
       if (bot && chatId) {
         try {
-          await bot.sendMessage(chatId, '❌ Your message was rejected by content filters and could not be read. You have not been charged.', {
+          await bot.sendMessage(chatId, '❌ መልዕክትዎ በይዘት ማጣሪያ ውድቅ ተደርጓል። ክፍያ አልተቀነሰም።', {
             reply_markup: {
               inline_keyboard: [
-                [{ text: '💰 Send New Donation', callback_data: 'quick_donate' }]
+                [{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]
               ]
             }
           });

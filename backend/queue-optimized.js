@@ -245,7 +245,7 @@ async function handleFailure(job, error) {
     await bot.sendMessage(chatId, message, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '💰 Send New Donation', callback_data: 'quick_donate' }]
+          [{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]
         ]
       }
     })

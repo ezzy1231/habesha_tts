@@ -258,7 +258,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
         await userStates.delete(tgId);
         await bot.sendMessage(chatId, '✅ ቅሬታዎ በተሳካ ሁኔታ ገብቷል። እናመሰግናለን!', {
           reply_markup: {
-            inline_keyboard: [[{ text: '💰 Send Another Donation', callback_data: 'quick_donate' }]],
+            inline_keyboard: [[{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]],
           },
         });
         emitAdminEvent('complaint_created', {
