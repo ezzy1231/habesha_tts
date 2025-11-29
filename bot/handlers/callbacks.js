@@ -27,9 +27,27 @@ export const registerCallbacks = (bot, deps = {}) => {
       return false;
     }
 
-    const buttons = streamers.map((s) => [
-      { text: s.full_name || s.username, callback_data: `choose_streamer_${s.telegram_id}` },
-    ]);
+    const formatStreamerLabel = (streamer, index) => {
+      const displayName = streamer.full_name || streamer.username;
+      return `🎙️ ${displayName} · #${index + 1}`;
+    };
+
+    const buttons = [];
+    for (let i = 0; i < streamers.length; i += 2) {
+      const row = [
+        {
+          text: formatStreamerLabel(streamers[i], i),
+          callback_data: `choose_streamer_${streamers[i].telegram_id}`,
+        },
+      ];
+      if (streamers[i + 1]) {
+        row.push({
+          text: formatStreamerLabel(streamers[i + 1], i + 1),
+          callback_data: `choose_streamer_${streamers[i + 1].telegram_id}`,
+        });
+      }
+      buttons.push(row);
+    }
 
     await bot.sendMessage(chatId, 'ልገሳ ለመላክ Streamer ይምረጡ:', {
       reply_markup: { inline_keyboard: buttons },
@@ -141,7 +159,7 @@ export const registerCallbacks = (bot, deps = {}) => {
         }
 
         const donorName = donation.donor_name;
-        const spokenText = `ልገሳ ከ <break time="0.4s"/> <speak>${donorName} <break time="0.4s"/> የብር መጠን ${pending.amount} ብር <break time="0.4s"/> መልዕክት <break time="1s"/> ${donation.message}</speak>`;
+        const spokenText = `<speak>ልገሳ ከ <break time="0.4s"/> ${donorName} <break time="0.4s"/> የብር መጠን ${pending.amount} ብር <break time="0.4s"/> መልዕክት <break time="1s"/> ${donation.message}</speak>`;
 
         let stylePrompt = '';
         if (pending.engine === 'gemini') {

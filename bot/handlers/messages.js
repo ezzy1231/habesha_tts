@@ -155,16 +155,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
       await pendingDonations.set(tgId, [...userPendingDonations, { donationId, streamerId, text, chars: length, amount: computedAmount }]);
       await userStates.delete(tgId);
 
-      const inline_keyboard = [
-        [
-          { text: '👩 ሴት (መደበኛ)', callback_data: `voice_cloud_am-ET-Standard-A_${donationId}` },
-          { text: '🧑‍🦱 ወንድ (መደበኛ)', callback_data: `voice_cloud_am-ET-Standard-B_${donationId}` },
-        ],
-        [
-          { text: '👩 ሴት (Wavenet)', callback_data: `voice_cloud_am-ET-Wavenet-A_${donationId}` },
-          { text: '🧑‍🦱 ወንድ (Wavenet)', callback_data: `voice_cloud_am-ET-Wavenet-B_${donationId}` },
-        ],
-      ];
+      const inline_keyboard = [];
 
       if (String(process.env.ENABLE_GEMINI_TTS).toLowerCase() === 'true') {
         inline_keyboard.push(
@@ -182,6 +173,11 @@ export const registerMessageFlows = (bot, deps = {}) => {
           ],
         );
       }
+
+      inline_keyboard.push([
+        { text: '👩 ሴት (Wavenet)', callback_data: `voice_cloud_am-ET-Wavenet-A_${donationId}` },
+        { text: '🧑‍🦱 ወንድ (Wavenet)', callback_data: `voice_cloud_am-ET-Wavenet-B_${donationId}` },
+      ]);
 
       await bot.sendMessage(
         chatId,
