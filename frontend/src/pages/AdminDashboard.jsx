@@ -756,8 +756,8 @@ function Recharges({ apiClient }) {
     };
   }, [apiClient, refresh]);
 
-  const approve = (id) => {
-    setModal({ open: true, id, amount: '' });
+  const approve = (id, requestedAmount) => {
+    setModal({ open: true, id, amount: requestedAmount ? String(requestedAmount) : '' });
   };
 
   const confirmApprove = async () => {
@@ -923,15 +923,24 @@ function Recharges({ apiClient }) {
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Amount</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Requested</span>
                     <div className="font-semibold text-gray-900 dark:text-white">
-                      <Currency value={r.amount || 0} />
+                      {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">—</span>}
                     </div>
                   </div>
                   
+                  {r.amount > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Approved</span>
+                      <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        <Currency value={r.amount} />
+                      </div>
+                    </div>
+                  )}
+                  
                   {r.status === 'pending' && (
                     <div className="flex gap-2 pt-2">
-                      <button onClick={()=>approve(r.id)} className="btn btn-success btn-sm flex-1">Approve</button>
+                      <button onClick={()=>approve(r.id, r.requested_amount)} className="btn btn-success btn-sm flex-1">Approve</button>
                       <button onClick={()=>openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="btn btn-danger btn-sm flex-1">Reject</button>
                     </div>
                   )}
@@ -950,7 +959,8 @@ function Recharges({ apiClient }) {
                 <th className="font-semibold text-gray-700 dark:text-gray-300">Donor</th>
                 <th className="font-semibold text-gray-700 dark:text-gray-300">Name on Payment</th>
                 <th className="font-semibold text-gray-700 dark:text-gray-300">Screenshot</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Amount</th>
+                <th className="font-semibold text-gray-700 dark:text-gray-300">Requested</th>
+                <th className="font-semibold text-gray-700 dark:text-gray-300">Approved</th>
                 <th className="font-semibold text-gray-700 dark:text-gray-300">Status</th>
                 <th className="font-semibold text-center text-gray-700 dark:text-gray-300">Actions</th>
               </tr>
@@ -987,7 +997,12 @@ function Recharges({ apiClient }) {
                   </td>
                   <td className="py-4">
                     <div className="font-semibold text-gray-900 dark:text-white">
-                      <Currency value={r.amount || 0} />
+                      {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">—</span>}
+                    </div>
+                  </td>
+                  <td className="py-4">
+                    <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {r.amount > 0 ? <Currency value={r.amount} /> : <span className="text-gray-400">—</span>}
                     </div>
                   </td>
                   <td className="py-4">
@@ -1005,7 +1020,7 @@ function Recharges({ apiClient }) {
                     <div className="flex justify-center">
                       {r.status==='pending' && (
                         <div className="flex gap-2">
-                          <button onClick={()=>approve(r.id)} className="btn btn-success btn-sm">Approve</button>
+                          <button onClick={()=>approve(r.id, r.requested_amount)} className="btn btn-success btn-sm">Approve</button>
                           <button onClick={()=>openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="btn btn-danger btn-sm">Reject</button>
                         </div>
                       )}
