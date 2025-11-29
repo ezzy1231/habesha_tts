@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function StreamerLogin() {
   const { uuid } = useParams();
   const navigate = useNavigate();
-  const { refresh, isAuthenticated } = useAuth();
+  const { refresh, isAuthenticated, setAuthToken } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -83,6 +83,10 @@ export default function StreamerLogin() {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || 'Verification failed');
       }
+      const payload = await res.json().catch(() => ({}));
+      if (payload.token) {
+        setAuthToken(payload.token);
+      }
       await refresh();
       navigate(`/streamer/${uuid}`, { replace: true });
     } catch (e) {
@@ -90,7 +94,7 @@ export default function StreamerLogin() {
     } finally {
       setVerifying(false);
     }
-  }, [streamer, otp, refresh, navigate, uuid]);
+  }, [streamer, otp, refresh, navigate, uuid, setAuthToken]);
 
   if (loading) {
     return (

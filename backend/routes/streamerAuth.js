@@ -22,6 +22,23 @@ const ENABLE_STREAMER_OTP = (process.env.ENABLE_STREAMER_OTP || 'true').toLowerC
 const router = express.Router();
 router.use(express.json());
 
+function extractAuthToken(req) {
+  const cookieHeader = req.headers?.cookie || '';
+  const cookieToken = cookieHeader
+    .split(';')
+    .map((s) => s.trim())
+    .find((s) => s.startsWith('authToken='));
+  if (cookieToken) {
+    const [, value = ''] = cookieToken.split('=');
+    if (value) return decodeURIComponent(value);
+  }
+  const authHeader = req.headers?.authorization || '';
+  if (authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  return null;
+}
+
 const withdrawSchema = z.object({
   amount: z.coerce.number().positive('Amount must be greater than zero'),
   telebirrUsername: z.string().trim().min(3, 'Telebirr username is required').max(64, 'Telebirr username is too long'),
@@ -166,7 +183,7 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
   console.debug('[verify-otp] Setting auth cookie with options:', cookieOpts);
   res.cookie('authToken', jwt, cookieOpts);
 
-    return res.json({ message: 'Login successful' });
+    return res.json({ message: 'Login successful', token: jwt });
   } catch (e) {
     console.error('[verify-otp] error:', e?.message || e);
     await logOtpAction({ telegram_id, action: 'otp_verified', status: 'failed', error_message: e?.message, ip_address: req.ip, user_agent: req.headers['user-agent'] });
@@ -203,7 +220,7 @@ router.post('/refresh-token', streamerSessionAuth, async (req, res) => {
   const cookieOpts = buildCookieOptions(1000 * 60 * 60 * 24 * expDays);
   console.debug('[refresh-token] Setting auth cookie with options:', cookieOpts);
   res.cookie('authToken', newJwt, cookieOpts);
-    return res.json({ ok: true });
+    return res.json({ ok: true, token: newJwt });
   } catch (e) {
     return res.status(500).json({ error: 'Failed to refresh token' });
   }
@@ -213,10 +230,9 @@ router.post('/refresh-token', streamerSessionAuth, async (req, res) => {
 router.post('/logout', streamerSessionAuth, async (req, res) => {
   try {
     // Derive current token from cookie (if present) to remove specific session
-    const cookieHeader = req.headers?.cookie || '';
-    const token = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith('authToken='))?.split('=')[1];
+    const token = extractAuthToken(req);
     if (token) {
-      const token_hash = crypto.createHash('sha256').update(decodeURIComponent(token)).digest('hex');
+      const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       await db.query('DELETE FROM login_sessions WHERE telegram_id = $1 AND token_hash = $2', [req.streamerId, token_hash]);
     } else {
       await db.query('DELETE FROM login_sessions WHERE telegram_id = $1', [req.streamerId]);

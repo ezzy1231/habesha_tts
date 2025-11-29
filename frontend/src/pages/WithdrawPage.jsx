@@ -20,7 +20,7 @@ export default function WithdrawPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [streamerBalance, setStreamerBalance] = useState(0);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authToken } = useAuth();
   const REQUIRE_JWT = (import.meta.env.VITE_REQUIRE_JWT_DASHBOARD || 'false').toLowerCase() === 'true';
   const usingSession = REQUIRE_JWT && isAuthenticated;
   const [apiKey, setApiKey] = useState(null);
@@ -34,9 +34,11 @@ export default function WithdrawPage() {
   // Create a memoized axios instance that includes the API key
   const apiClient = useMemo(() => {
     if (usingSession) {
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : undefined;
       return axios.create({
         baseURL: import.meta.env.VITE_API_URL,
         withCredentials: true,
+        headers,
       });
     }
     if (!apiKey) return null;
@@ -44,7 +46,7 @@ export default function WithdrawPage() {
       baseURL: import.meta.env.VITE_API_URL,
       headers: { 'Authorization': `Bearer ${apiKey}` }
     });
-  }, [apiKey, usingSession]);
+  }, [apiKey, usingSession, authToken]);
 
   // On initial load, check for API Key
   useEffect(() => {

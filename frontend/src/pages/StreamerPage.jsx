@@ -40,7 +40,7 @@ const LOCAL_NOTIFICATION_SOUND_KEY = 'streamer_notification_sound_choice';
 export default function StreamerPage() {
   const { uuid } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, authToken } = useAuth();
   const REQUIRE_JWT = (import.meta.env.VITE_REQUIRE_JWT_DASHBOARD || 'false').toLowerCase() === 'true';
   const usingSession = REQUIRE_JWT && isAuthenticated;
   const [donations, setDonations] = useState([]);
@@ -147,9 +147,11 @@ export default function StreamerPage() {
   // Create a memoized axios instance that includes the API key
   const apiClient = useMemo(() => {
     if (usingSession) {
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : undefined;
       return axios.create({
         baseURL: import.meta.env.VITE_API_URL,
         withCredentials: true,
+        headers,
       });
     }
     if (!apiKey) {
@@ -163,7 +165,7 @@ export default function StreamerPage() {
         'Authorization': `Bearer ${apiKey}`
       }
     });
-  }, [apiKey, usingSession]);
+  }, [apiKey, usingSession, authToken]);
 
   // On initial load, check for API Key
   useEffect(() => {
