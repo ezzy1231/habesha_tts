@@ -13,7 +13,15 @@ import ApiKeyModal from '../components/ApiKeyModal';
 import { useAuth } from '../contexts/AuthContext';
 
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const socket = io(SOCKET_URL, { transports: ["websocket"], reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000 });
+const socket = io(SOCKET_URL, { 
+  transports: ["websocket"], 
+  reconnection: true, 
+  reconnectionAttempts: Infinity, 
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  // Force new connection on reconnect to avoid stale state
+  forceNew: false,
+});
 const DEFAULT_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/sounds/notification.mp3`;
 const ALTERNATE_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/sounds/Notifications.mp3`;
 const FALLBACK_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/audios/notification.mp3`;
@@ -712,11 +720,32 @@ export default function StreamerPage() {
   useEffect(() => {
     socket.emit("join_streamer_room", uuid);
 
-    socket.on("connect", () => console.log("🔗 Socket connected"));
-    socket.on("disconnect", () => console.log("🔌 Socket disconnected"));
-    socket.on("reconnect", () => {
-      console.log("🔄 Socket reconnected, rejoining room");
+    socket.on("connect", () => {
+      console.log("🔗 Socket connected");
+      // Rejoin room on connect/reconnect
       socket.emit("join_streamer_room", uuid);
+    });
+    
+    socket.on("disconnect", (reason) => {
+      console.log("🔌 Socket disconnected:", reason);
+      // If the disconnection was initiated by the server, try to reconnect
+      if (reason === "io server disconnect" || reason === "transport close") {
+        console.log("Attempting to reconnect...");
+        socket.connect();
+      }
+    });
+    
+    socket.on("reconnect", (attemptNumber) => {
+      console.log("🔄 Socket reconnected after", attemptNumber, "attempts, rejoining room and fetching missed data");
+      socket.emit("join_streamer_room", uuid);
+      // Fetch any donations that might have been missed during disconnection
+      if (apiClient) {
+        fetchInitialData(1, { silent: true });
+      }
+    });
+    
+    socket.on("reconnect_error", (error) => {
+      console.error("Socket reconnection error:", error?.message);
     });
 
     socket.off("new_donation");
@@ -824,6 +853,7 @@ export default function StreamerPage() {
       socket.off("connect");
       socket.off("disconnect");
       socket.off("reconnect");
+      socket.off("reconnect_error");
       socket.off("new_donation");
       socket.off("donation_paid");
       socket.off("donation_history_reset");
@@ -833,7 +863,7 @@ export default function StreamerPage() {
         bufferFlushIntervalRef.current = null;
       }
     };
-  }, [uuid, enabled, currentPage, fetchInitialData, getDonationCacheKey]);
+  }, [uuid, enabled, currentPage, fetchInitialData, getDonationCacheKey, apiClient]);
 
   // ✅ Watch for queue changes
   useEffect(() => {
@@ -859,6 +889,42 @@ export default function StreamerPage() {
       setCurrentPlaying(null);
     }
   }, [enabled]);
+
+  // ✅ Periodic AudioContext health check - resume if suspended while audio is enabled
+  useEffect(() => {
+    if (!enabled) return;
+    
+    const checkAudioContext = async () => {
+      if (!audioContextRef.current) return;
+      
+      if (audioContextRef.current.state === 'suspended' && document.visibilityState === 'visible') {
+        console.log("🔄 AudioContext suspended, attempting to resume...");
+        try {
+          await audioContextRef.current.resume();
+          console.log("✅ AudioContext resumed by health check");
+          
+          // If there are queued donations and nothing is playing, start playback
+          if (!playingRef.current && queue.length > 0) {
+            setTimeout(() => {
+              if (!playingRef.current && queue.length > 0) {
+                playNext();
+              }
+            }, 100);
+          }
+        } catch (e) {
+          console.warn("Failed to resume AudioContext:", e?.message);
+        }
+      }
+    };
+    
+    // Check every 5 seconds
+    const intervalId = setInterval(checkAudioContext, 5000);
+    
+    // Also check immediately
+    checkAudioContext();
+    
+    return () => clearInterval(intervalId);
+  }, [enabled, queue, playNext]);
 
   useEffect(() => {
     const wakeLockSupported = typeof navigator !== 'undefined' && !!navigator.wakeLock?.request;
@@ -976,10 +1042,43 @@ export default function StreamerPage() {
 
   // ✅ Initial load and refetch on visibility change
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && apiClient) {
-        console.log("Page is visible again, refetching data...");
-        fetchInitialData(1, { silent: true });
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log("Page is visible again, restoring connections...");
+        
+        // 1. Resume AudioContext if suspended (browsers suspend it when tab is inactive)
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          try {
+            await audioContextRef.current.resume();
+            console.log("✅ AudioContext resumed after visibility change");
+          } catch (e) {
+            console.warn("Failed to resume AudioContext:", e?.message);
+          }
+        }
+        
+        // 2. Reconnect socket if disconnected
+        if (!socket.connected) {
+          console.log("Socket disconnected, reconnecting...");
+          socket.connect();
+        }
+        
+        // 3. Rejoin streamer room
+        socket.emit("join_streamer_room", uuid);
+        
+        // 4. Refetch data to catch any missed donations
+        if (apiClient) {
+          fetchInitialData(1, { silent: true });
+        }
+        
+        // 5. Trigger playback if audio is enabled and queue has items but nothing is playing
+        if (enabled && !playingRef.current && queue.length > 0) {
+          console.log("🎵 Resuming playback after tab visibility restored");
+          setTimeout(() => {
+            if (!playingRef.current && queue.length > 0) {
+              playNext();
+            }
+          }, 100);
+        }
       }
     };
 

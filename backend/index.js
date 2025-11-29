@@ -210,7 +210,10 @@ const io = new Server(server, {
     origin: Array.from(allowedOriginsSet),
     methods: ["GET", "POST"],
     credentials: true,
-  }
+  },
+  // Keep connections alive during browser tab inactivity
+  pingInterval: 10000, // Send ping every 10 seconds
+  pingTimeout: 5000,   // Wait 5 seconds for pong before disconnecting
 });
 
 // Expose io to routes and globally
