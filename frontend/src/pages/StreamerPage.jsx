@@ -72,6 +72,7 @@ export default function StreamerPage() {
     const savedVolume = localStorage.getItem('tts_volume');
     return savedVolume !== null ? Number(savedVolume) : 1;
   });
+  const volumeRef = useRef(volume);
   const [notificationSounds, setNotificationSounds] = useState([]);
   const [selectedNotificationSound, setSelectedNotificationSound] = useState(null);
   const [notificationSoundLoading, setNotificationSoundLoading] = useState(false);
@@ -80,6 +81,19 @@ export default function StreamerPage() {
   const [previewingNotificationSound, setPreviewingNotificationSound] = useState(false);
   const [notificationSoundApiReady, setNotificationSoundApiReady] = useState(true);
   const [localNotificationSoundSlug, setLocalNotificationSoundSlug] = useState(() => localStorage.getItem(LOCAL_NOTIFICATION_SOUND_KEY) || '__default__');
+  const audioUnlockedRef = useRef(false);
+
+  const ensureAudioContext = useCallback(() => {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioContextRef.current) {
+      audioContextRef.current = new Ctx();
+      gainNodeRef.current = audioContextRef.current.createGain();
+      gainNodeRef.current.connect(audioContextRef.current.destination);
+      gainNodeRef.current.gain.value = volumeRef.current ?? 1;
+    }
+    return audioContextRef.current;
+  }, []);
   // Helper to build donation audio URL
   const getDonationUrl = useCallback((filename) => {
     const baseUrl = SOCKET_URL;
@@ -199,18 +213,71 @@ export default function StreamerPage() {
 
   // Initialize AudioContext on component mount
   useEffect(() => {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (Ctx) {
-      audioContextRef.current = new Ctx();
-      gainNodeRef.current = audioContextRef.current.createGain();
-      gainNodeRef.current.connect(audioContextRef.current.destination);
-    }
+    ensureAudioContext();
     return () => {
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
       }
     };
-  }, []);
+  }, [ensureAudioContext]);
+
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const events = ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown'];
+
+    const unlockContext = () => {
+      if (audioUnlockedRef.current) return;
+      const ctx = ensureAudioContext();
+      if (!ctx) {
+        audioUnlockedRef.current = true;
+        return;
+      }
+
+      const finalize = () => {
+        audioUnlockedRef.current = true;
+        events.forEach((evt) => window.removeEventListener(evt, unlockContext));
+      };
+
+      try {
+        if (ctx.state === 'running') {
+          finalize();
+          return;
+        }
+
+        ctx.resume()
+          .then(() => {
+            try {
+              const buffer = ctx.createBuffer(1, 1, 22050);
+              const source = ctx.createBufferSource();
+              source.buffer = buffer;
+              source.connect(gainNodeRef.current || ctx.destination);
+              source.start(0);
+              source.stop(ctx.currentTime + 0.001);
+            } catch (silentErr) {
+              console.warn('Audio unlock pulse failed:', silentErr?.message || silentErr);
+            }
+            finalize();
+          })
+          .catch((err) => {
+            audioUnlockedRef.current = false;
+            console.warn('Audio context resume blocked:', err?.message || err);
+          });
+      } catch (err) {
+        audioUnlockedRef.current = false;
+        console.warn('Audio context unlock error:', err?.message || err);
+      }
+    };
+
+    events.forEach((evt) => window.addEventListener(evt, unlockContext, { passive: true }));
+    return () => {
+      events.forEach((evt) => window.removeEventListener(evt, unlockContext));
+    };
+  }, [ensureAudioContext]);
 
   // Update volume when it changes without recreating AudioContext
   useEffect(() => {
@@ -1009,32 +1076,23 @@ return (
                    onClick={async () => {
                      if (!enabled) {
                        try {
-                         // Create or resume a Web Audio context to unlock autoplay policies
-                         if (!audioContextRef.current) {
-                           const Ctx = window.AudioContext || window.webkitAudioContext;
-                           if (Ctx) {
-                             audioContextRef.current = new Ctx();
-                             gainNodeRef.current = audioContextRef.current.createGain();
-                             gainNodeRef.current.connect(audioContextRef.current.destination);
-                             gainNodeRef.current.gain.value = volume; // Set initial volume
-                           }
-                         }
-                         if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-                           await audioContextRef.current.resume();
+                         const ctx = ensureAudioContext();
+                         if (ctx && ctx.state === 'suspended') {
+                           await ctx.resume();
                          }
 
-                         // Play a brief silent sound via WebAudio (more reliable than HTMLAudio in some browsers)
-                         if (audioContextRef.current) {
-                           const ctx = audioContextRef.current;
+                         if (ctx) {
                            const buffer = ctx.createBuffer(1, 1, 22050);
                            const source = ctx.createBufferSource();
                            source.buffer = buffer;
-                           source.connect(ctx.destination);
+                           source.connect(gainNodeRef.current || ctx.destination);
                            source.start(0);
+                           source.stop(ctx.currentTime + 0.001);
                          } else {
-                           // Fallback: play a tiny silent data URI using HTMLAudioElement
                            const silent = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA');
                            silent.volume = 0;
+                           silent.muted = true;
+                           silent.playsInline = true;
                            await silent.play();
                            silent.pause();
                          }
@@ -1042,7 +1100,6 @@ return (
                          console.log("Audio permission granted; enabling autoplay.");
                          setEnabled(true);
 
-                         // If we already have queued items, kick off playback immediately
                          setTimeout(() => {
                            if (!playingRef.current && queue.length > 0) {
                              playNext();
