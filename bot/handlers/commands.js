@@ -107,10 +107,28 @@ export const registerCommands = (bot, deps = {}) => {
       );
       return;
     }
-    await userStates.set(tgId, { step: "recharge_name" });
+    await userStates.set(tgId, { step: "recharge_select_amount" });
     bot.sendMessage(
       msg.chat.id,
-      '💳 የቴሌብር መሙያ: ቢያንስ 100 ብር ወደ 251-939976687 ገንዘብ ይላኩ።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:'
+      '💳 የቴሌብር መሙያ\n\n📱 ወደ 251-939976687 ገንዘብ ይላኩ።\n\n💰 የሚሞሉትን መጠን ይምረጡ:',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '💵 100 ብር', callback_data: 'recharge_amount_100' },
+              { text: '💵 200 ብር', callback_data: 'recharge_amount_200' },
+            ],
+            [
+              { text: '💵 300 ብር', callback_data: 'recharge_amount_300' },
+              { text: '💵 500 ብር', callback_data: 'recharge_amount_500' },
+            ],
+            [
+              { text: '💵 600 ብር', callback_data: 'recharge_amount_600' },
+              { text: '✏️ ሌላ መጠን', callback_data: 'recharge_amount_custom' },
+            ],
+          ],
+        },
+      }
     );
   });
 

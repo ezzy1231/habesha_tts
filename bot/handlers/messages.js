@@ -187,14 +187,26 @@ export const registerMessageFlows = (bot, deps = {}) => {
       return;
     }
 
+    if (state.step === 'recharge_custom_amount' && text) {
+      const amount = parseInt(text.trim(), 10);
+      if (isNaN(amount) || amount < 50) {
+        await bot.sendMessage(chatId, '❌ ልክ ያልሆነ መጠን ነው። እባክዎ ቢያንስ 50 ብር ያስገቡ።');
+        return;
+      }
+      await userStates.set(tgId, { step: 'recharge_name', recharge_amount: amount });
+      await bot.sendMessage(chatId, `✅ ${amount} ብር ተመርጧል።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:`);
+      return;
+    }
+
     if (state.step === 'recharge_name' && text) {
-      await userStates.set(tgId, { step: 'recharge_photo', name_on_payment: text.trim() });
+      await userStates.set(tgId, { step: 'recharge_photo', name_on_payment: text.trim(), recharge_amount: state.recharge_amount });
       await bot.sendMessage(chatId, '📸 እባክዎ የክፍያዎን ቅጽበታዊ ገጽታ (screenshot) ይላኩ።');
       return;
     }
 
     if (state.step === 'recharge_photo' && photo) {
       const fileId = photo[photo.length - 1].file_id;
+      const requestedAmount = state.recharge_amount || null;
       try {
         const user = await getUserByTelegramId(tgId);
         if (!user || user.role !== 'donor') {
@@ -202,16 +214,33 @@ export const registerMessageFlows = (bot, deps = {}) => {
           await bot.sendMessage(chatId, '❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት። /start ይጫኑ እና "እንደ ለጋሽ ይመዝገቡ" ይምረጡ።');
           return;
         }
-        const rechargeInsert = await db.query(
-          'INSERT INTO recharges (donor_id, name_on_payment, screenshot_file_id, status, amount) VALUES ($1, $2, $3, \'pending\', NULL) RETURNING id',
-          [tgId, state.name_on_payment, fileId]
-        );
+        
+        // Try to insert with requested_amount, fall back to without if column doesn't exist
+        let rechargeInsert;
+        try {
+          rechargeInsert = await db.query(
+            'INSERT INTO recharges (donor_id, name_on_payment, screenshot_file_id, status, amount, requested_amount) VALUES ($1, $2, $3, \'pending\', NULL, $4) RETURNING id',
+            [tgId, state.name_on_payment, fileId, requestedAmount]
+          );
+        } catch (dbError) {
+          // Column might not exist yet, try without it
+          if (dbError.message?.includes('requested_amount')) {
+            rechargeInsert = await db.query(
+              'INSERT INTO recharges (donor_id, name_on_payment, screenshot_file_id, status, amount) VALUES ($1, $2, $3, \'pending\', NULL) RETURNING id',
+              [tgId, state.name_on_payment, fileId]
+            );
+          } else {
+            throw dbError;
+          }
+        }
+        
         await userStates.delete(tgId);
-        await bot.sendMessage(chatId, '✅ የመሙያ ጥያቄዎ ገብቷል! አስተዳዳሪ በቅርቡ ገምግሞ ያጸድቃል።');
+        await bot.sendMessage(chatId, `✅ የመሙያ ጥያቄዎ ገብቷል!\n💰 የጠየቁት መጠን: ${requestedAmount || 'አልተገለጸም'} ብር\n\nአስተዳዳሪ በቅርቡ ገምግሞ ያጸድቃል።`);
         emitAdminEvent('recharge_created', {
           rechargeId: rechargeInsert.rows[0]?.id,
           donorId: tgId,
           nameOnPayment: state.name_on_payment,
+          requestedAmount,
         });
       } catch (error) {
         console.error('Error creating recharge request:', error);
