@@ -73,6 +73,9 @@ export default function StreamerPage() {
     return savedVolume !== null ? Number(savedVolume) : 1;
   });
   const volumeRef = useRef(volume);
+  const htmlAudioElementRef = useRef(null);
+  const FORCE_HTML_AUDIO = (import.meta.env.VITE_FORCE_HTML_AUDIO || 'false').toLowerCase() === 'true';
+  const preferHtmlAudioRef = useRef(FORCE_HTML_AUDIO);
   const [notificationSounds, setNotificationSounds] = useState([]);
   const [selectedNotificationSound, setSelectedNotificationSound] = useState(null);
   const [notificationSoundLoading, setNotificationSoundLoading] = useState(false);
@@ -133,6 +136,7 @@ export default function StreamerPage() {
   // Preload next donation's audio buffer to reduce gaps
   useEffect(() => {
     const preloadNext = async () => {
+      if (preferHtmlAudioRef.current) return;
       if (!audioContextRef.current) return;
       if (!queue || queue.length === 0) return;
       const next = queue[0];
@@ -226,6 +230,16 @@ export default function StreamerPage() {
   }, [volume]);
 
   useEffect(() => {
+    if (preferHtmlAudioRef.current) return;
+    if (typeof navigator === 'undefined') return;
+    const ua = navigator.userAgent || navigator.vendor || '';
+    if (/iPad|iPhone|iPod/.test(ua)) {
+      preferHtmlAudioRef.current = true;
+      console.log('[Audio] Detected iOS device; defaulting to HTML audio playback');
+    }
+  }, [preferHtmlAudioRef]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
     const events = ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown'];
@@ -286,6 +300,9 @@ export default function StreamerPage() {
       gainNodeRef.current.gain.cancelScheduledValues(currentTime);
       gainNodeRef.current.gain.setValueAtTime(gainNodeRef.current.gain.value, currentTime);
       gainNodeRef.current.gain.linearRampToValueAtTime(volume, currentTime + 0.1); // Smooth 100ms transition
+    }
+    if (htmlAudioElementRef.current) {
+      htmlAudioElementRef.current.volume = volume;
     }
   }, [volume]);
 
@@ -361,6 +378,97 @@ export default function StreamerPage() {
       setPreviewingNotificationSound(false);
     }
   };
+
+  const playHtmlAudioClip = useCallback(({
+    src,
+    label = 'clip',
+    useGlobalAudioRef = true,
+    timeoutMs = 0,
+    trackTimeout = false,
+    onCompleted,
+  }) => {
+    return new Promise((resolve, reject) => {
+      if (!src) {
+        resolve(false);
+        return;
+      }
+      try {
+        const audioEl = new Audio(src);
+        audioEl.preload = 'auto';
+        audioEl.crossOrigin = 'anonymous';
+        audioEl.playsInline = true;
+        audioEl.muted = false;
+        audioEl.volume = volumeRef.current ?? 1;
+
+        let finished = false;
+        const safeComplete = () => {
+          if (finished) return;
+          finished = true;
+          if (typeof onCompleted === 'function') {
+            onCompleted();
+          }
+        };
+
+        let timeoutId = null;
+
+        const handleEnded = () => {
+          safeComplete();
+          cleanup();
+          resolve(true);
+        };
+
+        const handleError = (err) => {
+          cleanup();
+          reject(err || new Error('HTML audio playback failed'));
+        };
+
+        const cleanup = () => {
+          audioEl.removeEventListener('ended', handleEnded);
+          audioEl.removeEventListener('error', handleError);
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          if (trackTimeout) {
+            currentTimeoutRef.current = null;
+          }
+          if (useGlobalAudioRef && audioRef.current === audioEl) {
+            audioRef.current = null;
+          }
+          if (useGlobalAudioRef && htmlAudioElementRef.current === audioEl) {
+            htmlAudioElementRef.current = null;
+          }
+        };
+
+        if (timeoutMs > 0) {
+          timeoutId = setTimeout(() => {
+            console.warn(`[HTML Audio] ${label} timed out after ${timeoutMs}ms`);
+            safeComplete();
+            cleanup();
+            resolve(false);
+          }, timeoutMs);
+          if (trackTimeout) {
+            currentTimeoutRef.current = timeoutId;
+          }
+        }
+
+        audioEl.addEventListener('ended', handleEnded, { once: true });
+        audioEl.addEventListener('error', handleError, { once: true });
+
+        if (useGlobalAudioRef) {
+          audioRef.current = audioEl;
+          htmlAudioElementRef.current = audioEl;
+        }
+
+        const playPromise = audioEl.play();
+        if (playPromise?.catch) {
+          playPromise.catch(handleError);
+        }
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }, [volumeRef, currentTimeoutRef, audioRef, htmlAudioElementRef]);
 
   // ✅ Fetch streamer info + donation history
   const fetchInitialData = useCallback(async (page = 1) => {
@@ -497,6 +605,27 @@ export default function StreamerPage() {
     }
   }, [uuid, apiClient, usingSession, getDonationCacheKey]);
 
+  const completePlayback = useCallback((donationId, audioFilename) => {
+    playingRef.current = false;
+    setCurrentPlaying(null);
+    markAsPlayed(donationId);
+    setQueue((prev) => {
+      if (!prev.length) return prev;
+      const firstId = getDonationCacheKey(prev[0].id);
+      if (firstId !== getDonationCacheKey(donationId)) {
+        return prev;
+      }
+      return prev.slice(1);
+    });
+    if (audioFilename) {
+      audioBufferCacheRef.current.delete(audioFilename);
+    }
+    if (currentTimeoutRef.current) {
+      clearTimeout(currentTimeoutRef.current);
+      currentTimeoutRef.current = null;
+    }
+  }, [markAsPlayed, setQueue, getDonationCacheKey]);
+
   // ✅ Play next queued donation
   const playNext = useCallback(() => {
     console.log(`[playNext] Called. enabled: ${enabled}, playingRef.current: ${playingRef.current}, queue.length: ${queue.length}`);
@@ -509,19 +638,16 @@ export default function StreamerPage() {
     playingRef.current = true;
     setCurrentPlaying(nextDonation.id);
 
-  const audioFilename = nextDonation.audio_url;
-  const donationUrl = getDonationUrl(audioFilename);
-  const notificationUrlPrimary = resolveNotificationSoundUrl(notificationSoundPreference);
-  const notificationUrlFallback = FALLBACK_NOTIFICATION_SOUND_URL;
+    const audioFilename = nextDonation.audio_url;
+    const donationUrl = getDonationUrl(audioFilename);
+    const notificationUrlPrimary = resolveNotificationSoundUrl(notificationSoundPreference);
+    const notificationUrlFallback = FALLBACK_NOTIFICATION_SOUND_URL;
 
     const playDonation = async () => {
       console.log(`[playDonation] Attempting to play donation ${nextDonation.id}. AudioContext state: ${audioContextRef.current?.state}`);
       if (!audioContextRef.current) {
         console.error("❌ [playDonation] AudioContext not initialized.");
-        playingRef.current = false;
-        setCurrentPlaying(null);
-        markAsPlayed(nextDonation.id);
-        setQueue((prev) => prev.slice(1));
+        completePlayback(nextDonation.id, audioFilename);
         return;
       }
 
@@ -534,10 +660,7 @@ export default function StreamerPage() {
             console.log("[playDonation] AudioContext resumed successfully. State:", audioContextRef.current.state);
           } catch (e) {
             console.error("❌ [playDonation] Failed to resume AudioContext for donation:", e.name, e.message, e);
-            playingRef.current = false;
-            setCurrentPlaying(null);
-            markAsPlayed(nextDonation.id);
-            setQueue((prev) => prev.slice(1));
+            completePlayback(nextDonation.id, audioFilename);
             return;
           }
         }
@@ -564,16 +687,7 @@ export default function StreamerPage() {
 
         source.onended = () => {
           console.log("✅ [playDonation] Finished donation (Web Audio):", nextDonation.id);
-          playingRef.current = false;
-          setCurrentPlaying(null);
-          markAsPlayed(nextDonation.id);
-          setQueue((prev) => prev.slice(1));
-          // Cleanup cache entry for the just-played file to free memory
-          audioBufferCacheRef.current.delete(audioFilename);
-          if (currentTimeoutRef.current) {
-            clearTimeout(currentTimeoutRef.current);
-            currentTimeoutRef.current = null;
-          }
+          completePlayback(nextDonation.id, audioFilename);
         };
 
         console.log("🔊 [playDonation] Playing donation (Web Audio):", donationUrl);
@@ -583,7 +697,7 @@ export default function StreamerPage() {
         // Fallback: mark as played after audio duration + 1 second in case onended doesn't fire
         currentTimeoutRef.current = setTimeout(() => {
           console.log("[playDonation] Fallback: Marking as played after timeout.");
-          markAsPlayed(nextDonation.id);
+          completePlayback(nextDonation.id, audioFilename);
         }, (audioBuffer.duration * 1000) + 1000);
       } catch (err) {
         console.error("❌ [playDonation] Donation audio error (Web Audio):", err.name, err.message, err);
@@ -593,14 +707,63 @@ export default function StreamerPage() {
           setCurrentPlaying(null);
           return;
         }
-        playingRef.current = false;
-        setCurrentPlaying(null);
-        markAsPlayed(nextDonation.id);
-        setQueue((prev) => prev.slice(1));
+        if (!preferHtmlAudioRef.current) {
+          try {
+            console.log('[playDonation] Attempting HTML audio fallback...');
+            await playHtmlAudioClip({
+              src: donationUrl,
+              label: `donation-${nextDonation.id}`,
+              timeoutMs: 60000,
+              trackTimeout: true,
+              onCompleted: () => completePlayback(nextDonation.id, audioFilename),
+            });
+            return;
+          } catch (fallbackErr) {
+            console.error('⚠️ [playDonation] HTML audio fallback failed:', fallbackErr?.message || fallbackErr);
+          }
+        }
+        completePlayback(nextDonation.id, audioFilename);
       }
     };
 
     const playNotificationThenDonation = async () => {
+      if (preferHtmlAudioRef.current) {
+        console.log('[playNotificationThenDonation] Using HTML5 audio sequence');
+        try {
+          await playHtmlAudioClip({
+            src: notificationUrlPrimary,
+            label: `notification-${notificationSoundPreference?.slug || 'primary'}`,
+            useGlobalAudioRef: false,
+            timeoutMs: 10000,
+          });
+        } catch (err) {
+          if (notificationUrlFallback && notificationUrlFallback !== notificationUrlPrimary) {
+            await playHtmlAudioClip({
+              src: notificationUrlFallback,
+              label: 'notification-fallback',
+              useGlobalAudioRef: false,
+              timeoutMs: 10000,
+            }).catch((fallbackErr) => {
+              console.warn('⚠️ [playNotificationThenDonation] HTML fallback notification failed:', fallbackErr?.message || fallbackErr);
+            });
+          }
+        }
+
+        try {
+          await playHtmlAudioClip({
+            src: donationUrl,
+            label: `donation-${nextDonation.id}`,
+            timeoutMs: 60000,
+            trackTimeout: true,
+            onCompleted: () => completePlayback(nextDonation.id, audioFilename),
+          });
+        } catch (err) {
+          console.error('❌ [playNotificationThenDonation] HTML donation playback failed:', err?.message || err);
+          completePlayback(nextDonation.id, audioFilename);
+        }
+        return;
+      }
+
       console.log(`[playNotificationThenDonation] Attempting to play notification. AudioContext state: ${audioContextRef.current?.state}`);
       if (!audioContextRef.current) {
         console.error("❌ [playNotificationThenDonation] AudioContext not initialized for notification.");
@@ -662,7 +825,7 @@ export default function StreamerPage() {
 
     // Start sequence
     playNotificationThenDonation();
-  }, [enabled, queue, setCurrentPlaying, markAsPlayed, getDonationUrl, resolveNotificationSoundUrl, notificationSoundPreference]);
+  }, [enabled, queue, setCurrentPlaying, markAsPlayed, getDonationUrl, resolveNotificationSoundUrl, notificationSoundPreference, completePlayback, playHtmlAudioClip]);
 
   const notificationSoundSelectValue = notificationSoundPreference?.slug
     || (!notificationSoundApiReady ? localNotificationSoundSlug : '__default__');
@@ -808,16 +971,24 @@ export default function StreamerPage() {
 
   // ✅ Stop playback when disabled
   useEffect(() => {
-    if (!enabled && audioRef.current) {
-      console.log("🔇 Audio disabled, stopping playback");
-      // For Web Audio API, stop the source node
-      if (audioRef.current.stop) {
-        audioRef.current.stop();
-      } else if (audioRef.current.pause) {
-        // Fallback for HTMLAudioElement if it's still used somewhere
-        audioRef.current.pause();
+    if (!enabled) {
+      if (audioRef.current) {
+        console.log("🔇 Audio disabled, stopping playback");
+        if (audioRef.current.stop) {
+          audioRef.current.stop();
+        } else if (audioRef.current.pause) {
+          audioRef.current.pause();
+        }
+        audioRef.current = null;
       }
-      audioRef.current = null;
+      if (htmlAudioElementRef.current) {
+        htmlAudioElementRef.current.pause();
+        htmlAudioElementRef.current = null;
+      }
+      if (currentTimeoutRef.current) {
+        clearTimeout(currentTimeoutRef.current);
+        currentTimeoutRef.current = null;
+      }
       playingRef.current = false;
       setCurrentPlaying(null);
     }
@@ -882,10 +1053,7 @@ export default function StreamerPage() {
                 audioRef.current.pause();
               }
             }
-            playingRef.current = false;
-            setCurrentPlaying(null);
-            markAsPlayed(currentPlaying);
-            setQueue((prev) => prev.slice(1));
+            completePlayback(currentPlaying, null);
           }
           break;
         default:
@@ -901,7 +1069,7 @@ export default function StreamerPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [volume, currentPlaying, markAsPlayed]);
+  }, [volume, currentPlaying, completePlayback]);
 
   // ✅ Initial load and refetch on visibility change
   useEffect(() => {
