@@ -110,12 +110,6 @@ rawOriginEnvValues.forEach((entry) => {
   });
 });
 
-// Ensure primary production domain stays allowed even if env vars misconfigured
-['https://habeshatts.com'].forEach((origin) => {
-  const normalized = normalizeOrigin(origin);
-  if (normalized) configuredOrigins.add(normalized);
-});
-
 // Backwards compatibility: default frontend when nothing configured
 if (configuredOrigins.size === 0) {
   configuredOrigins.add('http://localhost:5173');
