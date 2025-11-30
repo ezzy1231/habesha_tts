@@ -257,12 +257,14 @@ server.listen(PORT, '0.0.0.0', () => {
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) console.log('🔊 TTS: Google Cloud configured');
 });
 
-// --- Bot Initialization (Lock-Protected) ---
+// --- Bot Initialization (Lock-Protected for Polling, Unconditional for Webhook) ---
 (async () => {
-  if (await acquireLock()) {
-    // Only the instance that acquires the lock will initialize the bot
+  const isProduction = process.env.NODE_ENV === 'production';
+  const shouldInitialize = isProduction || (await acquireLock());
+
+  if (shouldInitialize) {
     try {
-      console.log('🔑 Lock acquired. Initializing Telegram bot...');
+      console.log(`🔑 ${isProduction ? 'Production mode (Webhook)' : 'Lock acquired (Polling)'}. Initializing Telegram bot...`);
       const mod = await import('../bot/bot.js');
       bot = mod.bot;
     } catch (e) {
