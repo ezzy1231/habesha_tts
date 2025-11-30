@@ -38,7 +38,7 @@ jobs:
             --memory 1Gi \
             --cpu 1 \
             --timeout 300 \
-            --max-instances 10 \
+            --max-instances 1 \
             --min-instances 1 \
             --set-env-vars "NODE_ENV=production,BASE_URL=https://habeshatts-backend-62326829300.us-central1.run.app,FRONTEND_URL=https://habeshatts.com,TTS_OUTPUT_PATH=./public/audios,JWT_EXPIRES_IN=3d,BOT_STATE_DUAL_WRITE=false,BOT_STATE_ENABLED_REDIS=true,ADMIN_ALLOW_UNPROTECTED=false,COOKIE_SAMESITE=none,COOKIE_SECURE=true,CROSS_SITE_COOKIES=true,ENABLE_STREAMER_OTP=true,LEDGER_READ_FALLBACK=true,ENABLE_GEMINI_TTS=true,GEMINI_TTS_MODEL=gemini-2.5-pro-tts,GEMINI_TTS_AUDIO_ENCODING=MP3,GEMINI_TTS_VOICE=Puck,GOOGLE_APPLICATION_CREDENTIALS=/secrets/google-credentials.json" \
             --update-secrets="TELEGRAM_BOT_TOKEN=telegram-bot-token:latest,JWT_SECRET=jwt-secret:latest,ADMIN_TOKEN=admin-token:latest,GEMINI_API_KEY=gemini-api-key:latest,DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,/secrets/google-credentials.json=google-credentials:latest"
