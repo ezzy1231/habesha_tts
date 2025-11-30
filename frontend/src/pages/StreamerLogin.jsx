@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function StreamerLogin() {
   const { uuid } = useParams();
   const navigate = useNavigate();
-  const { refresh, isAuthenticated, setAuthToken } = useAuth();
+  const { refresh, isAuthenticated, setAuthToken, user, logout } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
