@@ -31,7 +31,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
 
     if (state.step === 'await_streamer_full_name' && text) {
       await userStates.set(tgId, { step: 'await_streamer_social_link', fullName: text.trim() });
-      await bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል።\n\n🔗 እባክዎ የ TikTok ወይም YouTube መለያዎን ሊንክ ያስገቡ:');
+      await bot.sendMessage(chatId, '✅ *ስምዎ በተሳካ ሁኔታ ተመዝግቧል!*\n\n📱 *የማህበራዊ ሚዲያ አካውንት*\n━━━━━━━━━━━━━━━━\n\n🔗 እባክዎ የእርስዎ የ TikTok ወይም YouTube መለያ ሊንክ ያስገቡ\n\n💡 *ምሳሌ:*\n   • `https://tiktok.com/@username`\n   • `https://youtube.com/@channel`', { parse_mode: 'Markdown' });
       return;
     }
 
@@ -41,7 +41,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
         return;
       }
       await userStates.set(tgId, { ...state, step: 'await_streamer_phone_number', socialLink: text.trim() });
-      await bot.sendMessage(chatId, '✅ ሊንኩ ተቀብሏል።\n\n📞 እባክዎ ስልክ ቁጥርዎን ያስገቡ (ለምሳሌ: 2519XXXXXXXX):');
+      await bot.sendMessage(chatId, '✅ *ሊንኩ በተሳካ ሁኔታ ተመዝግቧል!*\n\n📞 *ስልክ ቁጥር*\n━━━━━━━━━━━━━━━━\n\n📱 እባክዎ የእርስዎን ስልክ ቁጥር ያስገቡ\n\n💡 *ቅርጸት:* `2519XXXXXXXX`\n   (በ 2519 የሚጀምር 12 አሃዞች)', { parse_mode: 'Markdown' });
       return;
     }
 
@@ -52,7 +52,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
         return;
       }
       await userStates.set(tgId, { ...state, step: 'await_streamer_picture', phoneNumber });
-      await bot.sendMessage(chatId, '✅ ስልክ ቁጥርዎ ተቀብሏል።\n\n📸 እባክዎ ፕሮፋይል ፎቶዎን ይላኩ:');
+      await bot.sendMessage(chatId, '✅ *ስልክ ቁጥርዎ በተሳካ ሁኔታ ተመዝግቧል!*\n\n📸 *የፕሮፋይል ፎቶ*\n━━━━━━━━━━━━━━━━\n\n🖼️ እባክዎ የእርስዎን ፕሮፋይል ፎቶ ይላኩ\n\n✨ *ጥራቱ ከፍ ያለ እና ግልጽ ፎቶ ይምረጡ*', { parse_mode: 'Markdown' });
       return;
     }
 
@@ -68,7 +68,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
           [tgId, username, fullName, socialLink, phoneNumber, fileId]
         );
         await userStates.delete(tgId);
-        await bot.sendMessage(chatId, '✅ ምዝገባዎ ተጠናቅቋል!\n\n⏳ ጥያቄዎ በመገምገም ላይ ነው። ይፀድቅ ወይም ውድቅ ሲደረግ መልዕክት ይደርስዎታል።');
+        await bot.sendMessage(chatId, '🎉 *ምዝገባዎ በተሳካ ሁኔታ ተጠናቅቋል!*\n━━━━━━━━━━━━━━━━\n\n✅ መረጃዎ ተቀብሏል\n⏳ አሁን በአስተዳዳሪው በመገምገም ላይ ነው\n\n📬 *ምን ይከተላል?*\n   • ጥያቄዎ በቅርቡ ይገመገማል\n   • ውጤቱ በቴሌግራም መልዕክት ይደርስዎታል\n   • ከተፈቀደ የዳሽቦርድ ሊንክዎን ይቀበላሉ\n\n🙏 ስለ መመዝገብዎ እናመሰግናለን!', { parse_mode: 'Markdown' });
         emitAdminEvent('streamer_request_created', {
           telegramId: tgId,
           fullName,
@@ -187,23 +187,6 @@ export const registerMessageFlows = (bot, deps = {}) => {
       return;
     }
 
-    if (state.step === 'recharge_custom_amount' && text) {
-      const amount = parseInt(text.trim(), 10);
-      if (isNaN(amount) || amount < 50) {
-        await bot.sendMessage(chatId, '❌ ልክ ያልሆነ መጠን ነው። እባክዎ ቢያንስ 50 ብር ያስገቡ።');
-        return;
-      }
-      await userStates.set(tgId, { step: 'recharge_name', recharge_amount: amount });
-      await bot.sendMessage(chatId, `✅ ${amount} ብር ተመርጧል።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:`);
-      return;
-    }
-
-    if (state.step === 'recharge_name' && text) {
-      await userStates.set(tgId, { step: 'recharge_photo', name_on_payment: text.trim(), recharge_amount: state.recharge_amount });
-      await bot.sendMessage(chatId, '📸 እባክዎ የክፍያዎን ቅጽበታዊ ገጽታ (screenshot) ይላኩ።');
-      return;
-    }
-
     if (state.step === 'recharge_photo' && photo) {
       const fileId = photo[photo.length - 1].file_id;
       const requestedAmount = state.recharge_amount || null;
@@ -214,7 +197,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
           await bot.sendMessage(chatId, '❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት። /start ይጫኑ እና "እንደ ለጋሽ ይመዝገቡ" ይምረጡ።');
           return;
         }
-        
+
         // Try to insert with requested_amount, fall back to without if column doesn't exist
         let rechargeInsert;
         try {
@@ -233,7 +216,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
             throw dbError;
           }
         }
-        
+
         await userStates.delete(tgId);
         await bot.sendMessage(chatId, `✅ የመሙያ ጥያቄዎ ገብቷል!\n💰 የጠየቁት መጠን: ${requestedAmount || 'አልተገለጸም'} ብር\n\nአስተዳዳሪ በቅርቡ ገምግሞ ያጸድቃል።`);
         emitAdminEvent('recharge_created', {

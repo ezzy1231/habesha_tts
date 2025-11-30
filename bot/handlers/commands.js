@@ -64,27 +64,41 @@ export const registerCommands = (bot, deps = {}) => {
       from: { id: fromId, first_name },
     } = msg;
     const tgId = String(fromId);
+
+    // Clear any previous state
     await userStates.delete(tgId);
+
     const user = await getUserByTelegramId(tgId);
+
     if (user) {
-      bot.sendMessage(chatId, `👋 እንኳን ደህና መጡ ${first_name}! እንደ ${user.role} ተመዝግበዋል።`);
-      return;
+      await bot.sendMessage(chatId, `👋 እንኳን ደህና መጡ ${first_name}! እንደ ${user.role} ተመዝግበዋል።`);
     }
-    bot.sendMessage(chatId, "👋 እንኳን ደህና መጡ! እባክዎ ሚናዎን ይምረጡ:", {
+
+    await bot.sendMessage(chatId, "👋 እንኳን ደህና መጡ! እባክዎ ሚናዎን ይምረጡ:", {
       reply_markup: {
         inline_keyboard: [
-          [{ text: "🎥 እንደ Streamer ይመዝገቡ", callback_data: "register_streamer" }],
-          [{ text: "💰 እንደ Doner ይመዝገቡ", callback_data: "register_donor" }],
+          [{ text: "💰 እንደ Donor ይመዝገቡ", callback_data: "register_donor" }],
         ],
       },
     });
+  });
+
+  bot.onText(/\/streamer|\/register_streamer/, async (msg) => {
+    const tgId = String(msg.from.id);
+    const user = await getUserByTelegramId(tgId);
+    if (user && user.role === 'streamer') {
+      bot.sendMessage(msg.chat.id, '\u26a0\ufe0f You are already registered as a streamer.');
+      return;
+    }
+    await userStates.set(tgId, { step: 'await_streamer_full_name' });
+    bot.sendMessage(msg.chat.id, '🎮 *የ Streamer ምዝገባ ፕሮግራም*\n━━━━━━━━━━━━━━━━\n\n👋 እንኳን ደህና መጡ!\n\n📝 *እንዲሞሉ የሚጠበቁ መረጃዎች:*\n   1️⃣ ሙሉ ስም\n   2️⃣ የማህበራዊ ሚዲያ አካውንት\n   3️⃣ ስልክ ቁጥር\n   4️⃣ የፕሮፋይል ፎቶ\n\n✍️ እባክዎ *ሙሉ ስምዎን* ያስገቡ:', { parse_mode: 'Markdown' });
   });
 
   bot.onText(/\/donate/, async (msg) => {
     const tgId = String(msg.from.id);
     const user = await getUserByTelegramId(tgId);
     if (!user || user.role !== "donor") {
-      bot.sendMessage(msg.chat.id, "❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት።");
+      await bot.sendMessage(msg.chat.id, "❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት።");
       return;
     }
     await sendStreamerSelectionMenu(msg.chat.id);
@@ -118,14 +132,15 @@ export const registerCommands = (bot, deps = {}) => {
   bot.onText(/\/recharge/, async (msg) => {
     const tgId = String(msg.from.id);
     const user = await getUserByTelegramId(tgId);
+
     if (!user || user.role !== "donor") {
-      await userStates.set(tgId, { step: "await_registration", after_registration: "recharge" });
-      bot.sendMessage(
+      await bot.sendMessage(
         msg.chat.id,
         '❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት። /start ይጫኑ እና "እንደ ለጋሽ ይመዝገቡ" ይምረጡ።'
       );
       return;
     }
+
     await userStates.set(tgId, { step: "recharge_select_amount" });
     bot.sendMessage(
       msg.chat.id,
@@ -155,7 +170,7 @@ export const registerCommands = (bot, deps = {}) => {
     const tgId = String(msg.from.id);
     const user = await getUserByTelegramId(tgId);
     if (!user || user.role !== "donor") {
-      bot.sendMessage(msg.chat.id, "❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብ።");
+      bot.sendMessage(msg.chat.id, "❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት።");
       return;
     }
     await sendStreamerSelectionMenu(msg.chat.id);

@@ -53,7 +53,7 @@ function Overview({ apiClient, refreshKey }) {
     setLoading(true);
     apiClient.get(`/overview`).then(r => {
       setData(r.data);
-    }).catch(e => setError(e?.message || 'Failed to load')).finally(()=>setLoading(false));
+    }).catch(e => setError(e?.message || 'Failed to load')).finally(() => setLoading(false));
   }, [apiClient, refreshKey]);
 
   if (loading) return (
@@ -95,18 +95,18 @@ function Overview({ apiClient, refreshKey }) {
           <div className="space-y-2 sm:space-y-3 md:space-y-4">
             {(data.topStreamers || []).map((s, idx) => (
               <div key={s.streamer_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${400 + idx * 100}ms` }}>
-                                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                    {s.profile_picture_url ? (
-                                      <img 
-                                        src={s.profile_picture_url} 
-                                        alt="Profile" 
-                                        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0"
-                                      />
-                                    ) : (
-                                      <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full gradient-avatar-purple text-white text-xs sm:text-sm font-bold flex-shrink-0">
-                                        {idx + 1}
-                                      </div>
-                                    )}                  <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  {s.profile_picture_url ? (
+                    <img
+                      src={s.profile_picture_url}
+                      alt="Profile"
+                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full gradient-avatar-purple text-white text-xs sm:text-sm font-bold flex-shrink-0">
+                      {idx + 1}
+                    </div>
+                  )}                  <div className="min-w-0 flex-1">
                     <div className="font-medium text-gray-900 dark:text-white truncate text-sm sm:text-base">
                       {s.username || `Streamer #${s.streamer_id}`}
                     </div>
@@ -131,18 +131,18 @@ function Overview({ apiClient, refreshKey }) {
           <div className="space-y-2 sm:space-y-3 md:space-y-4">
             {(data.topDonors || []).map((d, idx) => (
               <div key={d.donor_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${500 + idx * 100}ms` }}>
-                                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                    {d.profile_picture_url ? (
-                                      <img 
-                                        src={d.profile_picture_url} 
-                                        alt="Profile" 
-                                        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0"
-                                      />
-                                    ) : (
-                                      <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full gradient-avatar-cyan text-white text-xs sm:text-sm font-bold flex-shrink-0">
-                                        {idx + 1}
-                                      </div>
-                                    )}                  <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  {d.profile_picture_url ? (
+                    <img
+                      src={d.profile_picture_url}
+                      alt="Profile"
+                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full gradient-avatar-cyan text-white text-xs sm:text-sm font-bold flex-shrink-0">
+                      {idx + 1}
+                    </div>
+                  )}                  <div className="min-w-0 flex-1">
                     <div className="font-medium text-gray-900 dark:text-white truncate text-sm sm:text-base">
                       {d.username || `Donor #${d.donor_id}`}
                     </div>
@@ -171,7 +171,7 @@ function Streamers({ apiClient, refreshKey }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Refs for native drag-and-drop
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
@@ -256,7 +256,7 @@ function Streamers({ apiClient, refreshKey }) {
           {isSaving ? 'Saving...' : 'Save Order'}
         </button>
       </div>
-      
+
       <div className="hidden sm:block overflow-x-auto">
         <table className="table">
           <thead>
@@ -286,9 +286,9 @@ function Streamers({ apiClient, refreshKey }) {
                 <td className="py-4">
                   <div className="flex items-center gap-3">
                     {s.profile_picture_url ? (
-                      <img 
-                        src={s.profile_picture_url} 
-                        alt="Profile" 
+                      <img
+                        src={s.profile_picture_url}
+                        alt="Profile"
                         className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                       />
                     ) : (
@@ -395,7 +395,7 @@ function Donors({ apiClient, refreshKey }) {
         <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Donors Management</h3>
         <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">Manage donor information and display names</p>
       </div>
-      
+
       {/* Mobile Card View */}
       <div className="block sm:hidden">
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -410,30 +410,30 @@ function Donors({ apiClient, refreshKey }) {
                     {d.username || 'Unknown Donor'}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">ID: {d.telegram_id}</div>
-                  
+
                   <div className="space-y-3">
                     <div>
                       <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Display Name</label>
                       {editingId === d.telegram_id ? (
                         <div className="space-y-2">
-                          <input 
-                            type="text" 
-                            value={displayName} 
-                            onChange={(e) => setDisplayName(e.target.value)} 
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
-                            placeholder="e.g. አበበ መኮንን" 
+                          <input
+                            type="text"
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            placeholder="e.g. አበበ መኮንን"
                           />
                           <div className="flex gap-2">
-                            <button 
-                              disabled={saving} 
-                              onClick={() => save(d.telegram_id)} 
+                            <button
+                              disabled={saving}
+                              onClick={() => save(d.telegram_id)}
                               className="btn btn-success btn-sm flex-1"
                             >
                               {saving ? 'Saving...' : 'Save'}
                             </button>
-                            <button 
-                              disabled={saving} 
-                              onClick={cancelEdit} 
+                            <button
+                              disabled={saving}
+                              onClick={cancelEdit}
                               className="btn btn-secondary btn-sm flex-1"
                             >
                               Cancel
@@ -445,8 +445,8 @@ function Donors({ apiClient, refreshKey }) {
                           <div className="font-medium text-gray-900 dark:text-white truncate">
                             {d.display_name || d.username || <span className="text-gray-400 dark:text-gray-500">Not set</span>}
                           </div>
-                          <button 
-                            onClick={() => startEdit(d)} 
+                          <button
+                            onClick={() => startEdit(d)}
                             className="btn btn-outline btn-xs ml-2"
                           >
                             Edit
@@ -454,7 +454,7 @@ function Donors({ apiClient, refreshKey }) {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <span className="text-xs text-gray-500 dark:text-gray-400 block">Donations</span>
@@ -470,10 +470,10 @@ function Donors({ apiClient, refreshKey }) {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div>
-                      <Balance 
-                        value={d.balance} 
+                      <Balance
+                        value={d.balance}
                         className="text-green-600 dark:text-green-400"
                         label="Balance"
                         showToggle={false}
@@ -519,12 +519,12 @@ function Donors({ apiClient, refreshKey }) {
                 <td className="py-4">
                   {editingId === d.telegram_id ? (
                     <div className="flex items-center gap-2">
-                      <input 
-                        type="text" 
-                        value={displayName} 
-                        onChange={(e) => setDisplayName(e.target.value)} 
-                        className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
-                        placeholder="e.g. አበበ መኮንን" 
+                      <input
+                        type="text"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="e.g. አበበ መኮንን"
                       />
                     </div>
                   ) : (
@@ -545,8 +545,8 @@ function Donors({ apiClient, refreshKey }) {
                   </div>
                 </td>
                 <td className="py-4 text-right">
-                  <Balance 
-                    value={d.balance} 
+                  <Balance
+                    value={d.balance}
                     className="text-lg text-green-600 dark:text-green-400"
                     showLabel={false}
                     showToggle={false}
@@ -556,24 +556,24 @@ function Donors({ apiClient, refreshKey }) {
                   <div className="flex justify-center">
                     {editingId === d.telegram_id ? (
                       <div className="flex gap-2">
-                        <button 
-                          disabled={saving} 
-                          onClick={() => save(d.telegram_id)} 
+                        <button
+                          disabled={saving}
+                          onClick={() => save(d.telegram_id)}
                           className="btn btn-success btn-sm"
                         >
                           {saving ? 'Saving...' : 'Save'}
                         </button>
-                        <button 
-                          disabled={saving} 
-                          onClick={cancelEdit} 
+                        <button
+                          disabled={saving}
+                          onClick={cancelEdit}
                           className="btn btn-secondary btn-sm"
                         >
                           Cancel
                         </button>
                       </div>
                     ) : (
-                      <button 
-                        onClick={() => startEdit(d)} 
+                      <button
+                        onClick={() => startEdit(d)}
                         className="btn btn-outline btn-sm"
                       >
                         Edit Name
@@ -604,7 +604,7 @@ function Donations({ apiClient, refreshKey }) {
     setLoading(true);
     apiClient.get(`/donations?limit=200`).then(r => {
       setRows(r.data.donations || []);
-    }).catch(e => setError(e?.message || 'Failed')).finally(()=>setLoading(false));
+    }).catch(e => setError(e?.message || 'Failed')).finally(() => setLoading(false));
   }, [apiClient, refreshKey]);
 
   if (loading) return (
@@ -620,7 +620,7 @@ function Donations({ apiClient, refreshKey }) {
         <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Recent Donations</h3>
         <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">View all donation transactions</p>
       </div>
-      
+
       {/* Mobile Card View */}
       <div className="block sm:hidden">
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -635,17 +635,16 @@ function Donations({ apiClient, refreshKey }) {
                     to {d.streamer?.username || 'Unknown Streamer'}
                   </div>
                 </div>
-                <span className={`badge ${
-                  d.status === 'paid' 
-                    ? 'badge-success' 
-                    : d.status === 'pending'
+                <span className={`badge ${d.status === 'paid'
+                  ? 'badge-success'
+                  : d.status === 'pending'
                     ? 'badge-warning'
                     : 'badge-gray'
-                }`}>
+                  }`}>
                   {d.status}
                 </span>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500 dark:text-gray-400">Amount</span>
@@ -707,13 +706,12 @@ function Donations({ apiClient, refreshKey }) {
                   </div>
                 </td>
                 <td className="py-4">
-                  <span className={`badge ${
-                    d.status === 'paid' 
-                      ? 'badge-success' 
-                      : d.status === 'pending'
+                  <span className={`badge ${d.status === 'paid'
+                    ? 'badge-success'
+                    : d.status === 'pending'
                       ? 'badge-warning'
                       : 'badge-gray'
-                  }`}>
+                    }`}>
                     {d.status}
                   </span>
                 </td>
@@ -744,7 +742,7 @@ function Recharges({ apiClient }) {
   useEffect(() => {
     if (!apiClient) return;
     setLoading(true);
-    apiClient.get(`/recharges`).then(r => setRows(r.data.recharges || [])).catch(e => setError(e?.message || 'Failed')).finally(()=>setLoading(false));
+    apiClient.get(`/recharges`).then(r => setRows(r.data.recharges || [])).catch(e => setError(e?.message || 'Failed')).finally(() => setLoading(false));
 
     socket.on('admin_update', (data) => {
       console.log('[Recharges] Admin update received via socket:', data);
@@ -771,7 +769,7 @@ function Recharges({ apiClient }) {
       setSaving(true);
       await apiClient.post(`/recharges/${modal.id}/approve?amount=${encodeURIComponent(value)}`);
       setModal({ open: false, id: null, amount: '' });
-      setRefresh(x=>x+1);
+      setRefresh(x => x + 1);
     } finally {
       setSaving(false);
     }
@@ -834,19 +832,19 @@ function Recharges({ apiClient }) {
             </div>
             <div className="p-4 space-y-3">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Amount (Br)</label>
-              <input 
-                type="number" 
-                min="0" 
-                step="0.01" 
-                value={modal.amount} 
-                onChange={(e)=>setModal(m=>({...m, amount: e.target.value }))} 
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
-                placeholder="e.g. 100.00" 
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={modal.amount}
+                onChange={(e) => setModal(m => ({ ...m, amount: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="e.g. 100.00"
               />
             </div>
             <div className="px-4 pb-4 flex items-center justify-end gap-2">
               <button onClick={closeModal} className="btn btn-secondary">Cancel</button>
-               <button disabled={saving} onClick={confirmApprove} className="btn btn-success">{saving ? "Saving..." : "Approve"}</button>
+              <button disabled={saving} onClick={confirmApprove} className="btn btn-success">{saving ? "Saving..." : "Approve"}</button>
             </div>
           </div>
         </div>
@@ -856,25 +854,22 @@ function Recharges({ apiClient }) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Recharge Requests</h3>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'pending' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}>Pending</button>
-              <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'approved' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}>Approved</button>
-              <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'rejected' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}>Rejected</button>
+              <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}>Pending</button>
+              <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'approved'
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}>Approved</button>
+              <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'rejected'
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}>Rejected</button>
             </div>
           </div>
         </div>
-        
+
         {/* Mobile Card View */}
         <div className="block sm:hidden">
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -889,25 +884,24 @@ function Recharges({ apiClient }) {
                       {new Date(r.created_at).toLocaleDateString()}
                     </div>
                   </div>
-                  <span className={`badge ${
-                    r.status === 'approved' 
-                      ? 'badge-success' 
-                      : r.status === 'rejected'
+                  <span className={`badge ${r.status === 'approved'
+                    ? 'badge-success'
+                    : r.status === 'rejected'
                       ? 'badge-error'
                       : 'badge-warning'
-                  }`}>
+                    }`}>
                     {r.status}
                   </span>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     {r.screenshot_url ? (
-                      <img 
-                        src={r.screenshot_url} 
-                        alt="screenshot" 
+                      <img
+                        src={r.screenshot_url}
+                        alt="screenshot"
                         className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
-                        onClick={() => openImageModal(r.screenshot_url)} 
+                        onClick={() => openImageModal(r.screenshot_url)}
                       />
                     ) : (
                       <div className="w-16 h-16 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
@@ -921,14 +915,14 @@ function Recharges({ apiClient }) {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500 dark:text-gray-400">Requested</span>
                     <div className="font-semibold text-gray-900 dark:text-white">
                       {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">—</span>}
                     </div>
                   </div>
-                  
+
                   {r.amount > 0 && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-500 dark:text-gray-400">Approved</span>
@@ -937,11 +931,11 @@ function Recharges({ apiClient }) {
                       </div>
                     </div>
                   )}
-                  
+
                   {r.status === 'pending' && (
                     <div className="flex gap-2 pt-2">
-                      <button onClick={()=>approve(r.id, r.requested_amount)} className="btn btn-success btn-sm flex-1">Approve</button>
-                      <button onClick={()=>openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="btn btn-danger btn-sm flex-1">Reject</button>
+                      <button onClick={() => approve(r.id, r.requested_amount)} className="btn btn-success btn-sm flex-1">Approve</button>
+                      <button onClick={() => openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="btn btn-danger btn-sm flex-1">Reject</button>
                     </div>
                   )}
                 </div>
@@ -985,11 +979,11 @@ function Recharges({ apiClient }) {
                   </td>
                   <td className="py-4">
                     {r.screenshot_url ? (
-                      <img 
-                        src={r.screenshot_url} 
-                        alt="screenshot" 
+                      <img
+                        src={r.screenshot_url}
+                        alt="screenshot"
                         className="w-20 h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => openImageModal(r.screenshot_url)} 
+                        onClick={() => openImageModal(r.screenshot_url)}
                       />
                     ) : (
                       <span className="text-gray-400 dark:text-gray-500">—</span>
@@ -1006,22 +1000,21 @@ function Recharges({ apiClient }) {
                     </div>
                   </td>
                   <td className="py-4">
-                    <span className={`badge ${
-                      r.status === 'approved' 
-                        ? 'badge-success' 
-                        : r.status === 'rejected'
+                    <span className={`badge ${r.status === 'approved'
+                      ? 'badge-success'
+                      : r.status === 'rejected'
                         ? 'badge-error'
                         : 'badge-warning'
-                    }`}>
+                      }`}>
                       {r.status}
                     </span>
                   </td>
                   <td className="py-4">
                     <div className="flex justify-center">
-                      {r.status==='pending' && (
+                      {r.status === 'pending' && (
                         <div className="flex gap-2">
-                          <button onClick={()=>approve(r.id, r.requested_amount)} className="btn btn-success btn-sm">Approve</button>
-                          <button onClick={()=>openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="btn btn-danger btn-sm">Reject</button>
+                          <button onClick={() => approve(r.id, r.requested_amount)} className="btn btn-success btn-sm">Approve</button>
+                          <button onClick={() => openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="btn btn-danger btn-sm">Reject</button>
                         </div>
                       )}
                     </div>
@@ -1033,8 +1026,25 @@ function Recharges({ apiClient }) {
         </div>
       </div>
       {imageModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={closeImageModal}>
-          <img src={imageModal.src} className="max-h-full max-w-full" />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={closeImageModal}
+        >
+          <button
+            onClick={closeImageModal}
+            className="absolute top-4 right-4 z-60 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center justify-center transition-all duration-200 hover:scale-110"
+            aria-label="Close image"
+          >
+            <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={imageModal.src}
+            alt="Enlarged view"
+            className="max-h-[90vh] max-w-[90vw] w-auto h-auto object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </>
@@ -1055,7 +1065,7 @@ function Withdrawals({ apiClient }) {
   useEffect(() => {
     if (!apiClient) return;
     setLoading(true);
-    apiClient.get(`/withdrawals`).then(r => setRows(r.data.withdrawals || [])).catch(e => setError(e?.message || 'Failed')).finally(()=>setLoading(false));
+    apiClient.get(`/withdrawals`).then(r => setRows(r.data.withdrawals || [])).catch(e => setError(e?.message || 'Failed')).finally(() => setLoading(false));
 
     socket.on('admin_update', (data) => {
       console.log('[Withdrawals] Admin update received via socket:', data);
@@ -1113,25 +1123,22 @@ function Withdrawals({ apiClient }) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Withdrawal Requests</h3>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'pending' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}>Pending</button>
-              <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'approved' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}>Approved</button>
-              <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'rejected' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}>Rejected</button>
+              <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}>Pending</button>
+              <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'approved'
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}>Approved</button>
+              <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'rejected'
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}>Rejected</button>
             </div>
           </div>
         </div>
-        
+
         {/* Mobile Card View */}
         <div className="block sm:hidden">
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1146,17 +1153,16 @@ function Withdrawals({ apiClient }) {
                       {new Date(w.created_at).toLocaleDateString()}
                     </div>
                   </div>
-                  <span className={`badge ${
-                    w.status === 'approved' 
-                      ? 'badge-success' 
-                      : w.status === 'rejected'
+                  <span className={`badge ${w.status === 'approved'
+                    ? 'badge-success'
+                    : w.status === 'rejected'
                       ? 'badge-error'
                       : 'badge-warning'
-                  }`}>
+                    }`}>
                     {w.status}
                   </span>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Telebirr Username</div>
@@ -1164,14 +1170,14 @@ function Withdrawals({ apiClient }) {
                       {w.telebirr_username}
                     </div>
                   </div>
-                  
+
                   <div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Phone Number</div>
                     <div className="font-medium text-gray-900 dark:text-white">
                       {w.phone_number}
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">Amount</div>
@@ -1186,7 +1192,7 @@ function Withdrawals({ apiClient }) {
                       </div>
                     </div>
                   </div>
-                  
+
                   {w.status === 'pending' && (
                     <div className="flex gap-2 pt-2">
                       <button onClick={() => openConfirmModal('approve', w.id, 'Approve Withdrawal', `Are you sure you want to approve this withdrawal request from ${w.streamer_username}?`)} className="btn btn-success btn-sm flex-1">Approve</button>
@@ -1248,19 +1254,18 @@ function Withdrawals({ apiClient }) {
                     </div>
                   </td>
                   <td className="py-4">
-                    <span className={`badge ${
-                      w.status === 'approved' 
-                        ? 'badge-success' 
-                        : w.status === 'rejected'
+                    <span className={`badge ${w.status === 'approved'
+                      ? 'badge-success'
+                      : w.status === 'rejected'
                         ? 'badge-error'
                         : 'badge-warning'
-                    }`}>
+                      }`}>
                       {w.status}
                     </span>
                   </td>
                   <td className="py-4">
                     <div className="flex justify-center">
-                      {w.status==='pending' && (
+                      {w.status === 'pending' && (
                         <div className="flex gap-2">
                           <button onClick={() => openConfirmModal('approve', w.id, 'Approve Withdrawal', `Are you sure you want to approve this withdrawal request from ${w.streamer_username}?`)} className="btn btn-success btn-sm">Approve</button>
                           <button onClick={() => openConfirmModal('reject', w.id, 'Reject Withdrawal', `Are you sure you want to reject this withdrawal request from ${w.streamer_username}?`)} className="btn btn-danger btn-sm">Reject</button>
@@ -1357,25 +1362,22 @@ function StreamerRequests({ apiClient }) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Streamer Requests</h3>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'pending' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}>Pending</button>
-              <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'approved' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}>Approved</button>
-              <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'rejected' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}>Rejected</button>
+              <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}>Pending</button>
+              <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'approved'
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}>Approved</button>
+              <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'rejected'
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}>Rejected</button>
             </div>
           </div>
         </div>
-        
+
         {/* Mobile Card View */}
         <div className="block sm:hidden">
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1383,11 +1385,11 @@ function StreamerRequests({ apiClient }) {
               <div key={r.telegram_id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
                 <div className="flex items-start gap-3 mb-3">
                   {r.profile_picture_url ? (
-                    <img 
-                      src={r.profile_picture_url} 
-                      alt="Profile" 
+                    <img
+                      src={r.profile_picture_url}
+                      alt="Profile"
                       className="w-12 h-12 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
-                      onClick={() => openImageModal(r.profile_picture_url)} 
+                      onClick={() => openImageModal(r.profile_picture_url)}
                     />
                   ) : (
                     <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
@@ -1402,23 +1404,22 @@ function StreamerRequests({ apiClient }) {
                       @{r.username} • {new Date(r.created_at).toLocaleDateString()}
                     </div>
                   </div>
-                  <span className={`badge ${
-                    r.registration_status === 'approved' 
-                      ? 'badge-success' 
-                      : r.registration_status === 'rejected'
+                  <span className={`badge ${r.registration_status === 'approved'
+                    ? 'badge-success'
+                    : r.registration_status === 'rejected'
                       ? 'badge-error'
                       : 'badge-warning'
-                  }`}>
+                    }`}>
                     {r.registration_status}
                   </span>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Phone Number</div>
-                    <div className="font-medium text-gray-900 dark:text-white truncate">
-                      {r.phone_number}
-                    </div>
-                  
+                  <div className="font-medium text-gray-900 dark:text-white truncate">
+                    {r.phone_number}
+                  </div>
+
                   {r.registration_status === 'pending' && (
                     <div className="flex gap-2 pt-2">
                       <button onClick={() => openConfirmModal('approve', r.telegram_id, 'Approve Streamer', `Are you sure you want to approve ${r.full_name || r.username}?`)} className="btn btn-success btn-sm flex-1">Approve</button>
@@ -1455,11 +1456,11 @@ function StreamerRequests({ apiClient }) {
                   </td>
                   <td className="py-4">
                     {r.profile_picture_url ? (
-                      <img 
-                        src={r.profile_picture_url} 
-                        alt="Profile" 
+                      <img
+                        src={r.profile_picture_url}
+                        alt="Profile"
                         className="w-12 h-12 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => openImageModal(r.profile_picture_url)} 
+                        onClick={() => openImageModal(r.profile_picture_url)}
                       />
                     ) : (
                       <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
@@ -1488,13 +1489,12 @@ function StreamerRequests({ apiClient }) {
                     </a>
                   </td>
                   <td className="py-4">
-                    <span className={`badge ${
-                      r.registration_status === 'approved' 
-                        ? 'badge-success' 
-                        : r.registration_status === 'rejected'
+                    <span className={`badge ${r.registration_status === 'approved'
+                      ? 'badge-success'
+                      : r.registration_status === 'rejected'
                         ? 'badge-error'
                         : 'badge-warning'
-                    }`}>
+                      }`}>
                       {r.registration_status}
                     </span>
                   </td>
@@ -1515,8 +1515,25 @@ function StreamerRequests({ apiClient }) {
         </div>
       </div>
       {imageModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={closeImageModal}>
-          <img src={imageModal.src} className="max-h-full max-w-full" />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={closeImageModal}
+        >
+          <button
+            onClick={closeImageModal}
+            className="absolute top-4 right-4 z-60 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center justify-center transition-all duration-200 hover:scale-110"
+            aria-label="Close image"
+          >
+            <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={imageModal.src}
+            alt="Enlarged view"
+            className="max-h-[90vh] max-w-[90vw] w-auto h-auto object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </>
@@ -1539,6 +1556,7 @@ export default function AdminDashboard() {
     const saved = localStorage.getItem('theme');
     return saved === 'dark';
   });
+  const [notificationsMuted, setNotificationsMuted] = useState(() => localStorage.getItem('adminNotificationsMuted') === 'true');
   const toastTimersRef = useRef([]);
 
   // On initial load, check for Admin Token
@@ -1577,6 +1595,12 @@ export default function AdminDashboard() {
     setDarkMode(isDark);
     const nextTheme = isDark ? 'dark' : 'light';
     localStorage.setItem('theme', nextTheme);
+  };
+
+  const toggleNotificationMute = () => {
+    const newMutedState = !notificationsMuted;
+    setNotificationsMuted(newMutedState);
+    localStorage.setItem('adminNotificationsMuted', newMutedState.toString());
   };
 
   const removeToast = useCallback((toastId) => {
@@ -1755,6 +1779,17 @@ export default function AdminDashboard() {
       console.log('[AdminDashboard] Admin update received via socket:', data);
       fetchCounts();
       addToast(data);
+
+      // Play admin notification sound if not muted
+      if (!notificationsMuted) {
+        try {
+          const audio = new Audio('/admin-notification.mp3');
+          audio.volume = 0.5;
+          audio.play().catch(err => console.log('Audio play failed:', err));
+        } catch (err) {
+          console.log('Audio notification failed:', err);
+        }
+      }
     };
 
     socket.on('admin_update', handleAdminUpdate);
@@ -1791,11 +1826,28 @@ export default function AdminDashboard() {
         {/* Header */}
         <div className="mb-4 sm:mb-6 md:mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 relative">
-            {/* Theme Toggle - Inside Card at Right Top Corner */}
-            <div className="absolute top-3 right-3 z-10">
+            {/* Controls - Inside Card at Right Top Corner */}
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              <button
+                onClick={toggleNotificationMute}
+                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 hover:scale-105"
+                title={notificationsMuted ? 'Unmute notifications' : 'Mute notifications'}
+                aria-label={notificationsMuted ? 'Unmute notifications' : 'Mute notifications'}
+              >
+                {notificationsMuted ? (
+                  <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  </svg>
+                )}
+              </button>
               <ThemeToggle isDarkMode={darkMode} toggleDarkMode={toggleDarkMode} />
             </div>
-            
+
             <div className="min-w-0 flex-1">
               <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 truncate">
                 🎛️ Admin Panel
@@ -1811,15 +1863,14 @@ export default function AdminDashboard() {
         <div className="mb-4 sm:mb-6 md:mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-1 animate-fade-in">
             <div className="flex flex-wrap justify-between items-center gap-1 sm:gap-2">
-              {['overview','streamer-requests','streamers','donors','donations','withdrawals','recharges', 'complaints', 'settings'].map((k, index) => (
-                <button 
-                  key={k} 
-                  onClick={()=>setTab(k)} 
-                  className={`flex-shrink-0 px-2 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-all duration-200 text-xs sm:text-sm md:text-base whitespace-nowrap relative animate-fade-in-stagger ${
-                    tab===k 
-                      ? 'bg-primary-500 text-white shadow-lg transform scale-105 ring-2 ring-primary-300 ring-offset-2 ring-offset-white dark:ring-offset-gray-900' 
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow-md'
-                  }`}
+              {['overview', 'streamer-requests', 'streamers', 'donors', 'donations', 'withdrawals', 'recharges', 'complaints', 'settings'].map((k, index) => (
+                <button
+                  key={k}
+                  onClick={() => setTab(k)}
+                  className={`flex-shrink-0 px-2 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-all duration-200 text-xs sm:text-sm md:text-base whitespace-nowrap relative animate-fade-in-stagger ${tab === k
+                    ? 'bg-primary-500 text-white shadow-lg transform scale-105 ring-2 ring-primary-300 ring-offset-2 ring-offset-white dark:ring-offset-gray-900'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow-md'
+                    }`}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <span className="flex items-center gap-2">
@@ -1866,15 +1917,15 @@ export default function AdminDashboard() {
 
         {/* Content Area */}
         <div className="animate-fade-in space-y-4 sm:space-y-6">
-          {tab==='overview' && <Overview apiClient={apiClient} refreshKey={refreshKey} />}
-          {tab==='streamer-requests' && <StreamerRequests apiClient={apiClient} />}
-          {tab==='streamers' && <Streamers apiClient={apiClient} refreshKey={refreshKey} />}
-          {tab==='donors' && <Donors apiClient={apiClient} refreshKey={refreshKey} />}
-          {tab==='donations' && <Donations apiClient={apiClient} refreshKey={refreshKey} />}
-          {tab==='withdrawals' && <Withdrawals apiClient={apiClient} />}
-          {tab==='recharges' && <Recharges apiClient={apiClient} />}
-          {tab==='complaints' && <AdminComplaints apiClient={apiClient} refreshData={refreshData} />}
-          {tab==='settings' && <Settings apiClient={apiClient} />}
+          {tab === 'overview' && <Overview apiClient={apiClient} refreshKey={refreshKey} />}
+          {tab === 'streamer-requests' && <StreamerRequests apiClient={apiClient} />}
+          {tab === 'streamers' && <Streamers apiClient={apiClient} refreshKey={refreshKey} />}
+          {tab === 'donors' && <Donors apiClient={apiClient} refreshKey={refreshKey} />}
+          {tab === 'donations' && <Donations apiClient={apiClient} refreshKey={refreshKey} />}
+          {tab === 'withdrawals' && <Withdrawals apiClient={apiClient} />}
+          {tab === 'recharges' && <Recharges apiClient={apiClient} />}
+          {tab === 'complaints' && <AdminComplaints apiClient={apiClient} refreshData={refreshData} />}
+          {tab === 'settings' && <Settings apiClient={apiClient} />}
         </div>
       </div>
 

@@ -20,7 +20,7 @@ export default function StreamerLogin() {
     let timer;
     (async () => {
       try {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/streamer/${uuid}`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/streamer/${uuid}`);
         if (!res.ok) throw new Error('Streamer not found');
         const data = await res.json();
         setStreamer(data.streamer);
@@ -36,18 +36,27 @@ export default function StreamerLogin() {
     return () => timer && clearInterval(timer);
   }, [uuid, cooldown]);
 
+  // Redirect to dashboard only if authenticated user matches the UUID
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate(`/streamer/${uuid}`, { replace: true });
+    if (isAuthenticated && user && streamer) {
+      // Check if the authenticated user's telegram_id matches the streamer for this UUID
+      if (String(user.telegram_id) === String(streamer.telegram_id)) {
+        // Correct user is logged in, redirect to dashboard
+        navigate(`/streamer/${uuid}`, { replace: true });
+      } else {
+        // Wrong user is logged in, clear the session to allow login as the correct streamer
+        console.log('[StreamerLogin] Authenticated user does not match UUID, logging out...');
+        logout();
+      }
     }
-  }, [isAuthenticated, navigate, uuid]);
+  }, [isAuthenticated, user, streamer, navigate, uuid, logout]);
 
   const requestOtp = useCallback(async () => {
     if (!streamer?.telegram_id) return;
     setSending(true);
     setError(null);
     try {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/streamer/request-otp`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/streamer/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -73,7 +82,7 @@ export default function StreamerLogin() {
     setVerifying(true);
     setError(null);
     try {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/streamer/verify-otp`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/streamer/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -226,7 +235,7 @@ export default function StreamerLogin() {
                     newOtp[index] = value;
                     const updatedOtp = newOtp.join('').slice(0, 6);
                     setOtp(updatedOtp);
-                    
+
                     // Auto-focus next input
                     if (value && index < 5) {
                       const nextInput = e.target.parentElement.children[index + 1];

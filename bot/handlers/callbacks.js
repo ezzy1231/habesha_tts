@@ -28,7 +28,7 @@ export const registerCallbacks = (bot, deps = {}) => {
     }
 
     const streamerEmojis = ['🥇', '🥈', '🥉', '🎮', '🕹️', '🎰', '🧩', '🎧', '🎫', '🎟️'];
-    
+
     const formatStreamerLabel = (streamer, index) => {
       const displayName = streamer.full_name || streamer.username;
       const emoji = streamerEmojis[index % streamerEmojis.length];
@@ -82,7 +82,7 @@ export const registerCallbacks = (bot, deps = {}) => {
 
         if (data === 'register_streamer') {
           await userStates.set(tgId, { step: 'await_streamer_full_name' });
-          await bot.sendMessage(chatId, '✅ የ Streamer ምዝገባ ተጀምሯል።\n\nእባክዎ ሙሉ ስምዎን ያስገቡ:');
+          await bot.sendMessage(chatId, '🎮 *የ Streamer ምዝገባ ፕሮግራም*\n━━━━━━━━━━━━━━━━\n\n👋 እንኳን ደህና መጡ!\n\n📝 *እንዲሞሉ የሚጠበቁ መረጃዎች:*\n   1️⃣ ሙሉ ስም\n   2️⃣ የማህበራዊ ሚዲያ አካውንት\n   3️⃣ ስልክ ቁጥር\n   4️⃣ የፕሮፋይል ፎቶ\n\n✍️ እባክዎ *ሙሉ ስምዎን* ያስገቡ:', { parse_mode: 'Markdown' });
         } else {
           const {
             rows: [{ id: userId }],

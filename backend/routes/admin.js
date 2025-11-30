@@ -26,7 +26,7 @@ function adminAuth(req, res, next) {
   if (!token || token !== process.env.ADMIN_TOKEN) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  
+
   next();
 }
 
@@ -160,17 +160,17 @@ router.post('/streamers/order', adminAuth, async (req, res) => {
   }
 
   const client = await db.getClient();
-  
+
   try {
     await client.query('BEGIN');
-    
+
     for (let i = 0; i < ordered_ids.length; i++) {
       await client.query(
         'UPDATE users SET streamer_order = $1 WHERE telegram_id = $2',
         [i, ordered_ids[i]]
       );
     }
-    
+
     await client.query('COMMIT');
     res.status(200).json({ message: 'Streamer order updated successfully' });
   } catch (error) {
@@ -316,14 +316,25 @@ router.post("/streamer-requests/:id/approve", async (req, res) => {
         const loginUrl = `${dashboardUrl}/login`;
 
         const message = [
-          '✅ የእርስዎ የ Streamer ምዝገባ ጸድቋል!\n',
+          '🎉 *እንኳን ደስ አለዎት!*',
+          '━━━━━━━━━━━━━━━━\n',
+          '✅ የእርስዎ የ Streamer ምዝገባ *ጸድቋል!*\n',
 
-          '🔗 የ Dashboard ሊንክዎ:\n'  + dashboardUrl,
-          
-          '\n Login ስያረጉ 6 code ያለው ኦቲፒ ኮድ ይደርሶታል ።\n',
-          '',
-          'ለማንኛውም ጥያቄ ወይም እገዛ እባክዎ አስተዳዳሪውን ያነጋግሩ።'
+          '🎮 *የ Dashboard ሊንክዎ:*',
+          `🔗 ${dashboardUrl}\n`,
 
+          '🔐 *እንዴት Login ማድረግ እንደሚቻል:*',
+          '   1️⃣ ከላይ ያለውን ሊንክ ይክፈቱ',
+          '   2️⃣ "Send Code" የሚለውን ይጫኑ',
+          '   3️⃣ 6 አሃዝ ያለው OTP ኮድ በቴሌግራም ይደርስዎታል',
+          '   4️⃣ ኮዱን በገጹ ላይ ያስገቡ\n',
+
+          '💡 *ጠቃሚ መረጃ:*',
+          '   • ሊንክዎን በደህና ያስቀምጡ',
+          '   • ለሌላ ሰው አያጋሩ',
+          '   • ለማንኛውም እገዛ አስተዳዳሪውን ያነጋግሩ\n',
+
+          '🙏 ስለመመዝገብዎ እናመሰግናለን!'
         ].join('\n');
 
         await bot.sendMessage(id, message);
@@ -356,7 +367,7 @@ router.post("/streamer-requests/:id/reject", async (req, res) => {
     // Notify user via Telegram bot
     try {
       if (bot) {
-        await bot.sendMessage(id, "❌ የእርስዎ የ Streamer ምዝገባ ውድቅ ተደርጓል።\n\nለበለጠ መረጃ አስተዳዳሪውን ያነጋግሩ።");
+        await bot.sendMessage(id, '❌ *የ Streamer ምዝገባ ውድቅ ተደርጓል*\n━━━━━━━━━━━━━━━━\n\n😔 ይቅርታ፣ የእርስዎ ምዝገባ ውድቅ ተደርጓል።\n\n📞 *ለበለጠ መረጃ:*\n   • አስተዳዳሪውን ያነጋግሩ\n   • ምክንያቱን ለማወቅ ይጠይቁ\n   • እንደገና ለመመዝገብ መመሪያ ይጠይቁ', { parse_mode: 'Markdown' });
       }
     } catch (e) {
       console.error("Failed to send rejection message to streamer:", e.message);
@@ -400,7 +411,7 @@ router.get("/recharges", async (req, res) => {
         if (bot && it.screenshot_file_id) {
           screenshot_url = await bot.getFileLink(it.screenshot_file_id);
         }
-      } catch {}
+      } catch { }
       return { ...it, screenshot_url };
     }));
 
@@ -754,7 +765,7 @@ router.get('/settings', async (req, res) => {
 
 router.post('/settings', express.json(), async (req, res) => {
   const allowed = ['maxChars', 'stepChars', 'basePrice', 'incrementPrice', 'filteredWords'];
-  
+
   // --- Input Validation ---
   for (const key of allowed) {
     if (req.body[key] !== undefined) {
