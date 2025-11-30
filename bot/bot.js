@@ -17,18 +17,12 @@ const bot = (() => {
     console.warn("[Telegram] TELEGRAM_BOT_TOKEN not set. Bot will not start.");
     return null;
   }
-  
-  // Use polling only in development; Production uses Webhooks
-  const usePolling = process.env.NODE_ENV !== 'production';
-  
-  const botInstance = new TelegramBot(token, { polling: usePolling });
-  
-  if (usePolling) {
-    botInstance.on("polling_error", (err) => console.error("[Telegram] Polling Error:", err?.response?.body || err.message));
-  }
+  const botInstance = new TelegramBot(token, { polling: true });
+  botInstance.on("polling_error", (err) => console.error("[Telegram] Polling Error:", err?.response?.body || err.message));
   botInstance.on("webhook_error", (err) => console.error("[Telegram] Webhook Error:", err?.response?.body || err.message));
   
-  console.log(`📱 Telegram Bot initialized. Mode: ${usePolling ? 'Polling (Dev)' : 'Webhook (Prod)'}`);
+  
+  console.log('📱 Telegram Bot singleton initialized.');
   return botInstance;
 })();
 
