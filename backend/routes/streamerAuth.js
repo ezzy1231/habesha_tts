@@ -84,8 +84,8 @@ async function sendOtpMessage(telegram_id, otp) {
   try {
     const { bot } = await import('../../bot/bot.js');
     if (!bot) return;
-    const msg = `🔐 Habesha TTS Login Code\n\n${otp}\n\nValid 10 minutes. Do not share.`;
-    await bot.sendMessage(String(telegram_id), msg);
+    const msg = `🔐 *Habesha TTS Login Verification*\n\nYour one-time login code:\n\`${otp}\`\n\n⚠️ _Valid for 10 minutes. Do not share._`;
+    await bot.sendMessage(String(telegram_id), msg, { parse_mode: 'Markdown' });
   } catch (e) {
     console.warn('[OTP] Failed to send OTP Telegram message:', e?.message || e);
   }
