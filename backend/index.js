@@ -151,6 +151,18 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/streamer', streamerRoutes);
 app.use('/api/payment', paymentRoutes);
 
+// --- Telegram Webhook Route (Production) ---
+app.post('/webhook', async (req, res) => {
+  if (bot) {
+    try {
+      bot.processUpdate(req.body);
+    } catch (e) {
+      console.error('[Webhook] Error processing update:', e);
+    }
+  }
+  res.sendStatus(200);
+});
+
 // --- Health Check Endpoint ---
 app.get('/health', async (req, res) => {
   try {
