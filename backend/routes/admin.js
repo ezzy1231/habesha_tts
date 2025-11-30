@@ -882,12 +882,16 @@ router.post("/complaints/:id/respond", express.json(), async (req, res) => {
     }
 
     if (bot) {
+      // Check user role to decide whether to show donation button
+      const userRes = await db.query("SELECT role FROM users WHERE telegram_id = $1", [complaint.telegram_id]);
+      const userRole = userRes.rows[0]?.role;
+
+      const replyMarkup = (userRole === 'donor')
+        ? { inline_keyboard: [[{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]] }
+        : undefined;
+
       await bot.sendMessage(complaint.telegram_id, `Admin Response:\n\n${message}`, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]
-          ]
-        }
+        reply_markup: replyMarkup
       });
       await db.query("UPDATE complaints SET responded = TRUE WHERE id = $1", [id]);
       emitAdminEvent('complaint_updated', { complaintId: Number(id), status: 'responded' });

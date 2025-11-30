@@ -239,10 +239,14 @@ export const registerMessageFlows = (bot, deps = {}) => {
           [tgId, text.trim()]
         );
         await userStates.delete(tgId);
+        
+        const user = await getUserByTelegramId(tgId);
+        const replyMarkup = (user && user.role === 'donor') 
+          ? { inline_keyboard: [[{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]] }
+          : undefined;
+
         await bot.sendMessage(chatId, '✅ ቅሬታዎ በተሳካ ሁኔታ ገብቷል። እናመሰግናለን!', {
-          reply_markup: {
-            inline_keyboard: [[{ text: '💰 ሌላ ልገሳ ላክ', callback_data: 'quick_donate' }]],
-          },
+          reply_markup: replyMarkup,
         });
         emitAdminEvent('complaint_created', {
           complaintId: complaintInsert.rows[0]?.id,
