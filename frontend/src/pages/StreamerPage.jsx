@@ -13,10 +13,10 @@ import ApiKeyModal from '../components/ApiKeyModal';
 import { useAuth } from '../contexts/AuthContext';
 
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const socket = io(SOCKET_URL, { 
-  transports: ["websocket"], 
-  reconnection: true, 
-  reconnectionAttempts: Infinity, 
+const socket = io(SOCKET_URL, {
+  transports: ["websocket"],
+  reconnection: true,
+  reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
   // Force new connection on reconnect to avoid stale state
@@ -401,7 +401,7 @@ export default function StreamerPage() {
         newDonations = res.data.donations || [];
         newPagination = res.data.pagination;
         console.log(`[fetchInitialData] Fetched donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
-        
+
         const audioReady = newDonations.filter(
           (d) => d.status === "paid" && d.audio_url && !d.played
         );
@@ -416,7 +416,7 @@ export default function StreamerPage() {
         newPagination = res.data.pagination;
         console.log(`[fetchInitialData] Fetched paginated donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
       }
-      
+
       if (page === 1) {
         processedDonationIdsRef.current = new Set(newDonations.map(d => getDonationCacheKey(d.id)));
       } else {
@@ -554,10 +554,10 @@ export default function StreamerPage() {
     playingRef.current = true;
     setCurrentPlaying(nextDonation.id);
 
-  const audioFilename = nextDonation.audio_url;
-  const donationUrl = getDonationUrl(audioFilename);
-  const notificationUrlPrimary = resolveNotificationSoundUrl(notificationSoundPreference);
-  const notificationUrlFallback = FALLBACK_NOTIFICATION_SOUND_URL;
+    const audioFilename = nextDonation.audio_url;
+    const donationUrl = getDonationUrl(audioFilename);
+    const notificationUrlPrimary = resolveNotificationSoundUrl(notificationSoundPreference);
+    const notificationUrlFallback = FALLBACK_NOTIFICATION_SOUND_URL;
 
     const playDonation = async () => {
       console.log(`[playDonation] Attempting to play donation ${nextDonation.id}. AudioContext state: ${audioContextRef.current?.state}`);
@@ -688,7 +688,7 @@ export default function StreamerPage() {
           console.log("🔔 [playNotificationThenDonation] Playing fallback notification (Web Audio):", notificationUrlFallback);
         }
 
-  const source = audioContextRef.current.createBufferSource();
+        const source = audioContextRef.current.createBufferSource();
         source.buffer = notificationAudioBuffer;
         source.connect(gainNodeRef.current);
 
@@ -725,7 +725,7 @@ export default function StreamerPage() {
       // Rejoin room on connect/reconnect
       socket.emit("join_streamer_room", uuid);
     });
-    
+
     socket.on("disconnect", (reason) => {
       console.log("🔌 Socket disconnected:", reason);
       // If the disconnection was initiated by the server, try to reconnect
@@ -734,7 +734,7 @@ export default function StreamerPage() {
         socket.connect();
       }
     });
-    
+
     socket.on("reconnect", (attemptNumber) => {
       console.log("🔄 Socket reconnected after", attemptNumber, "attempts, rejoining room and fetching missed data");
       socket.emit("join_streamer_room", uuid);
@@ -743,7 +743,7 @@ export default function StreamerPage() {
         fetchInitialData(1, { silent: true });
       }
     });
-    
+
     socket.on("reconnect_error", (error) => {
       console.error("Socket reconnection error:", error?.message);
     });
@@ -838,7 +838,7 @@ export default function StreamerPage() {
       setDonations([]);
       setQueue([]);
       playedDonationsRef.current = new Set();
-    processedDonationIdsRef.current = new Set();
+      processedDonationIdsRef.current = new Set();
       // Stop any current playback
       if (audioRef.current) {
         audioRef.current.pause();
@@ -893,16 +893,16 @@ export default function StreamerPage() {
   // ✅ Periodic AudioContext health check - resume if suspended while audio is enabled
   useEffect(() => {
     if (!enabled) return;
-    
+
     const checkAudioContext = async () => {
       if (!audioContextRef.current) return;
-      
+
       if (audioContextRef.current.state === 'suspended' && document.visibilityState === 'visible') {
         console.log("🔄 AudioContext suspended, attempting to resume...");
         try {
           await audioContextRef.current.resume();
           console.log("✅ AudioContext resumed by health check");
-          
+
           // If there are queued donations and nothing is playing, start playback
           if (!playingRef.current && queue.length > 0) {
             setTimeout(() => {
@@ -916,13 +916,13 @@ export default function StreamerPage() {
         }
       }
     };
-    
+
     // Check every 5 seconds
     const intervalId = setInterval(checkAudioContext, 5000);
-    
+
     // Also check immediately
     checkAudioContext();
-    
+
     return () => clearInterval(intervalId);
   }, [enabled, queue, playNext]);
 
@@ -987,11 +987,11 @@ export default function StreamerPage() {
     const handleKeyDown = (e) => {
       // Only handle shortcuts when not typing in input fields
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      
+
       const step = 0.05; // 5% increments
       let newVolume = volume;
-      
-      switch(e.key) {
+
+      switch (e.key) {
         case 'ArrowUp':
         case 'ArrowRight':
           e.preventDefault();
@@ -1028,7 +1028,7 @@ export default function StreamerPage() {
         default:
           return;
       }
-      
+
       if (newVolume !== volume) {
         setVolume(newVolume);
         localStorage.setItem('tts_volume', newVolume);
@@ -1045,7 +1045,7 @@ export default function StreamerPage() {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
         console.log("Page is visible again, restoring connections...");
-        
+
         // 1. Resume AudioContext if suspended (browsers suspend it when tab is inactive)
         if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
           try {
@@ -1055,21 +1055,21 @@ export default function StreamerPage() {
             console.warn("Failed to resume AudioContext:", e?.message);
           }
         }
-        
+
         // 2. Reconnect socket if disconnected
         if (!socket.connected) {
           console.log("Socket disconnected, reconnecting...");
           socket.connect();
         }
-        
+
         // 3. Rejoin streamer room
         socket.emit("join_streamer_room", uuid);
-        
+
         // 4. Refetch data to catch any missed donations
         if (apiClient) {
           fetchInitialData(1, { silent: true });
         }
-        
+
         // 5. Trigger playback if audio is enabled and queue has items but nothing is playing
         if (enabled && !playingRef.current && queue.length > 0) {
           console.log("🎵 Resuming playback after tab visibility restored");
@@ -1143,24 +1143,24 @@ export default function StreamerPage() {
     return 'text-red-700'; // #AC3939 equivalent
   };
 
-const themeClasses = darkMode
+  const themeClasses = darkMode
     ? "min-h-screen gradient-dark text-gray-100"
     : "min-h-screen gradient-light text-gray-900";
   const cardBg = darkMode ? "card-dark" : "card-light";
 
-if (loading && donations.length === 0) { // Only show full-screen loader on initial load
+  if (loading && donations.length === 0) { // Only show full-screen loader on initial load
     return (
       <div className={`${themeClasses} flex items-center justify-center min-h-screen`}>
-        <LoadingSpinner 
-          size="lg" 
-          text="Loading dashboard..." 
+        <LoadingSpinner
+          size="lg"
+          text="Loading dashboard..."
           className="text-center"
         />
       </div>
     );
   }
 
-return (
+  return (
     <div className={`${themeClasses} p-3 sm:p-4 md:p-6 lg:p-8 transition-colors duration-300 relative`}>
 
       <ApiKeyModal
@@ -1170,14 +1170,14 @@ return (
         title="Streamer API Key Required"
         message="Please enter your secret API Key to connect to your dashboard. You can find this key in the registration message from the Telegram bot."
       />
-<header className="mb-4 sm:mb-6">
+      <header className="mb-4 sm:mb-6">
         <div className="card p-3 sm:p-4 md:p-6 shadow-xl relative">
           {/* Header Controls - Theme Toggle and Logout */}
           <div className="absolute top-3 right-3 z-10 flex items-center gap-3">
             {usingSession && (
               <button
                 onClick={async () => {
-                  try { await logout(); } catch {}
+                  try { await logout(); } catch { }
                   navigate(`/streamer/${uuid}/login`);
                 }}
                 className="group relative inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 border border-gray-200 dark:border-gray-600 hover:border-red-200 dark:hover:border-red-800 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md"
@@ -1196,7 +1196,7 @@ return (
             <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
             <ThemeToggle isDarkMode={darkMode} toggleDarkMode={setDarkMode} />
           </div>
-          
+
           <div className="flex flex-col gap-4">
             {/* Dashboard Title */}
             <div className="flex items-center gap-2 sm:gap-3 mb-3">
@@ -1210,16 +1210,16 @@ return (
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Real-time donation management</p>
               </div>
             </div>
-            
+
             {/* Streamer Info and Balance Row */}
             {streamerInfo && (
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 {/* Streamer Info with Balance */}
                 <div className="flex items-center gap-3 flex-1">
                   {streamerInfo.profile_picture_url ? (
-                    <img 
-                      src={streamerInfo.profile_picture_url} 
-                      alt="Profile" 
+                    <img
+                      src={streamerInfo.profile_picture_url}
+                      alt="Profile"
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0"
                     />
                   ) : (
@@ -1231,12 +1231,12 @@ return (
                     <p className="text-xs text-gray-500 dark:text-gray-400">Streamer</p>
                     <div className="flex items-center gap-2 sm:gap-3">
                       <p className="text-base sm:text-xl font-bold text-gray-900 dark:text-white truncate">{streamerInfo.full_name || `@${streamerInfo.username}`}</p>
-                      
+
                       {/* Balance Badge */}
                       <div className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-xs sm:text-sm font-medium shadow-lg">
                         <span className="text-xs sm:text-sm">💰</span>
-                        <Balance 
-                          value={streamerInfo.balance} 
+                        <Balance
+                          value={streamerInfo.balance}
                           className="font-semibold"
                           showLabel={false}
                         />
@@ -1247,7 +1247,7 @@ return (
               </div>
             )}
 
-             {/* Action Controls - Compact Row */}
+            {/* Action Controls - Compact Row */}
             {streamerInfo && (
               <div className="flex flex-wrap justify-around gap-2 sm:gap-3 mt-2">
                 {/* Withdraw Button */}
@@ -1261,62 +1261,61 @@ return (
                   <span className="sm:hidden font-medium">Wd</span>
                 </button>
 
-                 {/* Audio Toggle Button */}
-                 <button
-                   onClick={async () => {
-                     if (!enabled) {
-                       try {
-                         const ctx = ensureAudioContext();
-                         if (ctx && ctx.state === 'suspended') {
-                           await ctx.resume();
-                         }
+                {/* Audio Toggle Button */}
+                <button
+                  onClick={async () => {
+                    if (!enabled) {
+                      try {
+                        const ctx = ensureAudioContext();
+                        if (ctx && ctx.state === 'suspended') {
+                          await ctx.resume();
+                        }
 
-                         if (ctx) {
-                           const buffer = ctx.createBuffer(1, 1, 22050);
-                           const source = ctx.createBufferSource();
-                           source.buffer = buffer;
-                           source.connect(gainNodeRef.current || ctx.destination);
-                           source.start(0);
-                           source.stop(ctx.currentTime + 0.001);
-                         } else {
-                           const silent = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA');
-                           silent.volume = 0;
-                           silent.muted = true;
-                           silent.playsInline = true;
-                           await silent.play();
-                           silent.pause();
-                         }
+                        if (ctx) {
+                          const buffer = ctx.createBuffer(1, 1, 22050);
+                          const source = ctx.createBufferSource();
+                          source.buffer = buffer;
+                          source.connect(gainNodeRef.current || ctx.destination);
+                          source.start(0);
+                          source.stop(ctx.currentTime + 0.001);
+                        } else {
+                          const silent = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA');
+                          silent.volume = 0;
+                          silent.muted = true;
+                          silent.playsInline = true;
+                          await silent.play();
+                          silent.pause();
+                        }
 
-                         console.log("Audio permission granted; enabling autoplay.");
-                         setEnabled(true);
+                        console.log("Audio permission granted; enabling autoplay.");
+                        setEnabled(true);
 
-                         setTimeout(() => {
-                           if (!playingRef.current && queue.length > 0) {
-                             playNext();
-                           }
-                         }, 50);
-                       } catch (e) {
-                         console.error("Audio autoplay unlock failed:", e);
-                         alert("Could not enable audio automatically. Please check your browser's autoplay settings for this site.");
-                       }
-                     } else {
-                       setEnabled(false);
-                     }
-                   }}
-                   className={`btn shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 sm:gap-2.5 min-h-[40px] sm:min-h-[44px] ${
-                     enabled 
-                       ? "gradient-success hover:gradient-success-dark text-white" 
-                       : "gradient-gray hover:gradient-gray-dark text-white"
-                   }`}
-                   title={enabled ? "Disable Audio" : "Enable Audio"}
-                 >
-                   <span className="text-sm sm:text-base">{enabled ? "🔊" : "🔇"}</span>
-                   <span className="hidden sm:inline font-medium">{enabled ? "Audio On" : "Audio Off"}</span>
-                   <span className="sm:hidden font-medium">{enabled ? "On" : "Off"}</span>
-                 </button>
+                        setTimeout(() => {
+                          if (!playingRef.current && queue.length > 0) {
+                            playNext();
+                          }
+                        }, 50);
+                      } catch (e) {
+                        console.error("Audio autoplay unlock failed:", e);
+                        alert("Could not enable audio automatically. Please check your browser's autoplay settings for this site.");
+                      }
+                    } else {
+                      setEnabled(false);
+                    }
+                  }}
+                  className={`btn shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 sm:gap-2.5 min-h-[40px] sm:min-h-[44px] ${enabled
+                      ? "gradient-success hover:gradient-success-dark text-white"
+                      : "gradient-gray hover:gradient-gray-dark text-white"
+                    }`}
+                  title={enabled ? "Disable Audio" : "Enable Audio"}
+                >
+                  <span className="text-sm sm:text-base">{enabled ? "🔊" : "🔇"}</span>
+                  <span className="hidden sm:inline font-medium">{enabled ? "Audio On" : "Audio Off"}</span>
+                  <span className="sm:hidden font-medium">{enabled ? "On" : "Off"}</span>
+                </button>
 
-                 {/* Volume Control */}
-                 <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 shadow-inner min-h-[40px] sm:min-h-[44px] relative group">
+                {/* Volume Control */}
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 shadow-inner min-h-[40px] sm:min-h-[44px] relative group">
                   <span className={`text-sm sm:text-base transition-colors duration-200 ${getVolumeColor(volume)}`}>
                     {getVolumeIcon(volume)}
                   </span>
@@ -1345,43 +1344,42 @@ return (
                   </div>
                 </div>
 
-                 {/* Skip Button */}
-                 <button
-                   onClick={() => {
-                     if (currentPlaying) {
-                       // Stop current playback and mark as played
-                       if (audioRef.current) {
-                         if (audioRef.current.stop) {
-                           audioRef.current.stop();
-                         } else if (audioRef.current.pause) {
-                           audioRef.current.pause();
-                         }
-                       }
-                       playingRef.current = false;
-                       setCurrentPlaying(null);
-                       markAsPlayed(currentPlaying);
-                       setQueue((prev) => prev.slice(1));
-                     }
-                   }}
-                   disabled={!currentPlaying}
-                   className={`btn shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 sm:gap-2.5 min-h-[40px] sm:min-h-[44px] ${
-                     currentPlaying 
-                       ? "gradient-warning hover:gradient-warning-dark text-white" 
-                       : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                   }`}
-                   title={currentPlaying ? "Skip current donation (S key)" : "No donation playing"}
-                 >
-                   <span className="text-sm sm:text-base">⏭️</span>
-                   <span className="hidden sm:inline font-medium">Skip</span>
-                   <span className="sm:hidden font-medium">Skip</span>
-                 </button>
+                {/* Skip Button */}
+                <button
+                  onClick={() => {
+                    if (currentPlaying) {
+                      // Stop current playback and mark as played
+                      if (audioRef.current) {
+                        if (audioRef.current.stop) {
+                          audioRef.current.stop();
+                        } else if (audioRef.current.pause) {
+                          audioRef.current.pause();
+                        }
+                      }
+                      playingRef.current = false;
+                      setCurrentPlaying(null);
+                      markAsPlayed(currentPlaying);
+                      setQueue((prev) => prev.slice(1));
+                    }
+                  }}
+                  disabled={!currentPlaying}
+                  className={`btn shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 sm:gap-2.5 min-h-[40px] sm:min-h-[44px] ${currentPlaying
+                      ? "gradient-warning hover:gradient-warning-dark text-white"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                    }`}
+                  title={currentPlaying ? "Skip current donation (S key)" : "No donation playing"}
+                >
+                  <span className="text-sm sm:text-base">⏭️</span>
+                  <span className="hidden sm:inline font-medium">Skip</span>
+                  <span className="sm:hidden font-medium">Skip</span>
+                </button>
               </div>
             )}
           </div>
         </div>
       </header>
 
-<div className={`${cardBg} p-3 sm:p-4 rounded-xl mb-4 sm:mb-6 shadow-xl border`}>
+      <div className={`${cardBg} p-3 sm:p-4 rounded-xl mb-4 sm:mb-6 shadow-xl border`}>
         <div className="flex flex-col gap-3 sm:gap-4">
           {/* Queue Info and Playing Indicator - Horizontal Layout */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -1407,7 +1405,7 @@ return (
                 </div>
               </div>
             </div>
-            
+
             {/* Now Playing Indicator - Aligned to the right on desktop, below on mobile */}
             {currentPlaying && (
               <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 gradient-success text-white rounded-xl shadow-lg animate-pulse">
@@ -1428,9 +1426,9 @@ return (
       <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {loading && donations.length === 0 && (
           <div className="col-span-full flex justify-center p-8 sm:p-12">
-            <LoadingSpinner 
-              size="md" 
-              text="Loading donations..." 
+            <LoadingSpinner
+              size="md"
+              text="Loading donations..."
               className="text-center"
             />
           </div>
@@ -1442,14 +1440,14 @@ return (
                 <span className="text-2xl sm:text-4xl">💰</span>
               </div>
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3">No Donations Yet</h3>
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3">እስካሁን ምንም ልገሳ የለም።</h3>
             <p className="text-sm sm:text-lg text-gray-600 dark:text-gray-300 mb-4 sm:mb-6 max-w-md mx-auto">
-              Share your donation link to start receiving amazing messages from your supporters!
+              ተመልካቾችዎ የቴሌግራም bot Link በማጋራት ልገሳ እንዲያደርጉ ያበረታቷቸው።
             </p>
             <div className="flex justify-center">
               <button className="btn btn-primary shadow-lg hover:shadow-xl text-sm sm:text-base">
                 <span>🔗</span>
-                <span className="ml-1 sm:ml-2">Copy Donation Link</span>
+                <span className="ml-1 sm:ml-2">@Habeshatts_bot</span>
               </button>
             </div>
           </div>
@@ -1462,7 +1460,7 @@ return (
         )}
       </div>
 
-{/* Pagination */}
+      {/* Pagination */}
       <Pagination pagination={pagination} onPageChange={handlePageChange} />
 
       {pagination && (
@@ -1471,7 +1469,7 @@ return (
         </div>
       )}
 
-<footer className="mt-8 sm:mt-12 lg:mt-16 text-center">
+      <footer className="mt-8 sm:mt-12 lg:mt-16 text-center">
         <div className="card p-4 sm:p-6 max-w-md mx-auto">
           <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
             <div className="p-1.5 sm:p-2 gradient-primary rounded-lg">
@@ -1480,7 +1478,7 @@ return (
             <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">Powered by Habesha TTS</span>
           </div>
           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-            Real-time donations with Ethiopian flair
+            "ፈጣን ልገሳ በሀገረኛ መንገድ"
           </p>
         </div>
       </footer>
