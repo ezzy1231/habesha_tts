@@ -63,8 +63,8 @@ export const registerMessageFlows = (bot, deps = {}) => {
 
       try {
         const insertRes = await db.query(
-          `INSERT INTO users (telegram_id, username, role, registration_status, full_name, social_link, phone_number, profile_picture_file_id)
-           VALUES ($1, $2, 'streamer', 'pending', $3, $4, $5, $6) RETURNING id`,
+          `INSERT INTO users (telegram_id, username, role, registration_status, full_name, social_link, phone_number, profile_picture_file_id, streamer_order)
+           VALUES ($1, $2, 'streamer', 'pending', $3, $4, $5, $6, (SELECT COALESCE(MAX(streamer_order), 0) + 1 FROM users WHERE role = 'streamer')) RETURNING id`,
           [tgId, username, fullName, socialLink, phoneNumber, fileId]
         );
         await userStates.delete(tgId);
