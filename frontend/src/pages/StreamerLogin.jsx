@@ -38,14 +38,15 @@ export default function StreamerLogin() {
 
   // Redirect to dashboard only if authenticated user matches the UUID
   useEffect(() => {
+    console.log('[StreamerLogin] Check:', { isAuthenticated, user: user?.telegram_id, streamer: streamer?.telegram_id });
     if (isAuthenticated && user && streamer) {
       // Check if the authenticated user's telegram_id matches the streamer for this UUID
       if (String(user.telegram_id) === String(streamer.telegram_id)) {
-        // Correct user is logged in, redirect to dashboard
+        console.log('[StreamerLogin] Match confirmed. Redirecting to dashboard.');
         navigate(`/streamer/${uuid}`, { replace: true });
       } else {
         // Wrong user is logged in, clear the session to allow login as the correct streamer
-        console.log('[StreamerLogin] Authenticated user does not match UUID, logging out...');
+        console.log('[StreamerLogin] Mismatch detected:', user.telegram_id, '!==', streamer.telegram_id);
         logout();
       }
     }
