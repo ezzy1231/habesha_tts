@@ -1131,7 +1131,17 @@ export default function StreamerPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [volume, currentPlaying, markAsPlayed]);
 
-  // ✅ Initial load and refetch on visibility change
+  // ✅ Initial fetch when API client becomes available
+  useEffect(() => {
+    if (!apiClient) {
+      setLoading(false);
+      return;
+    }
+
+    fetchInitialData(1);
+  }, [apiClient, fetchInitialData]);
+
+  // ✅ Refetch on visibility change
   useEffect(() => {
     const handleVisibilityChange = async () => {
       const isVisible = document.visibilityState === 'visible';
@@ -1179,12 +1189,6 @@ export default function StreamerPage() {
         }
       }
     };
-
-    if (apiClient) {
-      fetchInitialData(1);
-    } else {
-      setLoading(false);
-    }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
