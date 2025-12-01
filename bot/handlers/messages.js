@@ -27,6 +27,11 @@ export const registerMessageFlows = (bot, deps = {}) => {
 
     const tgId = String(fromId);
     const state = await userStates.get(tgId);
+    
+    if (state) {
+      console.log(`[Bot] Message handler: user=${tgId}, step=${state.step}, text="${text}"`);
+    }
+
     if (!state) return;
 
     if (state.step === 'await_streamer_full_name' && text) {
@@ -184,6 +189,29 @@ export const registerMessageFlows = (bot, deps = {}) => {
         `✅ ልገሳዎ ተዘጋጅቷል!\n💬 መልዕክት: "${text}"\n💵 ዋጋ: ${computedAmount} ብር\n\n🗣 ድምፅ ይምረጡ:`,
         { reply_markup: { inline_keyboard } }
       );
+      return;
+    }
+
+    if (state.step === 'recharge_custom_amount' && text) {
+      const amount = parseInt(text, 10);
+      if (isNaN(amount) || amount <= 0) {
+        await bot.sendMessage(chatId, '❌ ትክክለኛ መጠን አይደለም። እባክዎ ቁጥር ያስገቡ።');
+        return;
+      }
+      await userStates.set(tgId, { step: 'recharge_name', recharge_amount: amount });
+      await bot.sendMessage(chatId, `✅ ${amount} ብር ተመርጧል።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:`);
+      return;
+    }
+
+    if (state.step === 'recharge_name' && text) {
+      const name = text.trim();
+      if (name.length < 2) {
+        await bot.sendMessage(chatId, '❌ ስም በጣም አጭር ነው። እባክዎ ትክክለኛ ስም ያስገቡ።');
+        return;
+      }
+      // Preserve existing state (like recharge_amount) and update step/name
+      await userStates.set(tgId, { ...state, step: 'recharge_photo', name_on_payment: name });
+      await bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል።\n\n📸 እባክዎ የክፍያውን ስክሪንሾት (Screenshot) ይላኩ።');
       return;
     }
 

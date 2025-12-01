@@ -200,11 +200,13 @@ export const registerCallbacks = (bot, deps = {}) => {
 
       if (data.startsWith('recharge_amount_')) {
         const amountStr = data.split('_')[2];
+        console.log(`[Bot] Recharge callback: user=${tgId}, amountStr=${amountStr}`);
         if (amountStr === 'custom') {
           await userStates.set(tgId, { step: 'recharge_custom_amount' });
           await bot.sendMessage(chatId, '✏️ እባክዎ የሚሞሉትን መጠን በቁጥር ያስገቡ (ለምሳሌ: 150):');
         } else {
           const amount = parseInt(amountStr, 10);
+          console.log(`[Bot] Setting recharge state: user=${tgId}, amount=${amount}`);
           await userStates.set(tgId, { step: 'recharge_name', recharge_amount: amount });
           await bot.sendMessage(chatId, `✅ ${amount} ብር ተመርጧል።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:`);
         }
