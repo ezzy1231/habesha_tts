@@ -46,6 +46,22 @@ const MAX_RECONNECT_DELAY_MS = Number(import.meta.env.VITE_STREAMER_RECONNECT_MA
 const HEARTBEAT_INTERVAL_MS = Number(import.meta.env.VITE_STREAMER_HEARTBEAT_MS || 20000);
 const HEARTBEAT_TIMEOUT_MS = Number(import.meta.env.VITE_STREAMER_HEARTBEAT_TIMEOUT_MS || 12000);
 
+const getDonationTimestamp = (donation) => {
+  if (!donation) return 0;
+  const rawDate = donation.created_at || donation.createdAt;
+  if (rawDate) {
+    const parsed = Date.parse(rawDate);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  const numericId = Number(donation.id);
+  if (Number.isFinite(numericId)) {
+    return numericId;
+  }
+  return 0;
+};
+
 export default function StreamerPage() {
   const { uuid } = useParams();
   const navigate = useNavigate();
@@ -149,6 +165,11 @@ export default function StreamerPage() {
     }
     return null;
   }, [selectedNotificationSound, streamerInfo?.notification_sound_meta, notificationSoundApiReady, getFallbackSoundBySlug, localNotificationSoundSlug]);
+
+  const sortDonationsOldestFirst = useCallback((list = []) => {
+    if (!Array.isArray(list)) return [];
+    return [...list].sort((a, b) => getDonationTimestamp(a) - getDonationTimestamp(b));
+  }, []);
 
   // Preload next donation's audio buffer to reduce gaps
   useEffect(() => {
@@ -473,7 +494,8 @@ export default function StreamerPage() {
         const audioReady = newDonations.filter(
           (d) => d.status === "paid" && d.audio_url && !d.played
         );
-        setQueue(audioReady);
+        const orderedQueue = sortDonationsOldestFirst(audioReady);
+        setQueue(orderedQueue);
         console.log(`[StreamerPage] 📥 Loaded ${audioReady.length} unplayed donations to queue`);
 
       } else {
@@ -506,7 +528,7 @@ export default function StreamerPage() {
         setLoading(false);
       }
     }
-  }, [uuid, apiClient, usingSession, getDonationCacheKey]);
+  }, [uuid, apiClient, usingSession, getDonationCacheKey, sortDonationsOldestFirst]);
 
   useEffect(() => {
     if (!streamerInfo) {
@@ -883,7 +905,11 @@ export default function StreamerPage() {
             const cacheKey = getDonationCacheKey(b.id);
             return b.status === 'paid' && b.audio_url && !b.played && !playedDonationsRef.current.has(cacheKey) && !qIds.has(cacheKey);
           });
-          return playable.length ? [...prev, ...playable] : prev;
+          if (playable.length === 0) {
+            return prev;
+          }
+          const sortedPlayable = sortDonationsOldestFirst(playable);
+          return [...prev, ...sortedPlayable];
         });
         // Update pagination total count
         setPagination((prev) => prev ? { ...prev, totalCount: (prev.totalCount || 0) + uniqueBatch.length } : prev);
@@ -954,7 +980,7 @@ export default function StreamerPage() {
       stopHeartbeat();
       clearReconnectTimeout();
     };
-  }, [uuid, enabled, currentPage, fetchInitialData, getDonationCacheKey, apiClient, scheduleReconnect, startHeartbeat, stopHeartbeat, resetReconnectState, clearReconnectTimeout]);
+  }, [uuid, enabled, currentPage, fetchInitialData, getDonationCacheKey, apiClient, scheduleReconnect, startHeartbeat, stopHeartbeat, resetReconnectState, clearReconnectTimeout, sortDonationsOldestFirst]);
 
   // ✅ Watch for queue changes
   useEffect(() => {
