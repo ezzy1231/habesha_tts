@@ -15,11 +15,8 @@ import { useAuth } from '../contexts/AuthContext';
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const socket = io(SOCKET_URL, {
   transports: ["websocket"],
-  reconnection: true,
-  reconnectionAttempts: Infinity,
-  reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000,
-  // Force new connection on reconnect to avoid stale state
+  autoConnect: true,
+  reconnection: false, // we handle backoff + retries manually for finer control
   forceNew: false,
 });
 const DEFAULT_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/sounds/notification.mp3`;
@@ -44,6 +41,10 @@ const FALLBACK_NOTIFICATION_SOUNDS = [
   },
 ];
 const LOCAL_NOTIFICATION_SOUND_KEY = 'streamer_notification_sound_choice';
+const INITIAL_RECONNECT_DELAY_MS = Number(import.meta.env.VITE_STREAMER_RECONNECT_MIN_MS || 1000);
+const MAX_RECONNECT_DELAY_MS = Number(import.meta.env.VITE_STREAMER_RECONNECT_MAX_MS || 30000);
+const HEARTBEAT_INTERVAL_MS = Number(import.meta.env.VITE_STREAMER_HEARTBEAT_MS || 20000);
+const HEARTBEAT_TIMEOUT_MS = Number(import.meta.env.VITE_STREAMER_HEARTBEAT_TIMEOUT_MS || 12000);
 
 export default function StreamerPage() {
   const { uuid } = useParams();
@@ -93,6 +94,14 @@ export default function StreamerPage() {
   const [notificationSoundApiReady, setNotificationSoundApiReady] = useState(true);
   const [localNotificationSoundSlug, setLocalNotificationSoundSlug] = useState(() => localStorage.getItem(LOCAL_NOTIFICATION_SOUND_KEY) || '__default__');
   const audioUnlockedRef = useRef(false);
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const [lastHeartbeatAt, setLastHeartbeatAt] = useState(null);
+  const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY_MS);
+  const reconnectTimeoutRef = useRef(null);
+  const heartbeatIntervalRef = useRef(null);
+  const heartbeatTimeoutRef = useRef(null);
+  const isPageVisibleRef = useRef(typeof document !== 'undefined' ? document.visibilityState === 'visible' : true);
 
   const ensureAudioContext = useCallback(() => {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -372,6 +381,65 @@ export default function StreamerPage() {
       setPreviewingNotificationSound(false);
     }
   };
+
+  const clearReconnectTimeout = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetReconnectState = useCallback(() => {
+    reconnectDelayRef.current = INITIAL_RECONNECT_DELAY_MS;
+    setConnectionAttempts(0);
+    clearReconnectTimeout();
+  }, [clearReconnectTimeout]);
+
+  const scheduleReconnect = useCallback((reason = 'unknown') => {
+    if (socket.connected || reconnectTimeoutRef.current) return;
+    setConnectionStatus('reconnecting');
+    setConnectionAttempts((prev) => prev + 1);
+    const delay = reconnectDelayRef.current;
+    console.warn(`[Socket] Scheduling reconnect in ${delay}ms (reason: ${reason})`);
+    reconnectTimeoutRef.current = setTimeout(() => {
+      reconnectTimeoutRef.current = null;
+      socket.connect();
+    }, delay + Math.floor(Math.random() * 500));
+    reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, MAX_RECONNECT_DELAY_MS);
+  }, []);
+
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    if (heartbeatTimeoutRef.current) {
+      clearTimeout(heartbeatTimeoutRef.current);
+      heartbeatTimeoutRef.current = null;
+    }
+  }, []);
+
+  const startHeartbeat = useCallback(() => {
+    stopHeartbeat();
+    if (!socket.connected || !isPageVisibleRef.current) return;
+
+    const sendHeartbeat = () => {
+      if (!socket.connected) return;
+      socket.emit('streamer_heartbeat', { uuid, ts: Date.now() });
+      if (heartbeatTimeoutRef.current) {
+        clearTimeout(heartbeatTimeoutRef.current);
+      }
+      heartbeatTimeoutRef.current = setTimeout(() => {
+        console.warn('[Socket] Heartbeat timed out, forcing reconnect.');
+        setConnectionStatus('degraded');
+        socket.disconnect();
+        scheduleReconnect('heartbeat_timeout');
+      }, HEARTBEAT_TIMEOUT_MS);
+    };
+
+    heartbeatIntervalRef.current = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+    sendHeartbeat();
+  }, [scheduleReconnect, stopHeartbeat, uuid]);
 
   // ✅ Fetch streamer info + donation history
   const fetchInitialData = useCallback(async (page = 1, { silent = false } = {}) => {
@@ -716,37 +784,58 @@ export default function StreamerPage() {
 
 
 
-  // ✅ Real-time listener
+  // ✅ Real-time listener with connection monitoring
   useEffect(() => {
-    socket.emit("join_streamer_room", uuid);
-
-    socket.on("connect", () => {
+    const handleConnect = () => {
       console.log("🔗 Socket connected");
-      // Rejoin room on connect/reconnect
+      setConnectionStatus('connected');
+      resetReconnectState();
       socket.emit("join_streamer_room", uuid);
-    });
+      startHeartbeat();
+      setLastHeartbeatAt(Date.now());
 
-    socket.on("disconnect", (reason) => {
-      console.log("🔌 Socket disconnected:", reason);
-      // If the disconnection was initiated by the server, try to reconnect
-      if (reason === "io server disconnect" || reason === "transport close") {
-        console.log("Attempting to reconnect...");
-        socket.connect();
-      }
-    });
-
-    socket.on("reconnect", (attemptNumber) => {
-      console.log("🔄 Socket reconnected after", attemptNumber, "attempts, rejoining room and fetching missed data");
-      socket.emit("join_streamer_room", uuid);
-      // Fetch any donations that might have been missed during disconnection
+      // Ensure we didn't miss anything while offline
       if (apiClient) {
         fetchInitialData(1, { silent: true });
       }
-    });
+    };
 
-    socket.on("reconnect_error", (error) => {
-      console.error("Socket reconnection error:", error?.message);
-    });
+    const handleDisconnect = (reason) => {
+      console.log("🔌 Socket disconnected:", reason);
+      stopHeartbeat();
+      if (reason === 'io client disconnect' && !isPageVisibleRef.current) {
+        setConnectionStatus('sleeping');
+        return;
+      }
+      setConnectionStatus('disconnected');
+      scheduleReconnect(reason);
+    };
+
+    const handleConnectError = (error) => {
+      console.error("Socket connection error:", error?.message || error);
+      setConnectionStatus('error');
+      scheduleReconnect('connect_error');
+    };
+
+    const handleHeartbeatAck = (payload) => {
+      if (heartbeatTimeoutRef.current) {
+        clearTimeout(heartbeatTimeoutRef.current);
+        heartbeatTimeoutRef.current = null;
+      }
+      setLastHeartbeatAt(payload?.ts || Date.now());
+      setConnectionStatus('connected');
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("connect_error", handleConnectError);
+    socket.on("streamer_heartbeat_ack", handleHeartbeatAck);
+
+    if (socket.connected) {
+      handleConnect();
+    } else {
+      setConnectionStatus('connecting');
+    }
 
     socket.off("new_donation");
     socket.on("new_donation", (data) => {
@@ -850,10 +939,10 @@ export default function StreamerPage() {
     });
 
     return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.off("reconnect");
-      socket.off("reconnect_error");
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("connect_error", handleConnectError);
+      socket.off("streamer_heartbeat_ack", handleHeartbeatAck);
       socket.off("new_donation");
       socket.off("donation_paid");
       socket.off("donation_history_reset");
@@ -862,8 +951,10 @@ export default function StreamerPage() {
         clearInterval(bufferFlushIntervalRef.current);
         bufferFlushIntervalRef.current = null;
       }
+      stopHeartbeat();
+      clearReconnectTimeout();
     };
-  }, [uuid, enabled, currentPage, fetchInitialData, getDonationCacheKey, apiClient]);
+  }, [uuid, enabled, currentPage, fetchInitialData, getDonationCacheKey, apiClient, scheduleReconnect, startHeartbeat, stopHeartbeat, resetReconnectState, clearReconnectTimeout]);
 
   // ✅ Watch for queue changes
   useEffect(() => {
@@ -1043,10 +1134,13 @@ export default function StreamerPage() {
   // ✅ Initial load and refetch on visibility change
   useEffect(() => {
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        console.log("Page is visible again, restoring connections...");
+      const isVisible = document.visibilityState === 'visible';
+      isPageVisibleRef.current = isVisible;
 
-        // 1. Resume AudioContext if suspended (browsers suspend it when tab is inactive)
+      if (isVisible) {
+        console.log("Page is visible again, restoring connections...");
+        setConnectionStatus(socket.connected ? 'connected' : 'connecting');
+
         if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
           try {
             await audioContextRef.current.resume();
@@ -1056,21 +1150,19 @@ export default function StreamerPage() {
           }
         }
 
-        // 2. Reconnect socket if disconnected
         if (!socket.connected) {
           console.log("Socket disconnected, reconnecting...");
-          socket.connect();
+          scheduleReconnect('page_visible');
+        } else {
+          socket.emit("join_streamer_room", uuid);
         }
 
-        // 3. Rejoin streamer room
-        socket.emit("join_streamer_room", uuid);
+        startHeartbeat();
 
-        // 4. Refetch data to catch any missed donations
         if (apiClient) {
           fetchInitialData(1, { silent: true });
         }
 
-        // 5. Trigger playback if audio is enabled and queue has items but nothing is playing
         if (enabled && !playingRef.current && queue.length > 0) {
           console.log("🎵 Resuming playback after tab visibility restored");
           setTimeout(() => {
@@ -1078,6 +1170,12 @@ export default function StreamerPage() {
               playNext();
             }
           }, 100);
+        }
+      } else {
+        console.log("Page hidden, pausing heartbeat checks");
+        stopHeartbeat();
+        if (socket.connected) {
+          setConnectionStatus('sleeping');
         }
       }
     };
@@ -1093,7 +1191,7 @@ export default function StreamerPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [uuid, fetchInitialData, apiClient]);
+  }, [uuid, fetchInitialData, apiClient, scheduleReconnect, startHeartbeat, stopHeartbeat, enabled, queue, playNext]);
 
   useEffect(() => {
     if (keepAliveIntervalRef.current) {
@@ -1147,6 +1245,27 @@ export default function StreamerPage() {
     ? "min-h-screen gradient-dark text-gray-100"
     : "min-h-screen gradient-light text-gray-900";
   const cardBg = darkMode ? "card-dark" : "card-light";
+  const connectionStatusLabelMap = {
+    connected: 'Live Connection',
+    connecting: 'Connecting…',
+    reconnecting: 'Reconnecting…',
+    disconnected: 'Offline',
+    degraded: 'Checking Signal…',
+    error: 'Connection Error',
+    sleeping: 'Paused',
+  };
+  const connectionBadgeStyles = {
+    connected: 'bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-800',
+    connecting: 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800',
+    reconnecting: 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-100 dark:border-amber-800',
+    disconnected: 'bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-100 dark:border-rose-800',
+    degraded: 'bg-orange-100 text-orange-800 border border-orange-200 dark:bg-orange-900/30 dark:text-orange-100 dark:border-orange-800',
+    error: 'bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-100 dark:border-rose-800',
+    sleeping: 'bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800/60 dark:text-gray-300 dark:border-gray-700',
+  };
+  const connectionBadgeClass = connectionBadgeStyles[connectionStatus] || connectionBadgeStyles.connecting;
+  const connectionStatusLabel = connectionStatusLabelMap[connectionStatus] || 'Checking…';
+  const lastHeartbeatLabel = lastHeartbeatAt ? new Date(lastHeartbeatAt).toLocaleTimeString() : '—';
 
   if (loading && donations.length === 0) { // Only show full-screen loader on initial load
     return (
@@ -1172,6 +1291,19 @@ export default function StreamerPage() {
       />
       <header className="mb-4 sm:mb-6">
         <div className="card p-3 sm:p-4 md:p-6 shadow-xl relative">
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${connectionBadgeClass}`}>
+                    <span>🛰️</span>
+                    {connectionStatusLabel}
+                    {connectionAttempts > 0 && connectionStatus !== 'connected' ? (
+                      <span className="text-[11px] font-normal opacity-80">(attempt {connectionAttempts})</span>
+                    ) : null}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <span>Last heartbeat:</span>
+                    <span className="font-medium">{lastHeartbeatLabel}</span>
+                  </span>
+                </div>
           {/* Header Controls - Theme Toggle and Logout */}
           <div className="absolute top-3 right-3 z-10 flex items-center gap-3">
             {usingSession && (

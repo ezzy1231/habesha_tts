@@ -242,6 +242,12 @@ io.on('connection', (socket) => {
     console.log('Admin joined room');
     socket.join('admin');
   });
+  socket.on('streamer_heartbeat', (payload = {}) => {
+    socket.emit('streamer_heartbeat_ack', {
+      ts: Date.now(),
+      uuid: payload?.uuid,
+    });
+  });
   socket.on('disconnect', () => {
     console.log('❌ Client disconnected:', socket.id);
   });
