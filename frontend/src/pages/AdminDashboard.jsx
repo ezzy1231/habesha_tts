@@ -1557,6 +1557,7 @@ export default function AdminDashboard() {
     return saved === 'dark';
   });
   const [notificationsMuted, setNotificationsMuted] = useState(() => localStorage.getItem('adminNotificationsMuted') === 'true');
+  const [notificationAudioReady, setNotificationAudioReady] = useState(false);
   const toastTimersRef = useRef([]);
   const notificationAudioRef = useRef(null);
 
@@ -1602,6 +1603,37 @@ export default function AdminDashboard() {
       notificationAudioRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (notificationAudioReady) return undefined;
+    const events = ['pointerdown', 'touchstart', 'keydown'];
+    const primeAudio = () => {
+      const audio = notificationAudioRef.current;
+      if (!audio) return;
+      audio.muted = true;
+      const previousVolume = audio.volume;
+      audio.volume = 0;
+      audio.play()
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.muted = false;
+          audio.volume = previousVolume || 0.5;
+          setNotificationAudioReady(true);
+          cleanup();
+        })
+        .catch(() => {
+          // Ignore; we'll try again on the next user interaction
+        });
+    };
+
+    function cleanup() {
+      events.forEach((evt) => window.removeEventListener(evt, primeAudio, true));
+    }
+
+    events.forEach((evt) => window.addEventListener(evt, primeAudio, true));
+    return cleanup;
+  }, [notificationAudioReady]);
 
   const toggleDarkMode = (isDark) => {
     setDarkMode(isDark);
@@ -1801,7 +1833,12 @@ export default function AdminDashboard() {
           audio.volume = 0.5;
           audio.currentTime = 0;
           notificationAudioRef.current = audio;
-          audio.play().catch(err => console.log('Audio play failed:', err));
+          audio.play().catch(err => {
+            console.log('Audio play failed:', err);
+            if (!notificationAudioReady) {
+              console.log('Waiting for user interaction to unlock notification audio.');
+            }
+          });
         } catch (err) {
           console.log('Audio notification failed:', err);
         }
@@ -1812,7 +1849,7 @@ export default function AdminDashboard() {
     return () => {
       socket.off('admin_update', handleAdminUpdate);
     };
-  }, [apiClient, fetchCounts, addToast, notificationsMuted]);
+  }, [apiClient, fetchCounts, addToast, notificationsMuted, notificationAudioReady]);
 
   if (!apiClient) {
     return (
