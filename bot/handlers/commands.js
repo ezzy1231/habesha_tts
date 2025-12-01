@@ -122,7 +122,7 @@ export const registerCommands = (bot, deps = {}) => {
       await userStates.delete(tgId);
       await pendingDonations.delete(tgId);
       await db.query("DELETE FROM users WHERE telegram_id = $1", [tgId]);
-      bot.sendMessage(chatId, '🔄 ስብስ ነጻ ተደርጓል። እንደገና ይመዝገቡ። /start ይጫኑ');
+      bot.sendMessage(chatId, '🔄 ስብስብ ነጻ ተደርጓል። እንደገና ይመዝገቡ። /start ይጫኑ');
     } catch (error) {
       console.error('Error during reset:', error);
       bot.sendMessage(chatId, '❌ ስብስ ማጥፋት አልተቻለም። እንደገና ይሞክሩ።');
