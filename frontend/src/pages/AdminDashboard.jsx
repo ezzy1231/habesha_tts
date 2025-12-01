@@ -1558,6 +1558,7 @@ export default function AdminDashboard() {
   });
   const [notificationsMuted, setNotificationsMuted] = useState(() => localStorage.getItem('adminNotificationsMuted') === 'true');
   const toastTimersRef = useRef([]);
+  const notificationAudioRef = useRef(null);
 
   // On initial load, check for Admin Token
   useEffect(() => {
@@ -1590,6 +1591,17 @@ export default function AdminDashboard() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    const audio = new Audio('/sounds/admin-notification.mp3');
+    audio.preload = 'auto';
+    audio.volume = 0.5;
+    notificationAudioRef.current = audio;
+    return () => {
+      audio.pause();
+      notificationAudioRef.current = null;
+    };
+  }, []);
 
   const toggleDarkMode = (isDark) => {
     setDarkMode(isDark);
@@ -1732,10 +1744,12 @@ export default function AdminDashboard() {
   const fetchCounts = useCallback(async () => {
     if (!apiClient) return;
     try {
-      const rechargesRes = await apiClient.get(`/recharges`);
-      const withdrawalsRes = await apiClient.get(`/withdrawals`);
-      const streamerRequestsRes = await apiClient.get(`/streamer-requests`);
-      const complaintsRes = await apiClient.get(`/complaints/pending-count`);
+      const [rechargesRes, withdrawalsRes, streamerRequestsRes, complaintsRes] = await Promise.all([
+        apiClient.get(`/recharges`),
+        apiClient.get(`/withdrawals`),
+        apiClient.get(`/streamer-requests`),
+        apiClient.get(`/complaints/pending-count`),
+      ]);
       const pendingRecharges = rechargesRes.data.recharges.filter(r => r.status === 'pending').length;
       const pendingWithdrawals = withdrawalsRes.data.withdrawals.filter(w => w.status === 'pending').length;
       const pendingStreamerRequests = streamerRequestsRes.data.requests.filter(r => r.registration_status === 'pending').length;
@@ -1783,8 +1797,10 @@ export default function AdminDashboard() {
       // Play admin notification sound if not muted
       if (!notificationsMuted) {
         try {
-          const audio = new Audio('/admin-notification.mp3');
+          const audio = notificationAudioRef.current || new Audio('/sounds/admin-notification.mp3');
           audio.volume = 0.5;
+          audio.currentTime = 0;
+          notificationAudioRef.current = audio;
           audio.play().catch(err => console.log('Audio play failed:', err));
         } catch (err) {
           console.log('Audio notification failed:', err);
@@ -1796,7 +1812,7 @@ export default function AdminDashboard() {
     return () => {
       socket.off('admin_update', handleAdminUpdate);
     };
-  }, [apiClient, fetchCounts, addToast]);
+  }, [apiClient, fetchCounts, addToast, notificationsMuted]);
 
   if (!apiClient) {
     return (
