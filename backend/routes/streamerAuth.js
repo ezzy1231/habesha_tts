@@ -48,6 +48,28 @@ const withdrawSchema = z.object({
     .regex(/^2519\d{8}$/, 'Phone number must be in the format 2519XXXXXXXX'),
 });
 
+const FLAG_ACTION_LABELS = {
+  temp_ban: '⏳ Time Ban',
+  permanent_ban: '🚫 Ban',
+  unban_request: '✅ Unban',
+};
+const FLAG_ACTIONS = Object.keys(FLAG_ACTION_LABELS);
+const flagDonationSchema = z
+  .object({
+    action: z.enum(FLAG_ACTIONS, {
+      errorMap: () => ({ message: 'Unsupported flag action.' }),
+    }),
+    note: z
+      .string()
+      .trim()
+      .max(400, 'Notes must be 400 characters or fewer')
+      .optional(),
+  })
+  .transform((payload) => ({
+    action: payload.action,
+    note: payload.note && payload.note.length ? payload.note : undefined,
+  }));
+
 async function ensureStreamerOwnsUuid(uuid, streamerId) {
   const res = await db.query('SELECT telegram_id FROM users WHERE link_uuid = $1 AND role = \'streamer\' LIMIT 1', [uuid]);
   const record = res.rows[0];
@@ -308,6 +330,81 @@ router.post('/:uuid/donations/:donationId/played', streamerSessionAuth, async (r
     return res.status(500).json({ error: 'Failed to mark played' });
   }
 });
+
+router.post(
+  '/:uuid/donations/:donationId/flag',
+  streamerSessionAuth,
+  validateSchema(flagDonationSchema),
+  async (req, res) => {
+    const { uuid, donationId: donationIdParam } = req.params;
+    const donationId = Number.parseInt(donationIdParam, 10);
+
+    if (!Number.isInteger(donationId) || donationId <= 0) {
+      return res.status(400).json({ error: 'Invalid donation ID' });
+    }
+
+    const ownsUuid = await ensureStreamerOwnsUuid(uuid, req.streamerId);
+    if (!ownsUuid) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { action, note } = req.body;
+
+    try {
+      const donationRes = await db.query(
+        'SELECT id, donor_id FROM donations WHERE id = $1 AND streamer_id = $2',
+        [donationId, req.streamerId]
+      );
+
+      if (!donationRes.rowCount) {
+        return res.status(404).json({ error: 'Donation not found' });
+      }
+
+      const pendingRes = await db.query(
+        "SELECT id FROM donor_flag_requests WHERE donation_id = $1 AND streamer_id = $2 AND status = 'pending' LIMIT 1",
+        [donationId, req.streamerId]
+      );
+
+      if (pendingRes.rowCount) {
+        return res.status(409).json({ error: 'You already have a pending review for this donation.' });
+      }
+
+      const fallbackReason = note || `${FLAG_ACTION_LABELS[action]} requested by streamer`;
+      const insertRes = await db.query(
+        `INSERT INTO donor_flag_requests (donation_id, streamer_id, donor_id, action, reason)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, status, action, reason, created_at`,
+        [donationId, req.streamerId, donationRes.rows[0].donor_id || null, action, fallbackReason]
+      );
+
+      const flag = insertRes.rows[0];
+
+      emitAdminEvent('donor_flag_created', {
+        donationId,
+        streamerId: req.streamerId,
+        donorId: donationRes.rows[0].donor_id,
+        action,
+        actionLabel: FLAG_ACTION_LABELS[action],
+        reason: flag.reason,
+      });
+
+      return res.json({
+        success: true,
+        flag: {
+          id: flag.id,
+          status: flag.status,
+          action: flag.action,
+          actionLabel: FLAG_ACTION_LABELS[flag.action] || flag.action,
+          reason: flag.reason,
+          created_at: flag.created_at,
+        },
+      });
+    } catch (error) {
+      console.error('[streamer flag] Error submitting donor flag (session route):', error);
+      return res.status(500).json({ error: 'Failed to submit review request' });
+    }
+  }
+);
 
 // POST /api/v1/streamer/:uuid/withdraw (JWT session)
 router.post(
