@@ -45,6 +45,8 @@ const INITIAL_RECONNECT_DELAY_MS = Number(import.meta.env.VITE_STREAMER_RECONNEC
 const MAX_RECONNECT_DELAY_MS = Number(import.meta.env.VITE_STREAMER_RECONNECT_MAX_MS || 30000);
 const HEARTBEAT_INTERVAL_MS = Number(import.meta.env.VITE_STREAMER_HEARTBEAT_MS || 20000);
 const HEARTBEAT_TIMEOUT_MS = Number(import.meta.env.VITE_STREAMER_HEARTBEAT_TIMEOUT_MS || 12000);
+const MAX_PLAYBACK_RETRIES = Number(import.meta.env.VITE_STREAMER_PLAYBACK_RETRIES || 3);
+const PLAYBACK_RETRY_DELAY_MS = Number(import.meta.env.VITE_STREAMER_PLAYBACK_RETRY_DELAY_MS || 4000);
 
 const getDonationTimestamp = (donation) => {
   if (!donation) return 0;
@@ -74,6 +76,8 @@ export default function StreamerPage() {
   const bufferFlushIntervalRef = useRef(null);
   const [enabled, setEnabled] = useState(false);
   const [queue, setQueue] = useState([]);
+  const queueRef = useRef([]);
+  const playNextRef = useRef(() => {});
   const [currentPlaying, setCurrentPlaying] = useState(null);
   const [darkMode, setDarkMode] = useState(() => {
     // Check for theme in multiple possible keys for backward compatibility
@@ -96,6 +100,9 @@ export default function StreamerPage() {
   const gainNodeRef = useRef(null);
   const audioBufferCacheRef = useRef(new Map()); // key: audio_filename, value: AudioBuffer
   const currentTimeoutRef = useRef(null);
+  const pendingRetryRef = useRef(null);
+  const playbackFailuresRef = useRef(new Map());
+  const [playbackWarning, setPlaybackWarning] = useState(null);
   const [volume, setVolume] = useState(() => {
     const savedVolume = localStorage.getItem('tts_volume');
     return savedVolume !== null ? Number(savedVolume) : 1;
@@ -263,6 +270,10 @@ export default function StreamerPage() {
   }, [ensureAudioContext]);
 
   useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
+  useEffect(() => {
     volumeRef.current = volume;
   }, [volume]);
 
@@ -319,6 +330,15 @@ export default function StreamerPage() {
       events.forEach((evt) => window.removeEventListener(evt, unlockContext));
     };
   }, [ensureAudioContext]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingRetryRef.current) {
+        clearTimeout(pendingRetryRef.current);
+        pendingRetryRef.current = null;
+      }
+    };
+  }, []);
 
   // Update volume when it changes without recreating AudioContext
   useEffect(() => {
@@ -632,6 +652,48 @@ export default function StreamerPage() {
     }
   }, []);
 
+  const clearPlaybackFailure = useCallback((donationId) => {
+    if (!donationId) return;
+    const cacheKey = getDonationCacheKey(donationId);
+    playbackFailuresRef.current.delete(cacheKey);
+    if (playbackFailuresRef.current.size === 0) {
+      setPlaybackWarning(null);
+    }
+  }, [getDonationCacheKey]);
+
+  const handlePlaybackFailure = useCallback((donation, reason) => {
+    if (!donation) return;
+
+    if (reason === 'autoplay_blocked') {
+      setPlaybackWarning('Browser blocked audio playback. Tap the "Audio On" button and interact with the page to resume the queue.');
+      return;
+    }
+
+    const cacheKey = getDonationCacheKey(donation.id);
+    const attempts = (playbackFailuresRef.current.get(cacheKey) || 0) + 1;
+    playbackFailuresRef.current.set(cacheKey, attempts);
+
+    const baseMessage = `Donation #${donation.id} audio failed (${reason}).`;
+
+    if (attempts >= MAX_PLAYBACK_RETRIES) {
+      setPlaybackWarning(`${baseMessage} Reached ${MAX_PLAYBACK_RETRIES} attempts. Tap Skip or reload to continue.`);
+      return;
+    }
+
+    setPlaybackWarning(`${baseMessage} Retrying (${attempts}/${MAX_PLAYBACK_RETRIES})...`);
+
+    if (pendingRetryRef.current) {
+      clearTimeout(pendingRetryRef.current);
+    }
+
+    pendingRetryRef.current = setTimeout(() => {
+      pendingRetryRef.current = null;
+      if (!playingRef.current && queueRef.current.length > 0) {
+        playNextRef.current?.();
+      }
+    }, PLAYBACK_RETRY_DELAY_MS);
+  }, [getDonationCacheKey]);
+
   // ✅ Play next queued donation
   const playNext = useCallback(() => {
     console.log(`[playNext] Called. enabled: ${enabled}, playingRef.current: ${playingRef.current}, queue.length: ${queue.length}`);
@@ -649,14 +711,21 @@ export default function StreamerPage() {
     const notificationUrlPrimary = resolveNotificationSoundUrl(notificationSoundPreference);
     const notificationUrlFallback = FALLBACK_NOTIFICATION_SOUND_URL;
 
+    const failAndRetry = (reason) => {
+      if (currentTimeoutRef.current) {
+        clearTimeout(currentTimeoutRef.current);
+        currentTimeoutRef.current = null;
+      }
+      playingRef.current = false;
+      setCurrentPlaying(null);
+      handlePlaybackFailure(nextDonation, reason);
+    };
+
     const playDonation = async () => {
       console.log(`[playDonation] Attempting to play donation ${nextDonation.id}. AudioContext state: ${audioContextRef.current?.state}`);
       if (!audioContextRef.current) {
         console.error("❌ [playDonation] AudioContext not initialized.");
-        playingRef.current = false;
-        setCurrentPlaying(null);
-        markAsPlayed(nextDonation.id);
-        setQueue((prev) => prev.slice(1));
+        failAndRetry('audio_context_missing');
         return;
       }
 
@@ -669,10 +738,7 @@ export default function StreamerPage() {
             console.log("[playDonation] AudioContext resumed successfully. State:", audioContextRef.current.state);
           } catch (e) {
             console.error("❌ [playDonation] Failed to resume AudioContext for donation:", e.name, e.message, e);
-            playingRef.current = false;
-            setCurrentPlaying(null);
-            markAsPlayed(nextDonation.id);
-            setQueue((prev) => prev.slice(1));
+            failAndRetry('resume_failed');
             return;
           }
         }
@@ -709,6 +775,7 @@ export default function StreamerPage() {
             clearTimeout(currentTimeoutRef.current);
             currentTimeoutRef.current = null;
           }
+          clearPlaybackFailure(nextDonation.id);
         };
 
         console.log("🔊 [playDonation] Playing donation (Web Audio):", donationUrl);
@@ -718,20 +785,21 @@ export default function StreamerPage() {
         // Fallback: mark as played after audio duration + 1 second in case onended doesn't fire
         currentTimeoutRef.current = setTimeout(() => {
           console.log("[playDonation] Fallback: Marking as played after timeout.");
+          playingRef.current = false;
+          setCurrentPlaying(null);
           markAsPlayed(nextDonation.id);
+          setQueue((prev) => prev.slice(1));
+          audioBufferCacheRef.current.delete(audioFilename);
+          clearPlaybackFailure(nextDonation.id);
         }, (audioBuffer.duration * 1000) + 1000);
       } catch (err) {
         console.error("❌ [playDonation] Donation audio error (Web Audio):", err.name, err.message, err);
         if (err.name === 'NotAllowedError') {
           console.log("🔇 [playDonation] Autoplay blocked. User needs to interact with page first.");
-          playingRef.current = false;
-          setCurrentPlaying(null);
+          failAndRetry('autoplay_blocked');
           return;
         }
-        playingRef.current = false;
-        setCurrentPlaying(null);
-        markAsPlayed(nextDonation.id);
-        setQueue((prev) => prev.slice(1));
+        failAndRetry(err.name || 'audio_error');
       }
     };
 
@@ -797,7 +865,7 @@ export default function StreamerPage() {
 
     // Start sequence
     playNotificationThenDonation();
-  }, [enabled, queue, setCurrentPlaying, markAsPlayed, getDonationUrl, resolveNotificationSoundUrl, notificationSoundPreference]);
+  }, [enabled, queue, setCurrentPlaying, markAsPlayed, getDonationUrl, resolveNotificationSoundUrl, notificationSoundPreference, handlePlaybackFailure, clearPlaybackFailure]);
 
   const notificationSoundSelectValue = notificationSoundPreference?.slug
     || (!notificationSoundApiReady ? localNotificationSoundSlug : '__default__');
@@ -954,6 +1022,8 @@ export default function StreamerPage() {
       setQueue([]);
       playedDonationsRef.current = new Set();
       processedDonationIdsRef.current = new Set();
+      playbackFailuresRef.current = new Map();
+      setPlaybackWarning(null);
       // Stop any current playback
       if (audioRef.current) {
         audioRef.current.pause();
@@ -989,6 +1059,10 @@ export default function StreamerPage() {
       playNext();
     }
   }, [queue, enabled, playNext]);
+
+  useEffect(() => {
+    playNextRef.current = playNext;
+  }, [playNext]);
 
   // ✅ Stop playback when disabled
   useEffect(() => {
@@ -1451,6 +1525,8 @@ export default function StreamerPage() {
 
                         console.log("Audio permission granted; enabling autoplay.");
                         setEnabled(true);
+                        playbackFailuresRef.current.clear();
+                        setPlaybackWarning(null);
 
                         setTimeout(() => {
                           if (!playingRef.current && queue.length > 0) {
@@ -1522,6 +1598,8 @@ export default function StreamerPage() {
                       setCurrentPlaying(null);
                       markAsPlayed(currentPlaying);
                       setQueue((prev) => prev.slice(1));
+                      clearPlaybackFailure(currentPlaying);
+                      setPlaybackWarning(null);
                     }
                   }}
                   disabled={!currentPlaying}
@@ -1582,6 +1660,36 @@ export default function StreamerPage() {
               </div>
             )}
           </div>
+          {playbackWarning && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-lg border border-amber-300 bg-amber-50/90 dark:bg-amber-900/30 p-3 text-sm text-amber-900 dark:text-amber-100">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⚠️</span>
+                <span>{playbackWarning}</span>
+              </div>
+              <div className="flex items-center gap-2 sm:ml-auto">
+                <button
+                  type="button"
+                  className="btn btn-xs gradient-warning text-white"
+                  onClick={() => {
+                    playbackFailuresRef.current.clear();
+                    setPlaybackWarning(null);
+                    if (!playingRef.current && queue.length > 0) {
+                      playNext();
+                    }
+                  }}
+                >
+                  Retry Now
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs text-amber-700 dark:text-amber-200"
+                  onClick={() => setPlaybackWarning(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
