@@ -1,3 +1,5 @@
+import { isDonorBanned, buildBanMessage } from '../utils/ban.js';
+
 // Registers /command handlers without altering existing bot behavior.
 export const registerCommands = (bot, deps = {}) => {
   if (!bot) return;
@@ -15,6 +17,14 @@ export const registerCommands = (bot, deps = {}) => {
   }
 
   const streamerEmojis = ['🥇', '🥈', '🥉', '🎮', '🕹️', '🎰', '🧩', '🎧', '🎫', '🎟️'];
+
+  const checkBanAndNotify = async (chatId, user) => {
+    if (isDonorBanned(user)) {
+      await bot.sendMessage(chatId, buildBanMessage(user));
+      return true;
+    }
+    return false;
+  };
 
   const sendStreamerSelectionMenu = async (chatId) => {
     const streamers = (
@@ -72,6 +82,9 @@ export const registerCommands = (bot, deps = {}) => {
 
     if (user) {
       await bot.sendMessage(chatId, `👋 እንኳን ደህና መጡ ${first_name}! እንደ ${user.role} ተመዝግበዋል።`);
+      if (await checkBanAndNotify(chatId, user)) {
+        return;
+      }
     }
 
     await bot.sendMessage(chatId, "👋 እንኳን ደህና መጡ! እባክዎ ሚናዎን ይምረጡ:", {
@@ -101,6 +114,7 @@ export const registerCommands = (bot, deps = {}) => {
       await bot.sendMessage(msg.chat.id, "❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት።");
       return;
     }
+    if (await checkBanAndNotify(msg.chat.id, user)) return;
     await sendStreamerSelectionMenu(msg.chat.id);
   });
 
@@ -108,6 +122,7 @@ export const registerCommands = (bot, deps = {}) => {
     const tgId = String(msg.from.id);
     const user = await getUserByTelegramId(tgId);
     if (!user || user.role !== "donor") return;
+    if (await checkBanAndNotify(msg.chat.id, user)) return;
     bot.sendMessage(
       msg.chat.id,
       `💼 የ Wallet ቀሪ ሂሳብ: ${Number(user.balance || 0).toFixed(2)} ብር`
@@ -141,6 +156,8 @@ export const registerCommands = (bot, deps = {}) => {
       return;
     }
 
+    if (await checkBanAndNotify(msg.chat.id, user)) return;
+
     await userStates.set(tgId, { step: "recharge_select_amount" });
     bot.sendMessage(
       msg.chat.id,
@@ -166,6 +183,26 @@ export const registerCommands = (bot, deps = {}) => {
     );
   });
 
+  bot.onText(/\/change_name/, async (msg) => {
+    const tgId = String(msg.from.id);
+    const chatId = msg.chat.id;
+    const user = await getUserByTelegramId(tgId);
+
+    if (!user || user.role !== 'donor') {
+      await bot.sendMessage(chatId, '❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት። /start ይጫኑ እና "እንደ ለጋሽ ይመዝገቡ" ይምረጡ።');
+      return;
+    }
+
+    if (await checkBanAndNotify(chatId, user)) return;
+
+    await userStates.set(tgId, { step: 'change_display_name', user_id: user.id });
+    const currentName = user.display_name || user.username || 'ያልተገለጸ ስም';
+    await bot.sendMessage(
+      chatId,
+      `🪪 አሁን የታየው ስም: ${currentName}\n\n✏️ እባክዎ አዲስ ስምዎን (በአማርኛ) ያስገቡ።\n🚫 የተከለከሉ ቃላት ቢኖሩ ይዟል ብለን እንቆማለን።`
+    );
+  });
+
   bot.onText(/\/quickdonate/, async (msg) => {
     const tgId = String(msg.from.id);
     const user = await getUserByTelegramId(tgId);
@@ -173,6 +210,7 @@ export const registerCommands = (bot, deps = {}) => {
       bot.sendMessage(msg.chat.id, "❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት።");
       return;
     }
+    if (await checkBanAndNotify(msg.chat.id, user)) return;
     await sendStreamerSelectionMenu(msg.chat.id);
   });
 

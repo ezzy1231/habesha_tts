@@ -1,7 +1,55 @@
+import { useState, useEffect, useRef } from "react";
 import PropTypes from 'prop-types';
 import Balance from './Balance';
 
-export default function DonationCard({ donation, isPlaying = false }) {
+const FLAG_ACTION_OPTIONS = [
+  { value: 'temp_ban', icon: '⏳', label: 'Time Ban' },
+  { value: 'permanent_ban', icon: '🚫', label: 'Ban Donor' },
+  { value: 'unban_request', icon: '✅', label: 'Unban Request' },
+];
+
+export default function DonationCard({ donation, isPlaying = false, onFlagAction, isFlagging = false }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const hasPendingFlag = donation.flag?.status === 'pending';
+  const disableFlagMenu = !onFlagAction || hasPendingFlag || isFlagging;
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    const handleClickOutside = (event) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    const handleEsc = (event) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (disableFlagMenu && menuOpen) {
+      setMenuOpen(false);
+    }
+  }, [disableFlagMenu, menuOpen]);
+
+  const handleFlagAction = (action) => {
+    if (!onFlagAction || disableFlagMenu) return;
+    onFlagAction(action);
+    setMenuOpen(false);
+  };
+
   const formatTime = (dateString) => {
     try {
       const d = new Date(dateString);
@@ -15,6 +63,8 @@ export default function DonationCard({ donation, isPlaying = false }) {
       return "";
     }
   };
+
+  const flagTimestamp = donation.flag?.created_at ? formatTime(donation.flag.created_at) : null;
 
   const initials = (name) => {
     if (!name) return "?";
@@ -68,13 +118,55 @@ export default function DonationCard({ donation, isPlaying = false }) {
           </div>
 
           <div className="flex flex-col items-end gap-1.5 sm:gap-2 flex-shrink-0">
-            <div className="gradient-donation flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
-              <span className="text-sm sm:text-lg">💸</span>
-              <Balance 
-                value={donation.amount} 
-                showLabel={false} 
-                className="font-bold text-xs sm:text-sm text-blue-700 dark:text-blue-300"
-              />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="gradient-donation flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
+                <span className="text-sm sm:text-lg">💸</span>
+                <Balance 
+                  value={donation.amount} 
+                  showLabel={false} 
+                  className="font-bold text-xs sm:text-sm text-blue-700 dark:text-blue-300"
+                />
+              </div>
+              {onFlagAction && (
+                <div className="relative" ref={menuRef}>
+                  <button
+                    type="button"
+                    className={`p-1.5 rounded-full text-base sm:text-lg transition-all duration-150 border border-transparent ${
+                      disableFlagMenu
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900"
+                    }`}
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                    disabled={disableFlagMenu}
+                    onClick={() => {
+                      if (disableFlagMenu) return;
+                      setMenuOpen((prev) => !prev);
+                    }}
+                    title={hasPendingFlag ? "Awaiting admin review" : "Notify admins about this donor"}
+                  >
+                    ⋮
+                  </button>
+                  {menuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl z-20 overflow-hidden">
+                      {FLAG_ACTION_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                          onClick={() => handleFlagAction(option.value)}
+                        >
+                          <span className="text-base">{option.icon}</span>
+                          <span className="font-medium">{option.label}</span>
+                        </button>
+                      ))}
+                      <div className="px-3 py-1 text-[11px] text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                        Sends an instant alert to admins.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             
             <div className="flex flex-wrap gap-1 justify-end">
@@ -90,6 +182,9 @@ export default function DonationCard({ donation, isPlaying = false }) {
                 <span className="hidden sm:inline ml-1">{donation.played ? "Played" : "Unplayed"}</span>
               </span>
             </div>
+            {isFlagging && (
+              <div className="text-[11px] text-amber-600">Sending review...</div>
+            )}
           </div>
         </div>
 
@@ -103,6 +198,25 @@ export default function DonationCard({ donation, isPlaying = false }) {
             <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 text-gray-400 dark:text-gray-500 text-sm sm:text-lg">&rdquo;</div>
           </div>
         </div>
+
+        {donation.flag && (
+          <div className="mt-3 sm:mt-4 rounded-xl border border-amber-200 dark:border-amber-500/40 bg-amber-50/60 dark:bg-amber-900/20 p-3 sm:p-4 text-xs sm:text-sm text-amber-900 dark:text-amber-50 flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold truncate">{donation.flag.actionLabel || 'Flagged'}</span>
+              <span className={`badge ${donation.flag.status === 'pending' ? 'badge-warning' : 'badge-success'}`}>
+                {donation.flag.status === 'pending' ? 'Pending review' : donation.flag.status}
+              </span>
+            </div>
+            {donation.flag.reason && (
+              <p className="text-[13px] leading-snug opacity-90">
+                {donation.flag.reason}
+              </p>
+            )}
+            {flagTimestamp && (
+              <span className="text-[11px] uppercase tracking-wide opacity-75">Sent {flagTimestamp}</span>
+            )}
+          </div>
+        )}
 
         {/* Action indicators */}
         {isPlaying && (
@@ -130,6 +244,21 @@ DonationCard.propTypes = {
     status: PropTypes.string,
     text: PropTypes.string,
     played: PropTypes.bool,
+    flag: PropTypes.shape({
+      action: PropTypes.string,
+      actionLabel: PropTypes.string,
+      status: PropTypes.string,
+      reason: PropTypes.string,
+      created_at: PropTypes.string,
+    }),
   }).isRequired,
   isPlaying: PropTypes.bool,
+  onFlagAction: PropTypes.func,
+  isFlagging: PropTypes.bool,
+};
+
+DonationCard.defaultProps = {
+  isPlaying: false,
+  onFlagAction: null,
+  isFlagging: false,
 };

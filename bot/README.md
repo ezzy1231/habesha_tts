@@ -34,6 +34,8 @@ The test exercises `createStateStore` with basic set/get/delete flows and collec
 
 ## Operational Notes
 
+- Donor flows now support `/change_name`, allowing verified donors to update their public display name (filtered words are blocked before saving).
+- Banned donors are blocked from recharge/donation flows automatically, and expired bans are cleared when the bot sees them again.
 - Redis failures automatically fall back to the in-memory cache while logging errors; no process restart is required.
 - Handler modules interact with the store through async `get/set/delete` helpers—always `await` these calls when adding new flows.
 - To roll back to in-memory behavior, set `BOT_STATE_ENABLE_REDIS=false` and restart the bot. The existing handler code requires no changes.

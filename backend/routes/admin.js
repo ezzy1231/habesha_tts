@@ -8,6 +8,62 @@ import crypto from "crypto";
 import { url } from "inspector";
 
 const router = express.Router();
+const FLAG_ACTION_LABELS = {
+  temp_ban: "⏳ Time Ban",
+  permanent_ban: "🚫 Ban",
+  unban_request: "✅ Unban",
+};
+const FLAG_RESOLUTION_STATUSES = new Set(["resolved", "dismissed"]);
+const FLAG_SELECT_BASE = `
+  SELECT
+    f.id,
+    f.donation_id,
+    f.streamer_id,
+    f.donor_id,
+    f.action,
+    f.status,
+    f.reason,
+    f.created_at,
+    f.resolved_at,
+    f.resolved_by,
+    f.resolution_notes,
+    s.display_name AS streamer_name,
+    s.username AS streamer_username,
+    d.display_name AS donor_name,
+    d.username AS donor_username,
+    donations.message AS donation_message,
+    donations.amount AS donation_amount,
+    donations.created_at AS donation_created_at
+  FROM donor_flag_requests f
+  LEFT JOIN users s ON s.telegram_id = f.streamer_id
+  LEFT JOIN users d ON d.telegram_id = f.donor_id
+  LEFT JOIN donations ON donations.id = f.donation_id
+`;
+
+const hydrateFlagRow = (row) => {
+  if (!row) return null;
+  return {
+    id: row.id,
+    donation_id: row.donation_id,
+    streamer_id: row.streamer_id,
+    donor_id: row.donor_id,
+    action: row.action,
+    action_label: FLAG_ACTION_LABELS[row.action] || row.action,
+    status: row.status,
+    reason: row.reason,
+    created_at: row.created_at,
+    resolved_at: row.resolved_at,
+    resolved_by: row.resolved_by,
+    resolution_notes: row.resolution_notes,
+    streamer_name: row.streamer_name,
+    streamer_username: row.streamer_username,
+    donor_name: row.donor_name,
+    donor_username: row.donor_username,
+    donation_message: row.donation_message,
+    donation_amount: row.donation_amount,
+    donation_created_at: row.donation_created_at,
+  };
+};
 
 // Simple admin auth middleware using token
 function adminAuth(req, res, next) {
@@ -35,6 +91,25 @@ router.use(adminAuth);
 async function getUserById(id) {
   const res = await db.query("SELECT * FROM users WHERE id = $1", [id]);
   return res.rows[0] || null;
+}
+
+async function expireDonorBans() {
+  try {
+    await db.query(`
+      UPDATE users
+      SET is_banned = FALSE,
+          ban_reason = NULL,
+          ban_expires_at = NULL,
+          banned_at = NULL,
+          banned_by = NULL
+      WHERE role = 'donor'
+        AND is_banned = TRUE
+        AND ban_expires_at IS NOT NULL
+        AND ban_expires_at <= NOW();
+    `);
+  } catch (error) {
+    console.error('Failed to expire donor bans:', error);
+  }
 }
 
 // Helper: compute aggregates
@@ -238,7 +313,13 @@ router.delete('/streamers/:id', async (req, res) => {
 
 router.get("/donors", async (req, res) => {
   try {
-    const usersRes = await db.query("SELECT telegram_id, username, display_name, balance FROM users WHERE role = 'donor'");
+    await expireDonorBans();
+
+    const usersRes = await db.query(`
+      SELECT telegram_id, username, display_name, balance,
+             is_banned, ban_reason, ban_expires_at, banned_at
+      FROM users WHERE role = 'donor'
+    `);
     const donorsData = usersRes.rows;
 
     const donationsRes = await db.query("SELECT donor_id, amount FROM donations WHERE status = 'paid'");
@@ -255,6 +336,10 @@ router.get("/donors", async (req, res) => {
         username: d.username || null,
         display_name: d.display_name || null,
         balance: Number(d.balance || 0),
+        is_banned: Boolean(d.is_banned),
+        ban_reason: d.ban_reason || null,
+        ban_expires_at: d.ban_expires_at,
+        banned_at: d.banned_at,
         total_donated,
         donations_count
       };
@@ -312,6 +397,181 @@ router.post("/donors/:id/balance", express.json(), async (req, res) => {
   } catch (error) {
     console.error("Error updating donor balance:", error);
     res.status(500).json({ error: "Failed to update donor balance" });
+  }
+});
+
+router.post("/donors/:id/ban", express.json(), async (req, res) => {
+  const { id } = req.params;
+  const { reason, durationMinutes, performedBy } = req.body || {};
+
+  if (!reason || typeof reason !== 'string' || reason.trim().length < 3) {
+    return res.status(400).json({ error: 'Ban reason must be at least 3 characters.' });
+  }
+
+  if (durationMinutes !== undefined && (isNaN(durationMinutes) || Number(durationMinutes) <= 0)) {
+    return res.status(400).json({ error: 'durationMinutes must be a positive number when provided.' });
+  }
+
+  const expiresAt = durationMinutes ? new Date(Date.now() + Number(durationMinutes) * 60000) : null;
+  const actor = typeof performedBy === 'string' && performedBy.trim().length > 0
+    ? performedBy.trim().slice(0, 120)
+    : 'admin_panel';
+
+  try {
+    const userRes = await db.query("SELECT telegram_id FROM users WHERE telegram_id = $1 AND role = 'donor'", [id]);
+    if (!userRes.rowCount) {
+      return res.status(404).json({ error: 'Donor not found' });
+    }
+
+    const updateRes = await db.query(
+      `UPDATE users
+         SET is_banned = TRUE,
+             ban_reason = $1,
+             ban_expires_at = $2,
+             banned_at = NOW(),
+             banned_by = $3
+       WHERE telegram_id = $4 AND role = 'donor'
+       RETURNING telegram_id, username, display_name, balance, is_banned, ban_reason, ban_expires_at, banned_at, banned_by`,
+      [reason.trim(), expiresAt, actor, id]
+    );
+
+    emitAdminEvent('donor_ban_updated', {
+      telegramId: id,
+      action: 'ban',
+      banReason: reason.trim(),
+      banExpiresAt: expiresAt ? expiresAt.toISOString() : null,
+    });
+
+    return res.json({ success: true, donor: updateRes.rows[0] });
+  } catch (error) {
+    console.error('Error banning donor:', error);
+    res.status(500).json({ error: 'Failed to ban donor' });
+  }
+});
+
+router.post("/donors/:id/unban", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const updateRes = await db.query(
+      `UPDATE users
+         SET is_banned = FALSE,
+             ban_reason = NULL,
+             ban_expires_at = NULL,
+             banned_at = NULL,
+             banned_by = NULL
+       WHERE telegram_id = $1 AND role = 'donor'
+       RETURNING telegram_id, username, display_name, balance, is_banned, ban_reason, ban_expires_at, banned_at, banned_by`,
+      [id]
+    );
+
+    if (!updateRes.rowCount) {
+      return res.status(404).json({ error: 'Donor not found' });
+    }
+
+    emitAdminEvent('donor_ban_updated', {
+      telegramId: id,
+      action: 'unban',
+    });
+
+    return res.json({ success: true, donor: updateRes.rows[0] });
+  } catch (error) {
+    console.error('Error unbanning donor:', error);
+    res.status(500).json({ error: 'Failed to unban donor' });
+  }
+});
+
+router.get("/donor-flags", async (req, res) => {
+  const { status = 'pending', limit = '50' } = req.query;
+  const normalizedStatus = typeof status === 'string' && status.toLowerCase() !== 'all'
+    ? status.toLowerCase()
+    : null;
+  const numericLimit = Math.max(1, Math.min(parseInt(limit, 10) || 50, 200));
+
+  try {
+    const rows = await db.query(
+      `${FLAG_SELECT_BASE}
+       ${normalizedStatus ? 'WHERE f.status = $1' : ''}
+       ORDER BY f.created_at DESC
+       LIMIT $${normalizedStatus ? 2 : 1}`,
+      normalizedStatus ? [normalizedStatus, numericLimit] : [numericLimit]
+    );
+
+    res.json({
+      flags: rows.rows.map(hydrateFlagRow),
+      hasMore: rows.rows.length === numericLimit,
+    });
+  } catch (error) {
+    console.error('Error fetching donor flags:', error);
+    res.status(500).json({ error: 'Failed to load donor flags' });
+  }
+});
+
+router.get("/donor-flags/stats", async (_req, res) => {
+  try {
+    const statsRes = await db.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+        COUNT(*) AS total
+      FROM donor_flag_requests
+    `);
+    const row = statsRes.rows[0] || {};
+    res.json({
+      pending: Number(row.pending) || 0,
+      total: Number(row.total) || 0,
+    });
+  } catch (error) {
+    console.error('Error fetching donor flag stats:', error);
+    res.status(500).json({ error: 'Failed to load donor flag stats' });
+  }
+});
+
+router.post("/donor-flags/:id/resolve", express.json(), async (req, res) => {
+  const { id } = req.params;
+  const { status, resolutionNotes, resolvedBy } = req.body || {};
+
+  if (typeof status !== 'string' || !FLAG_RESOLUTION_STATUSES.has(status.toLowerCase())) {
+    return res.status(400).json({ error: 'Invalid resolution status. Use "resolved" or "dismissed".' });
+  }
+
+  const notes = typeof resolutionNotes === 'string' && resolutionNotes.trim().length
+    ? resolutionNotes.trim().slice(0, 1000)
+    : null;
+  const actor = typeof resolvedBy === 'string' && resolvedBy.trim().length
+    ? resolvedBy.trim().slice(0, 120)
+    : 'admin_panel';
+
+  try {
+    const updateRes = await db.query(
+      `UPDATE donor_flag_requests
+         SET status = $1,
+             resolved_at = NOW(),
+             resolved_by = $2,
+             resolution_notes = $3
+       WHERE id = $4
+       RETURNING *`,
+      [status.toLowerCase(), actor, notes, id]
+    );
+
+    if (!updateRes.rowCount) {
+      return res.status(404).json({ error: 'Flag not found' });
+    }
+
+    const detailRes = await db.query(`${FLAG_SELECT_BASE} WHERE f.id = $1`, [id]);
+    const flag = hydrateFlagRow(detailRes.rows[0]);
+
+    emitAdminEvent('donor_flag_updated', {
+      id: flag.id,
+      status: flag.status,
+      action: flag.action,
+      streamerId: flag.streamer_id,
+      donorId: flag.donor_id,
+    });
+
+    res.json({ success: true, flag });
+  } catch (error) {
+    console.error('Error resolving donor flag:', error);
+    res.status(500).json({ error: 'Failed to update donor flag' });
   }
 });
 

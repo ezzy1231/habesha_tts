@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import express from "express";
+import { z } from "zod";
 import db from "../db-postgres.js";
 import { protectStreamer } from "../middleware/auth.js";
 import { bot } from '../../bot/bot.js';
@@ -17,6 +18,25 @@ import {
 console.log(" streamer.js router loaded");
 
 const router = express.Router();
+const FLAG_ACTION_LABELS = {
+  temp_ban: "⏳ Time Ban",
+  permanent_ban: "🚫 Ban",
+  unban_request: "✅ Unban",
+};
+const FLAG_ACTIONS = Object.keys(FLAG_ACTION_LABELS);
+const flagDonationSchema = z.object({
+  action: z.enum(FLAG_ACTIONS, {
+    errorMap: () => ({ message: "Unsupported flag action." }),
+  }),
+  note: z
+    .string()
+    .trim()
+    .max(400, "Notes must be 400 characters or fewer")
+    .optional(),
+}).transform((payload) => ({
+  action: payload.action,
+  note: payload.note && payload.note.length ? payload.note : undefined,
+}));
 
 // Get streamer donations by link_uuid - PROTECTED
 router.get("/:uuid/donations", protectStreamer, async (req, res) => {
@@ -27,9 +47,32 @@ router.get("/:uuid/donations", protectStreamer, async (req, res) => {
 
   try {
     const donationsRes = await db.query(`
-      SELECT d.id, u.display_name AS donor_name, d.message AS text, d.amount, d.status, d.audio_file AS audio_url, d.played, d.created_at
+      SELECT
+        d.id,
+        u.display_name AS donor_name,
+        d.message AS text,
+        d.amount,
+        d.status,
+        d.audio_file AS audio_url,
+        d.played,
+        d.created_at,
+        flag.flag_action,
+        flag.flag_status,
+        flag.flag_reason,
+        flag.flag_created_at
       FROM donations d
       LEFT JOIN users u ON u.telegram_id = d.donor_id
+      LEFT JOIN LATERAL (
+        SELECT
+          action AS flag_action,
+          status AS flag_status,
+          reason AS flag_reason,
+          created_at AS flag_created_at
+        FROM donor_flag_requests f
+        WHERE f.donation_id = d.id AND f.streamer_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) flag ON TRUE
       WHERE d.streamer_id = $1 AND d.status = 'paid'
       ORDER BY d.created_at DESC
       LIMIT $2 OFFSET $3
@@ -43,10 +86,24 @@ router.get("/:uuid/donations", protectStreamer, async (req, res) => {
 
     const totalCount = parseInt(statsRes.rows[0].count);
 
-    const donations = (donationsRes.rows || []).map(d => ({
-      ...d,
-      donor_name: d.donor_name,
-    }));
+    const donations = (donationsRes.rows || []).map((d) => {
+      const { flag_action, flag_status, flag_reason, flag_created_at, ...rest } = d;
+      const flag = flag_status
+        ? {
+            action: flag_action,
+            actionLabel: FLAG_ACTION_LABELS[flag_action] || flag_action,
+            status: flag_status,
+            reason: flag_reason,
+            created_at: flag_created_at,
+          }
+        : null;
+
+      return {
+        ...rest,
+        donor_name: d.donor_name,
+        flag,
+      };
+    });
 
     res.json({
       donations,
@@ -148,9 +205,32 @@ router.get("/:uuid", async (req, res) => {
 
     // Also fetch donations for this streamer with pagination
     const donationsRes = await db.query(`
-      SELECT d.id, u.display_name AS donor_name, d.message AS text, d.amount, d.status, d.audio_file AS audio_url, d.played, d.created_at
+      SELECT
+        d.id,
+        u.display_name AS donor_name,
+        d.message AS text,
+        d.amount,
+        d.status,
+        d.audio_file AS audio_url,
+        d.played,
+        d.created_at,
+        flag.flag_action,
+        flag.flag_status,
+        flag.flag_reason,
+        flag.flag_created_at
       FROM donations d
       LEFT JOIN users u ON u.telegram_id = d.donor_id
+      LEFT JOIN LATERAL (
+        SELECT
+          action AS flag_action,
+          status AS flag_status,
+          reason AS flag_reason,
+          created_at AS flag_created_at
+        FROM donor_flag_requests f
+        WHERE f.donation_id = d.id AND f.streamer_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) flag ON TRUE
       WHERE d.streamer_id = $1 AND d.status = 'paid'
       ORDER BY d.created_at DESC
       LIMIT $2 OFFSET $3
@@ -168,10 +248,24 @@ router.get("/:uuid", async (req, res) => {
 
     const balance = await getStreamerBalance(streamer.telegram_id);
 
-    const donations = (donationsRes.rows || []).map(d => ({
-      ...d,
-      donor_name: d.donor_name,
-    }));
+    const donations = (donationsRes.rows || []).map((d) => {
+      const { flag_action, flag_status, flag_reason, flag_created_at, ...rest } = d;
+      const flag = flag_status
+        ? {
+            action: flag_action,
+            actionLabel: FLAG_ACTION_LABELS[flag_action] || flag_action,
+            status: flag_status,
+            reason: flag_reason,
+            created_at: flag_created_at,
+          }
+        : null;
+
+      return {
+        ...rest,
+        donor_name: d.donor_name,
+        flag,
+      };
+    });
 
     console.log(`Found paginated donations: ${donations.length}`);
 
@@ -242,6 +336,77 @@ router.post("/:uuid/withdraw", protectStreamer, express.json(), async (req, res)
     res.status(500).json({ error: "Failed to submit withdrawal request" });
   }
 });
+
+router.post(
+  "/:uuid/donations/:donationId/flag",
+  protectStreamer,
+  express.json(),
+  validateSchema(flagDonationSchema),
+  async (req, res) => {
+    const { donationId: donationIdParam } = req.params;
+    const donationId = Number.parseInt(donationIdParam, 10);
+
+    if (!Number.isInteger(donationId) || donationId <= 0) {
+      return res.status(400).json({ error: "Invalid donation ID" });
+    }
+
+    const { action, note } = req.body;
+
+    try {
+      const donationRes = await db.query(
+        `SELECT id, donor_id FROM donations WHERE id = $1 AND streamer_id = $2`,
+        [donationId, req.streamerId]
+      );
+
+      if (!donationRes.rowCount) {
+        return res.status(404).json({ error: "Donation not found" });
+      }
+
+      const pendingRes = await db.query(
+        `SELECT id FROM donor_flag_requests WHERE donation_id = $1 AND streamer_id = $2 AND status = 'pending' LIMIT 1`,
+        [donationId, req.streamerId]
+      );
+
+      if (pendingRes.rowCount) {
+        return res.status(409).json({ error: "You already have a pending review for this donation." });
+      }
+
+      const fallbackReason = note || `${FLAG_ACTION_LABELS[action]} requested by streamer`;
+      const insertRes = await db.query(
+        `INSERT INTO donor_flag_requests (donation_id, streamer_id, donor_id, action, reason)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, status, action, reason, created_at`,
+        [donationId, req.streamerId, donationRes.rows[0].donor_id || null, action, fallbackReason]
+      );
+
+      const flag = insertRes.rows[0];
+
+      emitAdminEvent('donor_flag_created', {
+        donationId,
+        streamerId: req.streamerId,
+        donorId: donationRes.rows[0].donor_id,
+        action,
+        actionLabel: FLAG_ACTION_LABELS[action],
+        reason: flag.reason,
+      });
+
+      return res.json({
+        success: true,
+        flag: {
+          id: flag.id,
+          status: flag.status,
+          action: flag.action,
+          actionLabel: FLAG_ACTION_LABELS[flag.action] || flag.action,
+          reason: flag.reason,
+          created_at: flag.created_at,
+        },
+      });
+    } catch (error) {
+      console.error("Error submitting donor flag:", error);
+      return res.status(500).json({ error: "Failed to submit review request" });
+    }
+  }
+);
 
 // Mark donation as played - PROTECTED
 router.post("/:uuid/donations/:donationId/played", protectStreamer, async (req, res) => {

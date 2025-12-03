@@ -1,3 +1,14 @@
+import { isDonorBanned, buildBanMessage } from '../utils/ban.js';
+
+const DONOR_BAN_STEPS = new Set([
+  'set_display_name',
+  'change_display_name',
+  'awaiting_donation',
+  'recharge_custom_amount',
+  'recharge_name',
+  'recharge_photo',
+]);
+
 export const registerMessageFlows = (bot, deps = {}) => {
   if (!bot) return;
 
@@ -33,6 +44,14 @@ export const registerMessageFlows = (bot, deps = {}) => {
     }
 
     if (!state) return;
+
+    const user = await getUserByTelegramId(tgId);
+
+    if (user && DONOR_BAN_STEPS.has(state.step) && isDonorBanned(user)) {
+      await userStates.delete(tgId);
+      await bot.sendMessage(chatId, buildBanMessage(user));
+      return;
+    }
 
     if (state.step === 'await_streamer_full_name' && text) {
       await userStates.set(tgId, { step: 'await_streamer_social_link', fullName: text.trim() });
@@ -88,19 +107,41 @@ export const registerMessageFlows = (bot, deps = {}) => {
       return;
     }
 
-    if (state.step === 'set_display_name' && text) {
+    if ((state.step === 'set_display_name' || state.step === 'change_display_name') && text) {
+      const proposedName = text.normalize('NFC').trim();
+      if (proposedName.length < 2 || proposedName.length > 48) {
+        await bot.sendMessage(chatId, '⚠️ ስምዎ በ 2-48 ቁምፊዎች መካከል መሆን አለበት።');
+        return;
+      }
+
+      const { filteredWords } = await getSettings();
+      const containsFiltered = filteredWords.some((word) => proposedName.toLowerCase().includes(word));
+      if (containsFiltered) {
+        await bot.sendMessage(chatId, '❌ ስምዎ የተከለከሉ ቃላትን ይዟል። እባክዎ ሌላ ስም ይሞክሩ።');
+        return;
+      }
+
       try {
-        await db.query('UPDATE users SET display_name = $1 WHERE id = $2', [text.trim(), state.user_id]);
-        const afterReg = state.after_registration;
-        if (afterReg === 'recharge') {
-          await userStates.set(tgId, { step: 'recharge_name' });
-          await bot.sendMessage(
-            chatId,
-            '✅ ስምዎ ተቀብሏል።\n\n💳 የቴሌብር መሙያ: ወደ 251-939976687 ገንዘብ ይላኩ።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:'
-          );
-        } else {
+        if (!state.user_id) {
+          throw new Error('Missing user reference for display-name update');
+        }
+        await db.query('UPDATE users SET display_name = $1 WHERE id = $2', [proposedName, state.user_id]);
+
+        if (state.step === 'change_display_name') {
           await userStates.delete(tgId);
-          await bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል። አሁን ብር /recharge ያድርጉ።');
+          await bot.sendMessage(chatId, '✅ አዲስ ስምዎ ተቀብሏል። እንግዲህ በሁሉም ስብስቦች ላይ ይመራል።');
+        } else {
+          const afterReg = state.after_registration;
+          if (afterReg === 'recharge') {
+            await userStates.set(tgId, { step: 'recharge_name' });
+            await bot.sendMessage(
+              chatId,
+              '✅ ስምዎ ተቀብሏል።\n\n💳 የቴሌብር መሙያ: ወደ 251-939976687 ገንዘብ ይላኩ።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:'
+            );
+          } else {
+            await userStates.delete(tgId);
+            await bot.sendMessage(chatId, '✅ ስምዎ ተቀብሏል። አሁን ብር /recharge ያድርጉ።');
+          }
         }
       } catch (error) {
         console.error('Error updating display name:', error);

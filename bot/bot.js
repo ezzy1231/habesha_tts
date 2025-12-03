@@ -109,7 +109,27 @@ const pendingDonations = createStateStore({
 // --- DB Helpers ---
 async function getUserByTelegramId(id) {
   const res = await db.query("SELECT * FROM users WHERE telegram_id = $1", [id]);
-  return res.rows[0] || null;
+  let user = res.rows[0] || null;
+
+  if (user?.role === 'donor' && user?.is_banned && user?.ban_expires_at) {
+    const expires = new Date(user.ban_expires_at);
+    if (!Number.isNaN(expires.getTime()) && expires <= new Date()) {
+      const updated = await db.query(
+        `UPDATE users
+            SET is_banned = FALSE,
+                ban_reason = NULL,
+                ban_expires_at = NULL,
+                banned_at = NULL,
+                banned_by = NULL
+          WHERE telegram_id = $1
+          RETURNING *`,
+        [id]
+      );
+      user = updated.rows[0] || user;
+    }
+  }
+
+  return user;
 }
 
 if (bot) {

@@ -1,3 +1,5 @@
+import { isDonorBanned, buildBanMessage } from '../utils/ban.js';
+
 export const registerCallbacks = (bot, deps = {}) => {
   if (!bot) return;
 
@@ -72,10 +74,23 @@ export const registerCallbacks = (bot, deps = {}) => {
 
     const tgId = String(fromId);
     const username = fromUsername || first_name;
+    const user = await getUserByTelegramId(tgId);
+
+    const notifyBan = async () => {
+      if (user && isDonorBanned(user)) {
+        await bot.sendMessage(chatId, buildBanMessage(user));
+        await safeAnswerCallback(query.id, { text: '⛔ መለያዎ ተገድቧል።', show_alert: true });
+        return true;
+      }
+      return false;
+    };
 
     try {
       if (data.startsWith('register_')) {
-        if (await getUserByTelegramId(tgId)) {
+        if (user) {
+          if (isDonorBanned(user)) {
+            await bot.sendMessage(chatId, buildBanMessage(user));
+          }
           safeAnswerCallback(query.id, { text: 'አስቀድመው ተመዝግበዋል።' });
           return;
         }
@@ -100,6 +115,7 @@ export const registerCallbacks = (bot, deps = {}) => {
       }
 
       if (data.startsWith('choose_streamer_')) {
+        if (await notifyBan()) return;
         await userStates.set(tgId, { step: 'awaiting_donation', streamerId: data.split('_')[2] });
         await bot.sendMessage(chatId, '💬 እባክዎ የልገሳ መልዕክትዎን አሁን ይጻፉ:');
         safeAnswerCallback(query.id);
@@ -107,6 +123,7 @@ export const registerCallbacks = (bot, deps = {}) => {
       }
 
       if (data.startsWith('voice_')) {
+        if (await notifyBan()) return;
         const [, engine, voice, donationIdStr] = data.split('_');
         const donationId = parseInt(donationIdStr, 10);
         const userPendingDonations = (await pendingDonations.get(tgId)) || [];
@@ -135,6 +152,7 @@ export const registerCallbacks = (bot, deps = {}) => {
       }
 
       if (data.startsWith('paywallet_')) {
+        if (await notifyBan()) return;
         const donationId = parseInt(data.split('_')[1], 10);
         const userPendingDonations = (await pendingDonations.get(tgId)) || [];
         const pendingIndex = userPendingDonations.findIndex((d) => d.donationId === donationId);
@@ -145,7 +163,6 @@ export const registerCallbacks = (bot, deps = {}) => {
         }
 
         const pending = userPendingDonations[pendingIndex];
-        const user = await getUserByTelegramId(tgId);
         if (!user || Number(user.balance) < pending.amount) {
           await bot.sendMessage(chatId, '⚠️ በቂ ቀሪ ሂሳብ የለም። /recharge ይጠቀሙ።');
           return;
@@ -199,6 +216,7 @@ export const registerCallbacks = (bot, deps = {}) => {
       }
 
       if (data.startsWith('recharge_amount_')) {
+        if (await notifyBan()) return;
         const amountStr = data.split('_')[2];
         console.log(`[Bot] Recharge callback: user=${tgId}, amountStr=${amountStr}`);
         if (amountStr === 'custom') {
@@ -215,11 +233,11 @@ export const registerCallbacks = (bot, deps = {}) => {
       }
 
       if (data === 'quick_donate') {
-        const user = await getUserByTelegramId(tgId);
         if (!user || user.role !== 'donor') {
           await bot.sendMessage(chatId, '❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብ።');
           return;
         }
+        if (await notifyBan()) return;
         await sendStreamerMenu(chatId);
         safeAnswerCallback(query.id);
         return;

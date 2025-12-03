@@ -50,7 +50,11 @@ router.post(
       // Get donation details
       const donationRes = await db.query(`
         SELECT d.id, d.donor_id, d.streamer_id, d.message AS text, d.amount, d.status, d.audio_file, d.played, d.created_at,
-               u_donor.username AS donor_username, u_streamer.link_uuid
+               u_donor.username AS donor_username,
+               u_donor.is_banned AS donor_is_banned,
+               u_donor.ban_reason AS donor_ban_reason,
+               u_donor.ban_expires_at AS donor_ban_expires_at,
+               u_streamer.link_uuid
         FROM donations d
         LEFT JOIN users u_donor ON u_donor.telegram_id = d.donor_id
         LEFT JOIN users u_streamer ON u_streamer.telegram_id = d.streamer_id
@@ -67,6 +71,25 @@ router.post(
      if (!donation.link_uuid) {
        console.error("❌ Donation has invalid streamer_id - no link_uuid found");
        return res.status(400).send("<h2>❌ Invalid donation - streamer not found</h2>");
+     }
+
+     if (donation.donor_is_banned) {
+       const banExpired = donation.donor_ban_expires_at && new Date(donation.donor_ban_expires_at) <= new Date();
+       if (!donation.donor_ban_expires_at || !banExpired) {
+         console.warn(`[Payment Confirm] Donor ${donation.donor_id} is banned. Blocking payment.`);
+         return res.status(403).send("<h2>⛔ This donor account is currently banned. Payment blocked.</h2>");
+       }
+       if (banExpired) {
+         await db.query(`
+           UPDATE users
+              SET is_banned = FALSE,
+                  ban_reason = NULL,
+                  ban_expires_at = NULL,
+                  banned_at = NULL,
+                  banned_by = NULL
+            WHERE telegram_id = $1
+         `, [donation.donor_id]);
+       }
      }
 
      const streamer = { link_uuid: donation.link_uuid }; // Extract for socket emission
@@ -183,6 +206,37 @@ router.post(
     console.log("Mock payment request body:", req.body);
 
     try {
+      const donorRes = await db.query(
+        `SELECT is_banned, ban_reason, ban_expires_at
+           FROM users
+          WHERE telegram_id = $1 AND role = 'donor'`,
+        [donor_id]
+      );
+
+      const donorRow = donorRes.rows[0];
+      if (!donorRow) {
+        return res.status(404).json({ error: 'Donor not found' });
+      }
+
+      if (donorRow.is_banned) {
+        const banExpired = donorRow.ban_expires_at && new Date(donorRow.ban_expires_at) <= new Date();
+        if (!donorRow.ban_expires_at || !banExpired) {
+          return res.status(403).json({ error: 'Donor is banned. Payment blocked.' });
+        }
+        if (banExpired) {
+          await db.query(
+            `UPDATE users
+                SET is_banned = FALSE,
+                    ban_reason = NULL,
+                    ban_expires_at = NULL,
+                    banned_at = NULL,
+                    banned_by = NULL
+              WHERE telegram_id = $1`,
+            [donor_id]
+          );
+        }
+      }
+
       const insertRes = await db.query(
         "INSERT INTO donations (donor_id, streamer_id, amount, message, status) VALUES ($1, $2, $3, $4, 'paid') RETURNING id",
         [donor_id, streamer_id, amount, text]

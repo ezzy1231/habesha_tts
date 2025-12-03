@@ -19,6 +19,11 @@ const socket = io(SOCKET_URL, {
   reconnection: false, // we handle backoff + retries manually for finer control
   forceNew: false,
 });
+const FLAG_ACTION_LABELS = {
+  temp_ban: 'Time Ban',
+  permanent_ban: 'Ban Donor',
+  unban_request: 'Unban Request',
+};
 const DEFAULT_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/sounds/notification.mp3`;
 const ALTERNATE_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/sounds/Notifications.mp3`;
 const FALLBACK_NOTIFICATION_SOUND_URL = `${SOCKET_URL}/public/audios/notification.mp3`;
@@ -103,6 +108,9 @@ export default function StreamerPage() {
   const pendingRetryRef = useRef(null);
   const playbackFailuresRef = useRef(new Map());
   const [playbackWarning, setPlaybackWarning] = useState(null);
+  const [flaggingDonationId, setFlaggingDonationId] = useState(null);
+  const [flagToasts, setFlagToasts] = useState([]);
+  const toastTimersRef = useRef([]);
   const [volume, setVolume] = useState(() => {
     const savedVolume = localStorage.getItem('tts_volume');
     return savedVolume !== null ? Number(savedVolume) : 1;
@@ -172,6 +180,25 @@ export default function StreamerPage() {
     }
     return null;
   }, [selectedNotificationSound, streamerInfo?.notification_sound_meta, notificationSoundApiReady, getFallbackSoundBySlug, localNotificationSoundSlug]);
+
+  const removeFlagToast = useCallback((toastId) => {
+    setFlagToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+    toastTimersRef.current = toastTimersRef.current.filter((entry) => {
+      if (entry.id === toastId) {
+        clearTimeout(entry.timer);
+        return false;
+      }
+      return true;
+    });
+  }, []);
+
+  const pushFlagToast = useCallback(({ type = 'info', title, message }) => {
+    if (!title && !message) return;
+    const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setFlagToasts((prev) => [...prev, { id, type, title, message }]);
+    const timer = setTimeout(() => removeFlagToast(id), 4500);
+    toastTimersRef.current.push({ id, timer });
+  }, [removeFlagToast]);
 
   const sortDonationsOldestFirst = useCallback((list = []) => {
     if (!Array.isArray(list)) return [];
@@ -337,6 +364,13 @@ export default function StreamerPage() {
         clearTimeout(pendingRetryRef.current);
         pendingRetryRef.current = null;
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      toastTimersRef.current.forEach(({ timer }) => clearTimeout(timer));
+      toastTimersRef.current = [];
     };
   }, []);
 
@@ -621,6 +655,49 @@ export default function StreamerPage() {
       playedDonationsRef.current.delete(cacheKey);
     }
   }, [uuid, apiClient, usingSession, getDonationCacheKey]);
+
+  const handleFlagDonation = useCallback(async (donationId, action) => {
+    if (!apiClient || !donationId) return;
+    setFlaggingDonationId(donationId);
+    const label = FLAG_ACTION_LABELS[action] || 'Flag';
+    try {
+      const path = usingSession
+        ? `/v1/streamer/${uuid}/donations/${donationId}/flag`
+        : `/streamer/${uuid}/donations/${donationId}/flag`;
+      const { data } = await apiClient.post(path, { action });
+      const nextFlag = data?.flag || {
+        status: 'pending',
+        action,
+        actionLabel: label,
+      };
+
+      setDonations((prev) =>
+        prev.map((donation) =>
+          donation.id === donationId
+            ? {
+                ...donation,
+                flag: nextFlag,
+              }
+            : donation
+        )
+      );
+
+      pushFlagToast({
+        type: 'success',
+        title: 'Admins notified',
+        message: `${label} request sent for review.`,
+      });
+    } catch (error) {
+      const message = error?.response?.data?.error || error?.message || 'Failed to notify admins';
+      pushFlagToast({
+        type: 'error',
+        title: 'Could not send flag',
+        message,
+      });
+    } finally {
+      setFlaggingDonationId(null);
+    }
+  }, [apiClient, usingSession, uuid, pushFlagToast]);
 
   const requestWakeLock = useCallback(async () => {
     if (typeof navigator === 'undefined') return;
@@ -1725,7 +1802,13 @@ export default function StreamerPage() {
           <SkeletonLoader type="donation" count={6} />
         ) : (
           donations.map((donation) => (
-            <DonationCard key={donation.id} donation={donation} isPlaying={currentPlaying === donation.id} />
+            <DonationCard
+              key={donation.id}
+              donation={donation}
+              isPlaying={currentPlaying === donation.id}
+              onFlagAction={apiClient ? (action) => handleFlagDonation(donation.id, action) : null}
+              isFlagging={flaggingDonationId === donation.id}
+            />
           ))
         )}
       </div>
@@ -1752,6 +1835,30 @@ export default function StreamerPage() {
           </p>
         </div>
       </footer>
+
+      {flagToasts.length > 0 && (
+        <div
+          className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 w-72 pointer-events-none"
+          aria-live="assertive"
+        >
+          {flagToasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`pointer-events-auto rounded-xl border shadow-2xl px-4 py-3 flex items-start gap-3 text-sm font-medium ${toast.type === "success"
+                ? "bg-white dark:bg-slate-900 border-green-400/70 text-green-800 dark:text-green-200"
+                : "bg-white dark:bg-slate-900 border-red-400/70 text-red-800 dark:text-red-200"
+              }`}
+            >
+              <div className="text-lg leading-none">
+                {toast.type === "success" ? "✅" : "⚠️"}
+              </div>
+              <div className="flex-1">
+                <p className="leading-tight">{toast.message}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

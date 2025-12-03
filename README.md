@@ -5,6 +5,8 @@ A full-stack donation platform that streams AI-generated speech to content creat
 ## Key Features
 - **Streamer & donor portals** – Streamers get live donation queues with audio playback while donors submit paid TTS messages.
 - **Admin control plane** – Manage approvals, reorder the public streamer list, remove accounts, review recharges/withdrawals, and inspect complaints.
+- **Donor moderation controls** – Ban/unban donors with reasons and timed expirations directly from the admin dashboard.
+- **Streamer flag escalations** – Streamers surface problematic donors with a single menu tap, automatically notifying admins with context-rich reviews.
 - **Telegram automation** – The bot onboards new streamers, sends OTP links, and routes donation notifications.
 - **Realtime + queueing** – Socket.IO keeps dashboards live while BullMQ/Redis and Google Cloud TTS handle heavy audio generation asynchronously.
 - **Auditable finances** – Postgres-backed ledgers, recharge flows, withdrawals, and admin-adjustable balances ensure transparent accounting.
@@ -99,9 +101,17 @@ Dockerfile       Container entry for backend API + worker
 
 ## Database & Queue Utilities
 - `scripts/init-db.js` – bootstraps core Postgres tables and default settings.
+- `scripts/add-donor-ban-fields.js` – adds the donor ban columns + indexes (`is_banned`, `ban_reason`, expirations).
+- `scripts/add-donor-flag-table.js` – creates `donor_flag_requests` (streamer flag queue) plus supporting indexes.
 - `scripts/sql/*.sql` – hand-written DDL (performance indexes, ledger tables).
 - `scripts/add-*.js` – one-off migrations (new columns, complaint tracking, etc.).
 Run any script with `node scripts/<name>.js` once, then commit resulting schema changes.
+
+## Streamer Flag Workflow
+1. **Run the migration** – `node scripts/add-donor-flag-table.js` creates the `donor_flag_requests` table plus indexes.
+2. **Streamer dashboard UI** – Every donation card now exposes a ⋮ menu with `⏳ Time Ban`, `🚫 Ban`, and `✅ Unban` shortcuts. Selecting one records a flag and immediately disables the menu while the request is pending.
+3. **Backend endpoint** – `POST /streamer/:uuid/donations/:donationId/flag` (or `/v1/streamer/...` when JWT-protected) validates the action, dedupes pending reviews, stores the record, and emits a `donor_flag_created` admin socket event.
+4. **Admin follow-up** – Admin tooling can subscribe to the new event or query `donor_flag_requests` directly to approve, ban, or dismiss the streamer’s request. Resolving a flag (setting `status != 'pending'`) automatically re-enables the streamer’s menu for future escalations.
 
 ## Testing & Verification
 - **Bot state**: `npm run test:bot-state`.
