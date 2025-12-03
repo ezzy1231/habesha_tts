@@ -1,129 +1,85 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import axios from 'axios';
-import PropTypes from 'prop-types';
+import io from 'socket.io-client';
+import ThemeToggle from '../components/ThemeToggle';
+import Settings from '../components/Settings';
+import ApiKeyModal from '../components/ApiKeyModal';
+import ConfirmationModal from '../components/ConfirmationModal';
+import Balance from '../components/Balance';
+import AdminComplaints from './AdminComplaints';
+import LoadingSpinner from '../components/LoadingSpinner';
+import SkeletonLoader from '../components/SkeletonLoader';
 import DonorFlagsPanel from '../components/DonorFlagsPanel';
-      <div className="block sm:hidden">
-        <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {rows.map((d, index) => {
-            const isBanned = Boolean(d.is_banned);
-            return (
-              <div
-                key={d.telegram_id}
-                className={`p-4 transition-colors animate-fade-in-stagger ${isBanned ? 'bg-rose-50/60 dark:bg-rose-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 ${isBanned ? 'bg-rose-400' : 'gradient-avatar-cyan'}`}>
-                    {(d.username || 'D').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 dark:text-white truncate">
-                      {d.username || 'Unknown Donor'}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">ID: {d.telegram_id}</div>
-                    <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold mt-2 ${isBanned ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                      {isBanned ? 'Banned' : 'Active'}
-                    </div>
-                    {isBanned && (
-                      <div className="mt-2 text-xs text-rose-600 dark:text-rose-300 space-y-1">
-                        {d.ban_reason && <div>Reason: {d.ban_reason}</div>}
-                        <div>Until: {formatBanExpiry(d.ban_expires_at)}</div>
-                      </div>
-                    )}
 
-                    <div className="space-y-3 mt-3">
-                      <div>
-                        <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Display Name</label>
-                        {editingId === d.telegram_id ? (
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              value={displayName}
-                              onChange={(e) => setDisplayName(e.target.value)}
-                              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                              placeholder="e.g. አበበ መኮንን"
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                disabled={saving}
-                                onClick={() => save(d.telegram_id)}
-                                className="btn btn-success btn-sm flex-1"
-                              >
-                                {saving ? 'Saving...' : 'Save'}
-                              </button>
-                              <button
-                                disabled={saving}
-                                onClick={cancelEdit}
-                                className="btn btn-secondary btn-sm flex-1"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="font-medium text-gray-900 dark:text-white truncate">
-                              {d.display_name || d.username || <span className="text-gray-400 dark:text-gray-500">Not set</span>}
-                            </div>
-                            <button
-                              onClick={() => startEdit(d)}
-                              className="btn btn-outline btn-xs"
-                            >
-                              Edit
-                            </button>
-                          </div>
-                        )}
-                        <div className="flex gap-2 mt-2">
-                          {isBanned ? (
-                            <button
-                              onClick={() => handleUnban(d)}
-                              className="flex-1 px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-50"
-                            >
-                              Unban
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => openBanModal(d)}
-                              className="flex-1 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 text-xs font-semibold hover:bg-rose-50"
-                            >
-                              Ban Donor
-                            </button>
-                          )}
-                        </div>
-                      </div>
+const API = import.meta.env.VITE_BASE_URL || 'http://localhost:5000';
+const socket = io(API, { transports: ['websocket'] });
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400 block">Donations</span>
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="font-semibold text-gray-900 dark:text-white text-sm">{d.donations_count}</span>
-                            <span className="badge badge-gray text-xs">donations</span>
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400 block">Total Donated</span>
-                          <div className="font-semibold text-gray-900 dark:text-white text-sm mt-1">
-                            <Currency value={d.total_donated} />
-                          </div>
-                        </div>
-                      </div>
+function Currency({ value }) {
+  return <span className="text-gray-900 dark:text-white">Br {Number(value || 0).toFixed(2)}</span>;
+}
+Currency.propTypes = { value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]) };
 
-                      <div>
-                        <Balance
-                          value={d.balance}
-                          className="text-green-600 dark:text-green-400"
-                          label="Balance"
-                          showToggle={false}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+function StatCard({ title, value, subtitle }) {
+  return (
+    <div className="card p-4 sm:p-6 hover:shadow-lg transition-all duration-300 group">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">{title}</div>
+          <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-primary-500 dark:group-hover:text-primary-400 transition-colors truncate">
+            {value}
+          </div>
+          {subtitle && <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-1 sm:mt-2">{subtitle}</div>}
+        </div>
+        <div className="p-2 sm:p-3 bg-gradient-to-br from-primary-100 to-primary-50 rounded-xl group-hover:from-primary-200 group-hover:to-primary-100 transition-all flex-shrink-0">
+          <div className="w-4 h-4 sm:w-6 sm:h-6 bg-primary-500 rounded-lg opacity-60"></div>
         </div>
       </div>
+    </div>
+  );
+}
+StatCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  value: PropTypes.node.isRequired,
+  subtitle: PropTypes.string,
+};
+
+function Overview({ apiClient, refreshKey }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!apiClient) return;
+    setLoading(true);
+    apiClient.get(`/overview`).then(r => {
+      setData(r.data);
+    }).catch(e => setError(e?.message || 'Failed to load')).finally(() => setLoading(false));
+  }, [apiClient, refreshKey]);
+
+  if (loading) return (
+    <div className="flex justify-center p-8">
+      <LoadingSpinner size="md" text="Loading overview..." />
+    </div>
+  );
+  if (error) return <div className="text-red-600">{error}</div>;
+
+  const t = data.totals || {};
+
+  return (
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 animate-fade-in-stagger">
+        {loading ? (
+          <>
+            <SkeletonLoader type="stat" />
+            <SkeletonLoader type="stat" />
+            <SkeletonLoader type="stat" />
+            <SkeletonLoader type="stat" />
+          </>
+        ) : (
+          <>
+            <StatCard title="Total Amount" value={<Currency value={t.total_amount} />} subtitle={`${t.total_count || 0} donations`} className="animate-fade-in-stagger" style={{ animationDelay: '0ms' }} />
+            <StatCard title="Streamers" value={t.unique_streamers || 0} className="animate-fade-in-stagger" style={{ animationDelay: '100ms' }} />
+            <StatCard title="Donors" value={t.unique_donors || 0} className="animate-fade-in-stagger" style={{ animationDelay: '200ms' }} />
+            <StatCard title="Avg. Donation" value={<Currency value={(t.total_amount || 0) / Math.max(1, t.total_count || 1)} />} className="animate-fade-in-stagger" style={{ animationDelay: '300ms' }} />
+          </>
         )}
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
@@ -148,7 +104,8 @@ import DonorFlagsPanel from '../components/DonorFlagsPanel';
                     <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full gradient-avatar-purple text-white text-xs sm:text-sm font-bold flex-shrink-0">
                       {idx + 1}
                     </div>
-                  )}                  <div className="min-w-0 flex-1">
+                  )}
+                  <div className="min-w-0 flex-1">
                     <div className="font-medium text-gray-900 dark:text-white truncate text-sm sm:text-base">
                       {s.username || `Streamer #${s.streamer_id}`}
                     </div>
@@ -184,7 +141,8 @@ import DonorFlagsPanel from '../components/DonorFlagsPanel';
                     <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full gradient-avatar-cyan text-white text-xs sm:text-sm font-bold flex-shrink-0">
                       {idx + 1}
                     </div>
-                  )}                  <div className="min-w-0 flex-1">
+                  )}
+                  <div className="min-w-0 flex-1">
                     <div className="font-medium text-gray-900 dark:text-white truncate text-sm sm:text-base">
                       {d.username || `Donor #${d.donor_id}`}
                     </div>
@@ -842,7 +800,7 @@ function Donors({ apiClient, refreshKey }) {
           </tbody>
         </table>
       </div>
-    </div>
+
       {banModal.open && banModal.donor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl p-6 space-y-4 animate-scale-in">
