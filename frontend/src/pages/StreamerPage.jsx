@@ -50,7 +50,7 @@ const INITIAL_RECONNECT_DELAY_MS = Number(import.meta.env.VITE_STREAMER_RECONNEC
 const MAX_RECONNECT_DELAY_MS = Number(import.meta.env.VITE_STREAMER_RECONNECT_MAX_MS || 30000);
 const HEARTBEAT_INTERVAL_MS = Number(import.meta.env.VITE_STREAMER_HEARTBEAT_MS || 20000);
 const HEARTBEAT_TIMEOUT_MS = Number(import.meta.env.VITE_STREAMER_HEARTBEAT_TIMEOUT_MS || 12000);
-const MAX_PLAYBACK_RETRIES = Number(import.meta.env.VITE_STREAMER_PLAYBACK_RETRIES || 3);
+const MAX_PLAYBACK_RETRIES = 2; // initial attempt + one automatic retry
 const PLAYBACK_RETRY_DELAY_MS = Number(import.meta.env.VITE_STREAMER_PLAYBACK_RETRY_DELAY_MS || 4000);
 
 const getDonationTimestamp = (donation) => {
@@ -729,11 +729,11 @@ export default function StreamerPage() {
     }
   }, []);
 
-  const clearPlaybackFailure = useCallback((donationId) => {
+  const clearPlaybackFailure = useCallback((donationId, { clearWarning = true } = {}) => {
     if (!donationId) return;
     const cacheKey = getDonationCacheKey(donationId);
     playbackFailuresRef.current.delete(cacheKey);
-    if (playbackFailuresRef.current.size === 0) {
+    if (clearWarning && playbackFailuresRef.current.size === 0) {
       setPlaybackWarning(null);
     }
   }, [getDonationCacheKey]);
@@ -753,11 +753,15 @@ export default function StreamerPage() {
     const baseMessage = `Donation #${donation.id} audio failed (${reason}).`;
 
     if (attempts >= MAX_PLAYBACK_RETRIES) {
-      setPlaybackWarning(`${baseMessage} Reached ${MAX_PLAYBACK_RETRIES} attempts. Tap Skip or reload to continue.`);
+      playbackFailuresRef.current.delete(cacheKey);
+      setQueue((prev) => prev.filter((item) => item.id !== donation.id));
+      audioBufferCacheRef.current.delete(donation.audio_url);
+      setPlaybackWarning(`${baseMessage} Skipped after automatic retry.`);
+      markAsPlayed(donation.id);
       return;
     }
 
-    setPlaybackWarning(`${baseMessage} Retrying (${attempts}/${MAX_PLAYBACK_RETRIES})...`);
+    setPlaybackWarning(`${baseMessage} Retrying automatically (${attempts}/${MAX_PLAYBACK_RETRIES - 1})...`);
 
     if (pendingRetryRef.current) {
       clearTimeout(pendingRetryRef.current);
@@ -769,7 +773,7 @@ export default function StreamerPage() {
         playNextRef.current?.();
       }
     }, PLAYBACK_RETRY_DELAY_MS);
-  }, [getDonationCacheKey]);
+  }, [getDonationCacheKey, markAsPlayed]);
 
   // ✅ Play next queued donation
   const playNext = useCallback(() => {
@@ -1744,19 +1748,6 @@ export default function StreamerPage() {
                 <span>{playbackWarning}</span>
               </div>
               <div className="flex items-center gap-2 sm:ml-auto">
-                <button
-                  type="button"
-                  className="btn btn-xs gradient-warning text-white"
-                  onClick={() => {
-                    playbackFailuresRef.current.clear();
-                    setPlaybackWarning(null);
-                    if (!playingRef.current && queue.length > 0) {
-                      playNext();
-                    }
-                  }}
-                >
-                  Retry Now
-                </button>
                 <button
                   type="button"
                   className="btn btn-ghost btn-xs text-amber-700 dark:text-amber-200"
