@@ -20,40 +20,38 @@ function App() {
     else document.documentElement.classList.remove('dark');
   }, []);
 
-return (
+  return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/admin" element={
-            <AdminBalanceProvider>
-              <AdminDashboard />
-            </AdminBalanceProvider>
-          } />
-          <Route path="/streamer/:uuid/login" element={<StreamerLogin />} />
-          <Route path="/streamer/:uuid" element={
-            <ProtectedRoute>
-              <StreamerBalanceProvider>
+        <StreamerBalanceProvider>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/admin" element={
+              <AdminBalanceProvider>
+                <AdminDashboard />
+              </AdminBalanceProvider>
+            } />
+            <Route path="/streamer/:uuid/login" element={<StreamerLogin />} />
+            <Route path="/streamer/:uuid" element={
+              <ProtectedRoute>
                 <StreamerPage />
-              </StreamerBalanceProvider>
-            </ProtectedRoute>
-          } />
-          <Route path="/withdraw/:uuid" element={
-            <ProtectedRoute>
-              <StreamerBalanceProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/withdraw/:uuid" element={
+              <ProtectedRoute>
                 <WithdrawPage />
-              </StreamerBalanceProvider>
-            </ProtectedRoute>
-          } />
-          <Route path="*" element={
-            <div className="min-h-screen bg-gray-100 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">🎙️ Habesha TTS Dashboard</h2>
-                <p className="text-gray-600 dark:text-gray-400">Please use a valid streamer link to access the dashboard.</p>
+              </ProtectedRoute>
+            } />
+            <Route path="*" element={
+              <div className="min-h-screen bg-gray-100 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">🎙️ Habesha TTS Dashboard</h2>
+                  <p className="text-gray-600 dark:text-gray-400">Please use a valid streamer link to access the dashboard.</p>
+                </div>
               </div>
-            </div>
-          } />
-        </Routes>
+            } />
+          </Routes>
+        </StreamerBalanceProvider>
       </AuthProvider>
     </BrowserRouter>
   );
