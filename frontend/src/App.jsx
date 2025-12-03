@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import StreamerPage from "./pages/StreamerPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import WithdrawPage from "./pages/WithdrawPage";
+import LandingPage from "./pages/LandingPage";
 import { StreamerBalanceProvider } from "./contexts/StreamerBalanceContext";
 import { AdminBalanceProvider } from "./contexts/AdminBalanceContext";
 import { AuthProvider } from './contexts/AuthContext';
@@ -23,6 +24,7 @@ return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/admin" element={
             <AdminBalanceProvider>
               <AdminDashboard />
