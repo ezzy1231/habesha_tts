@@ -171,6 +171,8 @@ function Streamers({ apiClient, refreshKey }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, streamer: null });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Refs for native drag-and-drop
   const dragItem = useRef(null);
@@ -237,6 +239,28 @@ function Streamers({ apiClient, refreshKey }) {
     dragOverItem.current = null;
   };
 
+  const openDeleteModal = (streamer) => setDeleteModal({ isOpen: true, streamer });
+  const closeDeleteModal = () => {
+    if (isDeleting) return;
+    setDeleteModal({ isOpen: false, streamer: null });
+  };
+
+  const handleDeleteStreamer = async () => {
+    if (!apiClient || !deleteModal.streamer || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await apiClient.delete(`/streamers/${deleteModal.streamer.telegram_id}`);
+      setDeleteModal({ isOpen: false, streamer: null });
+      fetchStreamers();
+      alert('Streamer removed successfully.');
+    } catch (err) {
+      console.error('Failed to remove streamer:', err);
+      alert(err?.response?.data?.error || err?.message || 'Failed to remove streamer');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   if (loading) return (
     <div className="flex justify-center p-8">
@@ -245,8 +269,13 @@ function Streamers({ apiClient, refreshKey }) {
   );
   if (error) return <div className="text-red-600">{error}</div>;
 
+  const pendingStreamerName = deleteModal.streamer
+    ? (deleteModal.streamer.username || `ID ${deleteModal.streamer.telegram_id}`)
+    : '';
+
   return (
-    <div className="card overflow-hidden">
+    <>
+      <div className="card overflow-hidden">
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div>
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Streamers Overview</h3>
@@ -257,6 +286,57 @@ function Streamers({ apiClient, refreshKey }) {
         </button>
       </div>
 
+        <div className="block sm:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          {rows.map((s, index) => (
+            <div
+              key={s.telegram_id}
+              className="p-4 flex flex-col gap-3 animate-fade-in-stagger"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className="flex items-center gap-3">
+                {s.profile_picture_url ? (
+                  <img src={s.profile_picture_url} alt="Profile" className="w-12 h-12 rounded-full object-cover" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full gradient-avatar-purple flex items-center justify-center text-white font-semibold">
+                    {(s.username || 'S').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-gray-900 dark:text-white truncate">
+                    {s.username || 'Unknown Streamer'}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">ID: {s.telegram_id}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openDeleteModal(s)}
+                  className="btn btn-outline btn-xs text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900/50"
+                >
+                  Remove
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 block">Link UUID</span>
+                  <code className="inline-block px-2 py-1 mt-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs">
+                    {s.link_uuid}
+                  </code>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 block">Total Earned</span>
+                  <div className="font-semibold text-gray-900 dark:text-white mt-1">
+                    <Currency value={s.total_earned} />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 block">Donations</span>
+                  <div className="font-semibold text-gray-900 dark:text-white mt-1">{s.donations_count}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
       <div className="hidden sm:block overflow-x-auto">
         <table className="table">
           <thead>
@@ -266,6 +346,7 @@ function Streamers({ apiClient, refreshKey }) {
               <th className="font-semibold text-gray-700 dark:text-gray-300">Link UUID</th>
               <th className="font-semibold text-gray-700 dark:text-gray-300">Donations</th>
               <th className="font-semibold text-right text-gray-700 dark:text-gray-300">Total Earned</th>
+                <th className="font-semibold text-center text-gray-700 dark:text-gray-300 w-32">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -320,12 +401,35 @@ function Streamers({ apiClient, refreshKey }) {
                     <Currency value={s.total_earned} />
                   </div>
                 </td>
+                <td className="py-4 text-center">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDeleteModal(s);
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="btn btn-outline btn-xs text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900/50"
+                  >
+                    Remove
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </div>
+      </div>
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={handleDeleteStreamer}
+        title="Remove streamer?"
+        message={deleteModal.streamer ? `Removing ${pendingStreamerName} deletes their streamer link, balance records, and donation history. This action cannot be undone.` : ''}
+        confirmText={isDeleting ? 'Removing...' : 'Remove'}
+        confirmButtonClass="bg-rose-600 hover:bg-rose-700"
+      />
+    </>
   );
 }
 Streamers.propTypes = {

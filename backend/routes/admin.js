@@ -182,6 +182,60 @@ router.post('/streamers/order', adminAuth, async (req, res) => {
   }
 });
 
+router.delete('/streamers/:id', async (req, res) => {
+  const { id } = req.params;
+  const client = await db.getClient();
+
+  try {
+    await client.query('BEGIN');
+
+    const streamerRes = await client.query(
+      "SELECT telegram_id, username FROM users WHERE telegram_id = $1 AND role = 'streamer'",
+      [id]
+    );
+
+    if (streamerRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Streamer not found' });
+    }
+
+    await client.query("DELETE FROM users WHERE telegram_id = $1 AND role = 'streamer'", [id]);
+
+    // Keep streamer_order values contiguous after a removal for predictable drag ordering
+    await client.query(`
+      WITH ordered AS (
+        SELECT telegram_id,
+               ROW_NUMBER() OVER (ORDER BY COALESCE(streamer_order, 2147483647), telegram_id) - 1 AS new_order
+        FROM users
+        WHERE role = 'streamer'
+      )
+      UPDATE users u
+      SET streamer_order = ordered.new_order
+      FROM ordered
+      WHERE u.telegram_id = ordered.telegram_id;
+    `);
+
+    await client.query('COMMIT');
+
+    try {
+      if (bot) {
+        await bot.sendMessage(id, '⚠️ ማስታወቂያ፡ streamer መዳረሻዎ ተወግዷል። ጥያቄ ካለ አስተዳዳሪውን ያነጋግሩ።');
+      }
+    } catch (notifyErr) {
+      console.error('Failed to notify streamer about removal:', notifyErr.message || notifyErr);
+    }
+
+    emitAdminEvent('streamer_removed', { telegramId: id });
+    res.json({ success: true });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error removing streamer:', error);
+    res.status(500).json({ error: 'Failed to remove streamer' });
+  } finally {
+    client.release();
+  }
+});
+
 router.get("/donors", async (req, res) => {
   try {
     const usersRes = await db.query("SELECT telegram_id, username, display_name, balance FROM users WHERE role = 'donor'");
