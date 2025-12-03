@@ -117,7 +117,7 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
           {typeof flag.donation_amount !== 'undefined' && (
             <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
               <span>Donation</span>
-              <Balance value={flag.donation_amount} showLabel={false} />
+              <Balance value={flag.donation_amount} showLabel={false} showToggle={false} context="admin" />
             </div>
           )}
           {flag.donation_message && (
