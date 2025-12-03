@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import LoadingSpinner from './LoadingSpinner';
 import Balance from './Balance';
+import { BAN_DURATION_OPTIONS, resolveBanDurationMinutes } from '../constants/banOptions';
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
@@ -32,6 +33,20 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
   const [filter, setFilter] = useState('pending');
   const [resolvingId, setResolvingId] = useState(null);
   const [notes, setNotes] = useState({});
+  const [banForms, setBanForms] = useState({});
+  const [banActionId, setBanActionId] = useState(null);
+  const [unbanActionId, setUnbanActionId] = useState(null);
+
+  const getBanForm = useCallback((flagId, fallbackReason = '') => {
+    return banForms[flagId] || { reason: fallbackReason, duration: '24h', customMinutes: '' };
+  }, [banForms]);
+
+  const updateBanForm = useCallback((flagId, patch, fallbackReason = '') => {
+    setBanForms((prev) => {
+      const current = prev[flagId] || { reason: fallbackReason, duration: '24h', customMinutes: '' };
+      return { ...prev, [flagId]: { ...current, ...patch } };
+    });
+  }, []);
 
   const fetchFlags = useCallback(async () => {
     if (!apiClient) return;
@@ -86,9 +101,59 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
     );
   }, [loading, error]);
 
+  const handleBanDonor = useCallback(async (flag) => {
+    if (!apiClient || !flag?.donor_id) {
+      setError('Donor account is missing for this flag.');
+      return;
+    }
+    const form = getBanForm(flag.id, flag.reason || '');
+    const banReason = (form.reason || flag.reason || '').trim();
+    if (!banReason.length) {
+      setError('A ban reason is required.');
+      return;
+    }
+    const durationMinutes = resolveBanDurationMinutes(form.duration, form.customMinutes);
+    if (form.duration === 'custom' && (!durationMinutes || durationMinutes <= 0)) {
+      setError('Enter a valid custom duration in minutes.');
+      return;
+    }
+    try {
+      setBanActionId(flag.id);
+      await apiClient.post(`/donors/${flag.donor_id}/ban`, {
+        reason: banReason,
+        durationMinutes,
+      });
+      setBanForms((prev) => ({ ...prev, [flag.id]: { reason: '', duration: '24h', customMinutes: '' } }));
+      await fetchFlags();
+      onFlagResolved?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || err?.message || 'Failed to ban donor');
+    } finally {
+      setBanActionId(null);
+    }
+  }, [apiClient, fetchFlags, getBanForm, onFlagResolved]);
+
+  const handleUnbanDonor = useCallback(async (flag) => {
+    if (!apiClient || !flag?.donor_id) {
+      return;
+    }
+    const confirmed = window.confirm('Unban this donor? They will immediately regain access.');
+    if (!confirmed) return;
+    try {
+      setUnbanActionId(flag.id);
+      await apiClient.post(`/donors/${flag.donor_id}/unban`);
+      await fetchFlags();
+    } catch (err) {
+      setError(err?.response?.data?.error || err?.message || 'Failed to unban donor');
+    } finally {
+      setUnbanActionId(null);
+    }
+  }, [apiClient, fetchFlags]);
+
   const renderFlagCard = (flag) => {
     const badgeClass = STATUS_BADGES[flag.status] || 'badge-gray';
     const isPending = flag.status === 'pending';
+    const banForm = getBanForm(flag.id, flag.reason || '');
 
     return (
       <div key={flag.id} className="p-4 sm:p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
@@ -154,6 +219,63 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
               >
                 {resolvingId === flag.id ? 'Saving...' : 'Dismiss'}
               </button>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-950/30 p-3 space-y-3">
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Moderation tools</p>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Ban reason</label>
+                <textarea
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-400"
+                  rows={2}
+                  value={banForm.reason}
+                  onChange={(e) => updateBanForm(flag.id, { reason: e.target.value }, flag.reason || '')}
+                  placeholder="Explain why the donor should be banned"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Duration</label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-400"
+                  value={banForm.duration}
+                  onChange={(e) => updateBanForm(flag.id, { duration: e.target.value }, flag.reason || '')}
+                >
+                  {BAN_DURATION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                {banForm.duration === 'custom' && (
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-400"
+                    placeholder="Enter minutes (e.g. 120)"
+                    value={banForm.customMinutes}
+                    onChange={(e) => updateBanForm(flag.id, { customMinutes: e.target.value }, flag.reason || '')}
+                  />
+                )}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  className="btn btn-outline border-rose-200 text-rose-600 hover:bg-rose-50 flex-1"
+                  disabled={!flag.donor_id || banActionId === flag.id}
+                  onClick={() => handleBanDonor(flag)}
+                >
+                  {banActionId === flag.id ? 'Applying ban...' : 'Apply Ban'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline border-emerald-200 text-emerald-700 hover:bg-emerald-50 flex-1"
+                  disabled={!flag.donor_id || unbanActionId === flag.id}
+                  onClick={() => handleUnbanDonor(flag)}
+                >
+                  {unbanActionId === flag.id ? 'Unbanning...' : 'Unban Donor'}
+                </button>
+              </div>
+              {!flag.donor_id && (
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Donor ID missing. This usually means the donor checked out anonymously.</p>
+              )}
             </div>
           </div>
         ) : (

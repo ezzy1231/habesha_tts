@@ -11,6 +11,7 @@ import AdminComplaints from './AdminComplaints';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SkeletonLoader from '../components/SkeletonLoader';
 import DonorFlagsPanel from '../components/DonorFlagsPanel';
+import { BAN_DURATION_OPTIONS, resolveBanDurationMinutes } from '../constants/banOptions';
 
 const API = import.meta.env.VITE_BASE_URL || 'http://localhost:5000';
 const socket = io(API, { transports: ['websocket'] });
@@ -500,17 +501,10 @@ function Donors({ apiClient, refreshKey }) {
       return;
     }
 
-    let durationMinutes = null;
-    if (banDuration === 'custom') {
-      const parsed = parseInt(customDurationMinutes, 10);
-      if (Number.isNaN(parsed) || parsed <= 0) {
-        alert('Enter a valid custom duration (minutes).');
-        return;
-      }
-      durationMinutes = parsed;
-    } else if (banDuration !== 'permanent') {
-      const preset = BAN_DURATION_OPTIONS.find((opt) => opt.value === banDuration);
-      durationMinutes = preset?.minutes ?? null;
+    const durationMinutes = resolveBanDurationMinutes(banDuration, customDurationMinutes);
+    if (banDuration === 'custom' && (!durationMinutes || durationMinutes <= 0)) {
+      alert('Enter a valid custom duration (minutes).');
+      return;
     }
 
     try {
@@ -582,7 +576,9 @@ function Donors({ apiClient, refreshKey }) {
       {/* Mobile Card View */}
       <div className="block sm:hidden">
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {rows.map((d, index) => (
+          {rows.map((d, index) => {
+            const isBanned = Boolean(d.is_banned);
+            return (
             <div key={d.telegram_id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full gradient-avatar-cyan flex items-center justify-center text-white font-semibold flex-shrink-0">
@@ -592,7 +588,14 @@ function Donors({ apiClient, refreshKey }) {
                   <div className="font-medium text-gray-900 dark:text-white truncate">
                     {d.username || 'Unknown Donor'}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">ID: {d.telegram_id}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                    <span>ID: {d.telegram_id}</span>
+                    {isBanned ? (
+                      <span className="badge badge-rose text-[10px]">Banned</span>
+                    ) : (
+                      <span className="badge badge-success text-[10px]">Active</span>
+                    )}
+                  </div>
 
                   <div className="space-y-3">
                     <div>
@@ -662,11 +665,32 @@ function Donors({ apiClient, refreshKey }) {
                         showToggle={false}
                       />
                     </div>
+
+                    <div className="flex flex-col gap-2 pt-1">
+                      {isBanned ? (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          onClick={() => handleUnban(d)}
+                        >
+                          Unban Donor
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm border-rose-200 text-rose-600 hover:bg-rose-50"
+                          onClick={() => openBanModal(d)}
+                        >
+                          Ban Donor
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
 
