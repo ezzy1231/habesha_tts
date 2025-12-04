@@ -128,10 +128,14 @@ export default function StreamerPage() {
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [lastHeartbeatAt, setLastHeartbeatAt] = useState(null);
+  const [offlineDurationMinutes, setOfflineDurationMinutes] = useState(null);
+  const [liveToggleLoading, setLiveToggleLoading] = useState(false);
+  const [liveStatusMessage, setLiveStatusMessage] = useState(null);
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY_MS);
   const reconnectTimeoutRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
   const heartbeatTimeoutRef = useRef(null);
+  const offlineDurationTimerRef = useRef(null);
   const isPageVisibleRef = useRef(typeof document !== 'undefined' ? document.visibilityState === 'visible' : true);
 
   const ensureAudioContext = useCallback(() => {
@@ -516,6 +520,71 @@ export default function StreamerPage() {
     sendHeartbeat();
   }, [scheduleReconnect, stopHeartbeat, uuid]);
 
+  const updateOfflineDuration = useCallback(() => {
+    if (!lastHeartbeatAt) {
+      setOfflineDurationMinutes(null);
+      return;
+    }
+    const now = Date.now();
+    const graceMs = HEARTBEAT_INTERVAL_MS + HEARTBEAT_TIMEOUT_MS;
+    const diffMs = now - lastHeartbeatAt;
+    if (diffMs <= graceMs) {
+      setOfflineDurationMinutes(0);
+      return;
+    }
+    const elapsedPastGrace = diffMs - graceMs;
+    const minutes = Math.max(1, Math.ceil(elapsedPastGrace / 60000));
+    setOfflineDurationMinutes(minutes);
+  }, [lastHeartbeatAt]);
+
+  useEffect(() => {
+    if (connectionStatus !== 'disconnected') {
+      if (offlineDurationTimerRef.current) {
+        clearInterval(offlineDurationTimerRef.current);
+        offlineDurationTimerRef.current = null;
+      }
+      setOfflineDurationMinutes(null);
+      return;
+    }
+    updateOfflineDuration();
+    offlineDurationTimerRef.current = setInterval(updateOfflineDuration, 15000);
+    return () => {
+      if (offlineDurationTimerRef.current) {
+        clearInterval(offlineDurationTimerRef.current);
+        offlineDurationTimerRef.current = null;
+      }
+    };
+  }, [connectionStatus, updateOfflineDuration]);
+
+  useEffect(() => {
+    if (!liveStatusMessage) return undefined;
+    const timer = setTimeout(() => setLiveStatusMessage(null), 6500);
+    return () => clearTimeout(timer);
+  }, [liveStatusMessage]);
+
+  const applyLiveSnapshot = useCallback((snapshot = {}) => {
+    setStreamerInfo((prev) => {
+      if (!prev) return prev;
+      const nextStatus =
+        typeof snapshot.live_status !== 'undefined'
+          ? snapshot.live_status
+          : typeof snapshot.liveStatus !== 'undefined'
+            ? snapshot.liveStatus
+            : prev.live_status;
+      const nextSince = snapshot.live_since ?? snapshot.liveSince ?? prev.live_since;
+      const nextPing = snapshot.last_live_ping ?? snapshot.lastLivePing ?? prev.last_live_ping;
+      if (nextStatus === prev.live_status && nextSince === prev.live_since && nextPing === prev.last_live_ping) {
+        return prev;
+      }
+      return {
+        ...prev,
+        live_status: nextStatus,
+        live_since: nextSince,
+        last_live_ping: nextPing,
+      };
+    });
+  }, []);
+
   // ✅ Fetch streamer info + donation history
   const fetchInitialData = useCallback(async (page = 1, { silent = false } = {}) => {
     if (!apiClient) return; // Don't fetch if the client isn't ready
@@ -655,6 +724,52 @@ export default function StreamerPage() {
       playedDonationsRef.current.delete(cacheKey);
     }
   }, [uuid, apiClient, usingSession, getDonationCacheKey]);
+
+  const handleLiveToggle = useCallback(async () => {
+    if (!apiClient || !streamerInfo) return;
+    setLiveStatusMessage(null);
+    setLiveToggleLoading(true);
+    try {
+      const endpoint = usingSession ? `/v1/streamer/${uuid}/live` : `/streamer/${uuid}/live`;
+      const method = streamerInfo.live_status ? 'delete' : 'post';
+      const { data } = await apiClient[method](endpoint);
+      if (data?.streamer) {
+        applyLiveSnapshot(data.streamer);
+        const nowLive = data.streamer.live_status ?? data.streamer.liveStatus;
+        setLiveStatusMessage({
+          type: 'success',
+          message: nowLive ? 'You are now live.' : 'You are now offline.',
+        });
+      }
+    } catch (error) {
+      const message = error?.response?.data?.error || error?.message || 'Failed to update live status';
+      setLiveStatusMessage({ type: 'error', message });
+    } finally {
+      setLiveToggleLoading(false);
+    }
+  }, [apiClient, streamerInfo, usingSession, uuid, applyLiveSnapshot]);
+
+  const handleLiveStatusEvent = useCallback((event) => {
+    if (!event) return;
+    const eventUuid = event.linkUuid || event.link_uuid;
+    if (eventUuid !== uuid) return;
+    applyLiveSnapshot(event);
+    const liveValue = typeof event.live_status !== 'undefined' ? event.live_status : event.liveStatus;
+    if (liveValue === false && event.reason === 'auto_end') {
+      setLiveStatusMessage({
+        type: 'warning',
+        message: 'We ended your live session after missing heartbeats for 5 minutes.',
+      });
+      setLiveToggleLoading(false);
+    }
+  }, [applyLiveSnapshot, uuid]);
+
+  useEffect(() => {
+    socket.on('streamer_live_status', handleLiveStatusEvent);
+    return () => {
+      socket.off('streamer_live_status', handleLiveStatusEvent);
+    };
+  }, [handleLiveStatusEvent]);
 
   const handleFlagDonation = useCallback(async (donationId, action) => {
     if (!apiClient || !donationId) return;
@@ -1449,8 +1564,20 @@ export default function StreamerPage() {
     sleeping: 'bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800/60 dark:text-gray-300 dark:border-gray-700',
   };
   const connectionBadgeClass = connectionBadgeStyles[connectionStatus] || connectionBadgeStyles.connecting;
-  const connectionStatusLabel = connectionStatusLabelMap[connectionStatus] || 'Checking…';
+  const offlineDurationLabel = offlineDurationMinutes === null
+    ? null
+    : offlineDurationMinutes === 0
+      ? '<1m'
+      : `${offlineDurationMinutes}m`;
+  const connectionStatusLabel = connectionStatus === 'disconnected' && offlineDurationLabel
+    ? `${connectionStatusLabelMap.disconnected} · ${offlineDurationLabel}`
+    : connectionStatusLabelMap[connectionStatus] || 'Checking…';
   const lastHeartbeatLabel = lastHeartbeatAt ? new Date(lastHeartbeatAt).toLocaleTimeString() : '—';
+  const isLive = Boolean(streamerInfo?.live_status);
+  const liveSinceLabel = streamerInfo?.live_since ? new Date(streamerInfo.live_since).toLocaleTimeString() : null;
+  const liveBadgeClass = isLive
+    ? 'bg-emerald-100 text-emerald-900 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-100 dark:border-emerald-800'
+    : 'bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-700';
 
   if (loading && donations.length === 0) { // Only show full-screen loader on initial load
     return (
@@ -1489,6 +1616,41 @@ export default function StreamerPage() {
                     <span className="font-medium">{lastHeartbeatLabel}</span>
                   </span>
                 </div>
+                {streamerInfo && (
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
+                    <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${liveBadgeClass}`}>
+                      <span>{isLive ? '🟢' : '⚫️'}</span>
+                      {isLive ? 'Live' : 'Offline'}
+                      {isLive && liveSinceLabel ? (
+                        <span className="text-[11px] font-medium opacity-80">since {liveSinceLabel}</span>
+                      ) : null}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={!apiClient || liveToggleLoading}
+                      onClick={handleLiveToggle}
+                      className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all duration-200 border ${isLive
+                        ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 disabled:hover:bg-rose-50 dark:bg-rose-900/20 dark:text-rose-100 dark:border-rose-900'
+                        : 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-500 disabled:hover:bg-emerald-600'} ${(!apiClient || liveToggleLoading) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      title={isLive ? 'Go offline' : 'Start accepting donations'}
+                    >
+                      {liveToggleLoading ? (
+                        <span className="flex items-center gap-1">
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a12 12 0 00-9 11h4z" />
+                          </svg>
+                          Updating…
+                        </span>
+                      ) : (
+                        <>
+                          <span>{isLive ? '⏹️' : '▶️'}</span>
+                          {isLive ? 'End Live' : 'Go Live'}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
           {/* Header Controls - Theme Toggle and Logout */}
           <div className="absolute top-3 right-3 z-10 flex items-center gap-3">
             {usingSession && (
@@ -1699,6 +1861,24 @@ export default function StreamerPage() {
           </div>
         </div>
       </header>
+      {liveStatusMessage && (
+        <div
+          className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg border text-sm sm:text-base shadow-sm flex items-start justify-between gap-3 ${liveStatusMessage.type === 'error'
+            ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-900/20 dark:border-rose-900 dark:text-rose-100'
+            : liveStatusMessage.type === 'warning'
+              ? 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-900 dark:text-amber-100'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-900 dark:text-emerald-100'}`}
+        >
+          <span>{liveStatusMessage.message}</span>
+          <button
+            type="button"
+            onClick={() => setLiveStatusMessage(null)}
+            className="text-xs uppercase tracking-wide font-semibold opacity-70 hover:opacity-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className={`${cardBg} p-3 sm:p-4 rounded-xl mb-4 sm:mb-6 shadow-xl border`}>
         <div className="flex flex-col gap-3 sm:gap-4">
