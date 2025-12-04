@@ -13,11 +13,12 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import ip from 'ip';
-import db from './db-simple.js';
+import db from './db-postgres.js';
 // Bot will be imported dynamically after acquiring single-instance lock
 let bot = null;
 
 import { connection as redis } from './queue-optimized.js';
+import { recordStreamerHeartbeat } from './utils/liveStatus.js';
 
 const lockKey = 'bot_instance_lock';
 const instanceId = Math.random().toString(36).substring(2);
@@ -178,7 +179,7 @@ app.get('/health', async (req, res) => {
     // Check database connection
     let dbStatus = 'disconnected';
     try {
-      await db.get('SELECT 1');
+      await db.query('SELECT 1');
       dbStatus = 'connected';
     } catch (e) {
       console.error('Health check - DB query failed:', e.message);
@@ -242,11 +243,16 @@ io.on('connection', (socket) => {
     console.log('Admin joined room');
     socket.join('admin');
   });
-  socket.on('streamer_heartbeat', (payload = {}) => {
+  socket.on('streamer_heartbeat', async (payload = {}) => {
     socket.emit('streamer_heartbeat_ack', {
       ts: Date.now(),
       uuid: payload?.uuid,
     });
+    try {
+      await recordStreamerHeartbeat({ linkUuid: payload?.uuid, io });
+    } catch (error) {
+      console.error('[Socket] Failed to record streamer heartbeat:', error?.message || error);
+    }
   });
   socket.on('disconnect', () => {
     console.log('❌ Client disconnected:', socket.id);

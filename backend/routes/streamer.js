@@ -8,6 +8,7 @@ import { bot } from '../../bot/bot.js';
 import { getStreamerBalance } from "../utils/balance.js";
 import { emitAdminEvent } from "../utils/adminNotifications.js";
 import { validateSchema } from "../middleware/validateSchema.js";
+import { setStreamerLiveState } from "../utils/liveStatus.js";
 import {
   listNotificationSounds,
   findNotificationSound,
@@ -18,6 +19,18 @@ import {
 console.log(" streamer.js router loaded");
 
 const router = express.Router();
+const serializeLiveSnapshot = (row) => {
+  if (!row) return null;
+  return {
+    telegram_id: row.telegram_id,
+    username: row.username,
+    full_name: row.full_name,
+    link_uuid: row.link_uuid,
+    live_status: Boolean(row.live_status),
+    live_since: row.live_since,
+    last_live_ping: row.last_live_ping,
+  };
+};
 const FLAG_ACTION_LABELS = {
   temp_ban: "⏳ Time Ban",
   permanent_ban: "🚫 Ban",
@@ -182,7 +195,8 @@ router.get("/:uuid", async (req, res) => {
 
   try {
     const streamerRes = await db.query(`
-      SELECT telegram_id, username, balance, link_uuid, profile_picture_file_id, full_name, notification_sound
+      SELECT telegram_id, username, balance, link_uuid, profile_picture_file_id, full_name,
+             notification_sound, live_status, live_since, last_live_ping
       FROM users
       WHERE link_uuid = $1 AND role = 'streamer'
     `, [uuid]);
@@ -284,6 +298,9 @@ router.get("/:uuid", async (req, res) => {
         profile_picture_url,
         notification_sound: notificationSoundValue,
         notification_sound_meta: notificationSound,
+        live_status: Boolean(streamer.live_status),
+        live_since: streamer.live_since,
+        last_live_ping: streamer.last_live_ping,
       },
       donations,
       pagination: {
@@ -451,6 +468,44 @@ router.post("/:uuid/donations/:donationId/played", protectStreamer, async (req, 
   } catch (error) {
     console.error("Error marking donation as played:", error);
     res.status(500).json({ error: "Failed to mark donation as played" });
+  }
+});
+
+router.post("/:uuid/live", protectStreamer, async (req, res) => {
+  try {
+    const result = await setStreamerLiveState({
+      streamerId: req.streamerId,
+      isLive: true,
+      reason: 'manual',
+      triggeredBy: 'dashboard',
+      io: req.app.get('io'),
+    });
+    if (!result.streamer) {
+      return res.status(404).json({ error: 'Streamer not found' });
+    }
+    return res.json({ success: true, streamer: serializeLiveSnapshot(result.streamer), changed: result.changed });
+  } catch (error) {
+    console.error('Failed to enable live mode:', error);
+    res.status(500).json({ error: 'Failed to go live' });
+  }
+});
+
+router.delete("/:uuid/live", protectStreamer, async (req, res) => {
+  try {
+    const result = await setStreamerLiveState({
+      streamerId: req.streamerId,
+      isLive: false,
+      reason: 'manual',
+      triggeredBy: 'dashboard',
+      io: req.app.get('io'),
+    });
+    if (!result.streamer) {
+      return res.status(404).json({ error: 'Streamer not found' });
+    }
+    return res.json({ success: true, streamer: serializeLiveSnapshot(result.streamer), changed: result.changed });
+  } catch (error) {
+    console.error('Failed to disable live mode:', error);
+    res.status(500).json({ error: 'Failed to end live session' });
   }
 });
 

@@ -9,6 +9,7 @@ import { streamerSessionAuth } from '../middleware/streamerSessionAuth.js';
 import { getStreamerBalance } from '../utils/balance.js';
 import { emitAdminEvent } from '../utils/adminNotifications.js';
 import { validateSchema } from '../middleware/validateSchema.js';
+import { setStreamerLiveState } from '../utils/liveStatus.js';
 import {
   listNotificationSounds,
   findNotificationSound,
@@ -21,6 +22,19 @@ const ENABLE_STREAMER_OTP = (process.env.ENABLE_STREAMER_OTP || 'true').toLowerC
 
 const router = express.Router();
 router.use(express.json());
+
+const serializeLiveSnapshot = (row) => {
+  if (!row) return null;
+  return {
+    telegram_id: row.telegram_id,
+    username: row.username,
+    full_name: row.full_name,
+    link_uuid: row.link_uuid,
+    live_status: Boolean(row.live_status),
+    live_since: row.live_since,
+    last_live_ping: row.last_live_ping,
+  };
+};
 
 function extractAuthToken(req) {
   const cookieHeader = req.headers?.cookie || '';
@@ -482,6 +496,54 @@ router.put(
 
     try {
       const ownsUuid = await ensureStreamerOwnsUuid(uuid, req.streamerId);
+
+router.post('/:uuid/live', streamerSessionAuth, async (req, res) => {
+  const { uuid } = req.params;
+  try {
+    const ownsUuid = await ensureStreamerOwnsUuid(uuid, req.streamerId);
+    if (!ownsUuid) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const result = await setStreamerLiveState({
+      streamerId: req.streamerId,
+      isLive: true,
+      reason: 'manual',
+      triggeredBy: 'dashboard',
+      io: req.app.get('io'),
+    });
+    if (!result.streamer) {
+      return res.status(404).json({ error: 'Streamer not found' });
+    }
+    res.json({ success: true, streamer: serializeLiveSnapshot(result.streamer), changed: result.changed });
+  } catch (error) {
+    console.error('[streamerAuth] Failed to enable live mode:', error);
+    res.status(500).json({ error: 'Failed to go live' });
+  }
+});
+
+router.delete('/:uuid/live', streamerSessionAuth, async (req, res) => {
+  const { uuid } = req.params;
+  try {
+    const ownsUuid = await ensureStreamerOwnsUuid(uuid, req.streamerId);
+    if (!ownsUuid) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const result = await setStreamerLiveState({
+      streamerId: req.streamerId,
+      isLive: false,
+      reason: 'manual',
+      triggeredBy: 'dashboard',
+      io: req.app.get('io'),
+    });
+    if (!result.streamer) {
+      return res.status(404).json({ error: 'Streamer not found' });
+    }
+    res.json({ success: true, streamer: serializeLiveSnapshot(result.streamer), changed: result.changed });
+  } catch (error) {
+    console.error('[streamerAuth] Failed to disable live mode:', error);
+    res.status(500).json({ error: 'Failed to end live session' });
+  }
+});
       if (!ownsUuid) {
         return res.status(403).json({ error: 'Forbidden' });
       }

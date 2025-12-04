@@ -37,6 +37,9 @@ const createTables = async () => {
     await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_expires_at TIMESTAMPTZ;`);
     await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_at TIMESTAMPTZ;`);
     await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_by TEXT;`);
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS live_status BOOLEAN NOT NULL DEFAULT FALSE;`);
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS live_since TIMESTAMPTZ;`);
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_live_ping TIMESTAMPTZ;`);
     console.log('Columns for streamer registration & donor moderation added to "users" table.');
 
     await db.query(`

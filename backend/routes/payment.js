@@ -8,6 +8,25 @@ import { validateSchema } from "../middleware/validateSchema.js";
 
 const router = express.Router();
 
+async function ensureStreamerIsLive(streamerId) {
+  const { rows } = await db.query(
+    "SELECT live_status, link_uuid FROM users WHERE telegram_id = $1 AND role = 'streamer'",
+    [streamerId]
+  );
+  const streamer = rows[0];
+  if (!streamer) {
+    const error = new Error('Streamer not found');
+    error.status = 404;
+    throw error;
+  }
+  if (!streamer.live_status) {
+    const error = new Error('Streamer is offline');
+    error.status = 409;
+    throw error;
+  }
+  return streamer;
+}
+
 const confirmDonationSchema = z.object({
   donationId: z.coerce.number().int().positive("donationId must be a positive integer"),
 });
@@ -237,6 +256,19 @@ router.post(
         }
       }
 
+      let streamerRow;
+      try {
+        streamerRow = await ensureStreamerIsLive(streamer_id);
+      } catch (liveError) {
+        if (liveError.status === 409) {
+          return res.status(409).json({ error: 'Streamer is offline. Please try again when they are live.' });
+        }
+        if (liveError.status === 404) {
+          return res.status(404).json({ error: 'Streamer not found' });
+        }
+        throw liveError;
+      }
+
       const insertRes = await db.query(
         "INSERT INTO donations (donor_id, streamer_id, amount, message, status) VALUES ($1, $2, $3, $4, 'paid') RETURNING id",
         [donor_id, streamer_id, amount, text]
@@ -255,13 +287,7 @@ router.post(
       await db.query("UPDATE donations SET audio_file = $1 WHERE id = $2", [audioFile, donationId]);
 
       // Get streamer UUID to emit event to their room
-      const streamerRes = await db.query("SELECT link_uuid FROM users WHERE telegram_id = $1 AND role = 'streamer'", [streamer_id]);
-      const streamer = streamerRes.rows[0];
-
-      if (!streamer) {
-        console.error("❌ Streamer not found for ID:", streamer_id);
-        return res.status(400).json({ error: "Invalid streamer ID" });
-      }
+      const streamer = streamerRow;
 
       // Prepare donation data for emission
       const donationData = {

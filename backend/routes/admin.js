@@ -189,7 +189,7 @@ router.get("/overview", async (req, res) => {
 
 router.get("/streamers", async (req, res) => {
   try {
-    const usersRes = await db.query("SELECT telegram_id, username, display_name, link_uuid, profile_picture_file_id FROM users WHERE role = 'streamer' ORDER BY streamer_order ASC");
+    const usersRes = await db.query("SELECT telegram_id, username, display_name, link_uuid, profile_picture_file_id, live_status, live_since, last_live_ping FROM users WHERE role = 'streamer' ORDER BY streamer_order ASC");
     const streamersData = usersRes.rows;
 
     const donationsRes = await db.query("SELECT streamer_id, amount FROM donations WHERE status = 'paid'");
@@ -216,6 +216,9 @@ router.get("/streamers", async (req, res) => {
         telegram_id: s.telegram_id,
         username: s.username || null,
         link_uuid: s.link_uuid,
+        live_status: Boolean(s.live_status),
+        live_since: s.live_since,
+        last_live_ping: s.last_live_ping,
         total_earned,
         donations_count
       };

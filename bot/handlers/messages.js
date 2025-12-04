@@ -153,6 +153,19 @@ export const registerMessageFlows = (bot, deps = {}) => {
     if (state.step === 'awaiting_donation' && text) {
       const { streamerId } = state;
       const { maxChars, stepChars, basePrice, incrementPrice, filteredWords } = await getSettings();
+      try {
+        const liveCheck = await db.query('SELECT live_status FROM users WHERE telegram_id = $1 AND role = \'streamer\'', [streamerId]);
+        if (!liveCheck.rows[0]?.live_status) {
+          await userStates.delete(tgId);
+          await bot.sendMessage(chatId, 'Streamer isn\'t live right now—come back soon!');
+          return;
+        }
+      } catch (error) {
+        console.error('[Bot] Failed to verify live status before donation:', error);
+        await userStates.delete(tgId);
+        await bot.sendMessage(chatId, 'Streamer isn\'t live right now—come back soon!');
+        return;
+      }
       const length = Array.from(text).length;
 
       if (length === 0 || text === '0') {
