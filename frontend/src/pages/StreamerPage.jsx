@@ -1986,9 +1986,7 @@ export default function StreamerPage() {
       <footer className="mt-8 sm:mt-12 lg:mt-16 text-center">
         <div className="card p-4 sm:p-6 max-w-md mx-auto">
           <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-            <div className="p-1.5 sm:p-2 gradient-primary rounded-lg">
-              <span className="text-white text-lg sm:text-xl">🚀</span>
-            </div>
+            <img src="/image/habesha-logo.png" alt="Habesha TTS" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
             <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">Powered by Habesha TTS</span>
           </div>
           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
