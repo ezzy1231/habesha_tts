@@ -500,7 +500,7 @@ export default function StreamerPage() {
 
   const startHeartbeat = useCallback(() => {
     stopHeartbeat();
-    if (!socket.connected || !isPageVisibleRef.current) return;
+    if (!socket.connected) return;
 
     const sendHeartbeat = () => {
       if (!socket.connected) return;
@@ -1478,11 +1478,7 @@ export default function StreamerPage() {
           }, 100);
         }
       } else {
-        console.log("Page hidden, pausing heartbeat checks");
-        stopHeartbeat();
-        if (socket.connected) {
-          setConnectionStatus('sleeping');
-        }
+        console.log("Page hidden, keeping heartbeat alive");
       }
     };
 
