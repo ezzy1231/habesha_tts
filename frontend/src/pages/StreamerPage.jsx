@@ -1597,263 +1597,242 @@ export default function StreamerPage() {
         title="Streamer API Key Required"
         message="Please enter your secret API Key to connect to your dashboard. You can find this key in the registration message from the Telegram bot."
       />
-      <header className="mb-4 sm:mb-6">
-        <div className="card p-3 sm:p-4 md:p-6 shadow-xl relative">
-                <div className="flex flex-wrap gap-3 mb-4">
-                  <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${connectionBadgeClass}`}>
-                    <span>🛰️</span>
-                    {connectionStatusLabel}
-                    {connectionAttempts > 0 && connectionStatus !== 'connected' ? (
-                      <span className="text-[11px] font-normal opacity-80">(attempt {connectionAttempts})</span>
-                    ) : null}
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                    <span>Last heartbeat:</span>
-                    <span className="font-medium">{lastHeartbeatLabel}</span>
-                  </span>
-                </div>
-                {streamerInfo && (
-                  <div className="flex flex-wrap items-center gap-3 mb-2">
-                    <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${liveBadgeClass}`}>
-                      <span>{isLive ? '🟢' : '⚫️'}</span>
-                      {isLive ? 'Live' : 'Offline'}
-                      {isLive && liveSinceLabel ? (
-                        <span className="text-[11px] font-medium opacity-80">since {liveSinceLabel}</span>
-                      ) : null}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={!apiClient || liveToggleLoading}
-                      onClick={handleLiveToggle}
-                      className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all duration-200 border ${isLive
-                        ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 disabled:hover:bg-rose-50 dark:bg-rose-900/20 dark:text-rose-100 dark:border-rose-900'
-                        : 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-500 disabled:hover:bg-emerald-600'} ${(!apiClient || liveToggleLoading) ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      title={isLive ? 'Go offline' : 'Start accepting donations'}
-                    >
-                      {liveToggleLoading ? (
-                        <span className="flex items-center gap-1">
-                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a12 12 0 00-9 11h4z" />
-                          </svg>
-                          Updating…
-                        </span>
-                      ) : (
-                        <>
-                          <span>{isLive ? '⏹️' : '▶️'}</span>
-                          {isLive ? 'End Live' : 'Go Live'}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-          {/* Header Controls - Theme Toggle and Logout */}
-          <div className="absolute top-3 right-3 z-10 flex items-center gap-3">
-            {usingSession && (
-              <button
-                onClick={async () => {
-                  try { await logout(); } catch { }
-                  navigate(`/streamer/${uuid}/login`);
-                }}
-                className="group relative inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 border border-gray-200 dark:border-gray-600 hover:border-red-200 dark:hover:border-red-800 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md"
-                title="Logout from dashboard"
-              >
-                <svg className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span className="hidden sm:inline">Logout</span>
-                {/* Tooltip for mobile */}
-                <span className="sm:hidden absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-                  Logout
-                </span>
-              </button>
-            )}
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
-            <ThemeToggle isDarkMode={darkMode} toggleDarkMode={setDarkMode} />
+      <header className="mb-6">
+        <div className={`card shadow-xl overflow-hidden ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          
+          {/* Zone 1: Status Bar (Top) */}
+          <div className={`px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-xs border-b ${darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
+            <div className="flex items-center gap-3">
+              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-medium ${connectionBadgeClass}`}>
+                <span className="text-[10px]">🛰️</span>
+                {connectionStatusLabel}
+                {connectionAttempts > 0 && connectionStatus !== 'connected' ? (
+                  <span className="text-[11px] font-normal opacity-80">(attempt {connectionAttempts})</span>
+                ) : null}
+              </span>
+              <span className="text-gray-300 dark:text-gray-600">|</span>
+              <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <span>Last heartbeat:</span>
+                <span className="font-mono font-medium text-gray-700 dark:text-gray-300">{lastHeartbeatLabel}</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <ThemeToggle isDarkMode={darkMode} toggleDarkMode={setDarkMode} />
+              {usingSession && (
+                <>
+                  <div className="w-px h-3 bg-gray-300 dark:bg-gray-600"></div>
+                  <button
+                    onClick={async () => {
+                      try { await logout(); } catch { }
+                      navigate(`/streamer/${uuid}/login`);
+                    }}
+                    className="text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors font-medium"
+                  >
+                    Logout
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-col gap-4">
-            {/* Dashboard Title */}
-            <div className="flex items-center gap-2 sm:gap-3 mb-3">
-              <div className="p-1.5 sm:p-2 gradient-primary rounded-xl shadow-lg">
-                <span className="text-white text-lg sm:text-xl">🎙️</span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white truncate">
-                  Habesha TTS Dashboard
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Real-time donation management</p>
+          {/* Zone 2: Main Control Deck (Middle) */}
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              
+              {/* Left: Identity & Balance */}
+              {streamerInfo && (
+                <div className="flex items-center gap-4 w-full md:w-auto">
+                  {/* Avatar */}
+                  <div className="relative">
+                    {streamerInfo.profile_picture_url ? (
+                      <img src={streamerInfo.profile_picture_url} alt="Profile" className="w-14 h-14 rounded-full object-cover ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-gray-800" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full gradient-avatar-purple flex items-center justify-center text-white font-bold text-xl ring-2 ring-offset-2 ring-purple-500 dark:ring-offset-gray-800">
+                        {(streamerInfo.username || 'S').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="absolute -bottom-1 -right-1 bg-gray-900 text-white text-[10px] px-1.5 py-0.5 rounded-full border border-white dark:border-gray-800">
+                      Streamer
+                    </div>
+                  </div>
+
+                  <div className="flex-1">
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+                      {streamerInfo.full_name || `@${streamerInfo.username}`}
+                    </h1>
+                    
+                    <div className="flex items-center gap-3 mt-1">
+                      <div className="flex items-baseline gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-lg">
+                        <span className="text-sm">💰</span>
+                        <Balance value={streamerInfo.balance} showLabel={false} />
+                      </div>
+                      <button
+                        onClick={() => navigate(`/withdraw/${uuid}`)}
+                        className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+                      >
+                        <span>💸</span> Withdraw
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Right: Live Control */}
+              {streamerInfo && (
+                <div className="flex flex-col items-end gap-2 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-gray-100 dark:border-gray-700">
+                  <button
+                    type="button"
+                    disabled={!apiClient || liveToggleLoading}
+                    onClick={handleLiveToggle}
+                    className={`w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] ${
+                      isLive
+                        ? 'bg-white text-rose-600 border-2 border-rose-100 hover:border-rose-200 hover:bg-rose-50 dark:bg-gray-800 dark:text-rose-400 dark:border-rose-900/50 dark:hover:bg-rose-900/20'
+                        : 'gradient-primary text-white hover:shadow-blue-500/25'
+                    } ${(!apiClient || liveToggleLoading) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    {liveToggleLoading ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a12 12 0 00-9 11h4z" />
+                        </svg>
+                        <span>Updating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xl">{isLive ? '⏹️' : '📡'}</span>
+                        <span>{isLive ? 'End Live Session' : 'Go Live Now'}</span>
+                      </>
+                    )}
+                  </button>
+                  
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className={`inline-block w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></span>
+                    <span className="text-gray-500 dark:text-gray-400 font-medium">
+                      {isLive ? (liveSinceLabel ? `Live since ${liveSinceLabel}` : 'Live') : 'Offline'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Zone 3: Audio Toolbar (Bottom) */}
+          <div className={`px-4 py-3 border-t flex flex-wrap items-center justify-between gap-4 ${darkMode ? 'bg-gray-900/30 border-gray-700' : 'bg-gray-50/50 border-gray-100'}`}>
+            
+            {/* Audio Toggle */}
+            <button
+              onClick={async () => {
+                if (!enabled) {
+                  try {
+                    const ctx = ensureAudioContext();
+                    if (ctx && ctx.state === 'suspended') {
+                      await ctx.resume();
+                    }
+
+                    if (ctx) {
+                      const buffer = ctx.createBuffer(1, 1, 22050);
+                      const source = ctx.createBufferSource();
+                      source.buffer = buffer;
+                      source.connect(gainNodeRef.current || ctx.destination);
+                      source.start(0);
+                      source.stop(ctx.currentTime + 0.001);
+                    } else {
+                      const silent = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA');
+                      silent.volume = 0;
+                      silent.muted = true;
+                      silent.playsInline = true;
+                      await silent.play();
+                      silent.pause();
+                    }
+
+                    console.log("Audio permission granted; enabling autoplay.");
+                    setEnabled(true);
+                    playbackFailuresRef.current.clear();
+                    setPlaybackWarning(null);
+
+                    setTimeout(() => {
+                      if (!playingRef.current && queue.length > 0) {
+                        playNext();
+                      }
+                    }, 50);
+                  } catch (e) {
+                    console.error("Audio autoplay unlock failed:", e);
+                    alert("Could not enable audio automatically. Please check your browser's autoplay settings for this site.");
+                  }
+                } else {
+                  setEnabled(false);
+                }
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                enabled 
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' 
+                  : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+              }`}
+            >
+              <span>{enabled ? "🔊" : "🔇"}</span>
+              <span>{enabled ? "Audio On" : "Audio Off"}</span>
+            </button>
+
+            {/* Volume Slider */}
+            <div className="flex-1 max-w-xs flex items-center gap-3 mx-auto">
+              <span className="text-xs text-gray-400">{getVolumeIcon(volume)}</span>
+              <div className="relative flex-1 h-8 flex items-center group">
+                  <input
+                    id="volume-slider"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={volume}
+                    onChange={(e) => {
+                      const newVolume = Number(e.target.value);
+                      setVolume(newVolume);
+                      localStorage.setItem('tts_volume', newVolume);
+                    }}
+                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-blue-500"
+                    style={{
+                      background: `linear-gradient(to right, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} 0%, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} ${volume * 100}%, #E5E7EB ${volume * 100}%, #E5E7EB 100%)`
+                    }}
+                  />
+                  {/* Tooltip */}
+                  <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    {Math.round(volume * 100)}%
+                  </div>
               </div>
             </div>
 
-            {/* Streamer Info and Balance Row */}
-            {streamerInfo && (
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                {/* Streamer Info with Balance */}
-                <div className="flex items-center gap-3 flex-1">
-                  {streamerInfo.profile_picture_url ? (
-                    <img
-                      src={streamerInfo.profile_picture_url}
-                      alt="Profile"
-                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full gradient-avatar-purple flex items-center justify-center text-white font-bold text-lg sm:text-xl flex-shrink-0">
-                      {(streamerInfo.username || 'S').charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Streamer</p>
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <p className="text-base sm:text-xl font-bold text-gray-900 dark:text-white truncate">{streamerInfo.full_name || `@${streamerInfo.username}`}</p>
-
-                      {/* Balance Badge */}
-                      <div className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-xs sm:text-sm font-medium shadow-lg">
-                        <span className="text-xs sm:text-sm">💰</span>
-                        <Balance
-                          value={streamerInfo.balance}
-                          className="font-semibold"
-                          showLabel={false}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Action Controls - Compact Row */}
-            {streamerInfo && (
-              <div className="flex flex-wrap justify-around gap-2 sm:gap-3 mt-2">
-                {/* Withdraw Button */}
-                <button
-                  onClick={() => navigate(`/withdraw/${uuid}`)}
-                  className="btn btn-primary shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 sm:gap-2.5 min-h-[40px] sm:min-h-[44px]"
-                  title="Request withdrawal"
-                >
-                  <span className="text-sm sm:text-base">💸</span>
-                  <span className="hidden sm:inline font-medium">Withdraw</span>
-                  <span className="sm:hidden font-medium">Wd</span>
-                </button>
-
-                {/* Audio Toggle Button */}
-                <button
-                  onClick={async () => {
-                    if (!enabled) {
-                      try {
-                        const ctx = ensureAudioContext();
-                        if (ctx && ctx.state === 'suspended') {
-                          await ctx.resume();
-                        }
-
-                        if (ctx) {
-                          const buffer = ctx.createBuffer(1, 1, 22050);
-                          const source = ctx.createBufferSource();
-                          source.buffer = buffer;
-                          source.connect(gainNodeRef.current || ctx.destination);
-                          source.start(0);
-                          source.stop(ctx.currentTime + 0.001);
-                        } else {
-                          const silent = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA');
-                          silent.volume = 0;
-                          silent.muted = true;
-                          silent.playsInline = true;
-                          await silent.play();
-                          silent.pause();
-                        }
-
-                        console.log("Audio permission granted; enabling autoplay.");
-                        setEnabled(true);
-                        playbackFailuresRef.current.clear();
-                        setPlaybackWarning(null);
-
-                        setTimeout(() => {
-                          if (!playingRef.current && queue.length > 0) {
-                            playNext();
-                          }
-                        }, 50);
-                      } catch (e) {
-                        console.error("Audio autoplay unlock failed:", e);
-                        alert("Could not enable audio automatically. Please check your browser's autoplay settings for this site.");
-                      }
-                    } else {
-                      setEnabled(false);
+            {/* Skip Button */}
+            <button
+              onClick={() => {
+                if (currentPlaying) {
+                  if (audioRef.current) {
+                    if (audioRef.current.stop) {
+                      audioRef.current.stop();
+                    } else if (audioRef.current.pause) {
+                      audioRef.current.pause();
                     }
-                  }}
-                  className={`btn shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 sm:gap-2.5 min-h-[40px] sm:min-h-[44px] ${enabled
-                      ? "gradient-success hover:gradient-success-dark text-white"
-                      : "gradient-gray hover:gradient-gray-dark text-white"
-                    }`}
-                  title={enabled ? "Disable Audio" : "Enable Audio"}
-                >
-                  <span className="text-sm sm:text-base">{enabled ? "🔊" : "🔇"}</span>
-                  <span className="hidden sm:inline font-medium">{enabled ? "Audio On" : "Audio Off"}</span>
-                  <span className="sm:hidden font-medium">{enabled ? "On" : "Off"}</span>
-                </button>
+                  }
+                  playingRef.current = false;
+                  setCurrentPlaying(null);
+                  markAsPlayed(currentPlaying);
+                  setQueue((prev) => prev.slice(1));
+                  clearPlaybackFailure(currentPlaying);
+                  setPlaybackWarning(null);
+                }
+              }}
+              disabled={!currentPlaying}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                currentPlaying
+                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+              }`}
+            >
+              <span>⏭️</span>
+              <span>Skip</span>
+            </button>
 
-                {/* Volume Control */}
-                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 shadow-inner min-h-[40px] sm:min-h-[44px] relative group">
-                  <span className={`text-sm sm:text-base transition-colors duration-200 ${getVolumeColor(volume)}`}>
-                    {getVolumeIcon(volume)}
-                  </span>
-                  <div className="relative">
-                    <input
-                      id="volume-slider"
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={volume}
-                      onChange={(e) => {
-                        const newVolume = Number(e.target.value);
-                        setVolume(newVolume);
-                        localStorage.setItem('tts_volume', newVolume);
-                        // Smooth transition handled by useEffect above
-                      }}
-                      className="range-input w-20 sm:w-24 h-1.5 sm:h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 transition-all duration-200 hover:scale-105"
-                      style={{
-                        background: `linear-gradient(to right, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} 0%, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} ${volume * 100}%, #D1D5DB ${volume * 100}%, #D1D5DB 100%)`
-                      }}
-                    />
-                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-                      {Math.round(volume * 100)}%
-                    </div>
-                  </div>
-                </div>
-
-                {/* Skip Button */}
-                <button
-                  onClick={() => {
-                    if (currentPlaying) {
-                      // Stop current playback and mark as played
-                      if (audioRef.current) {
-                        if (audioRef.current.stop) {
-                          audioRef.current.stop();
-                        } else if (audioRef.current.pause) {
-                          audioRef.current.pause();
-                        }
-                      }
-                      playingRef.current = false;
-                      setCurrentPlaying(null);
-                      markAsPlayed(currentPlaying);
-                      setQueue((prev) => prev.slice(1));
-                      clearPlaybackFailure(currentPlaying);
-                      setPlaybackWarning(null);
-                    }
-                  }}
-                  disabled={!currentPlaying}
-                  className={`btn shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 sm:gap-2.5 min-h-[40px] sm:min-h-[44px] ${currentPlaying
-                      ? "gradient-warning hover:gradient-warning-dark text-white"
-                      : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                    }`}
-                  title={currentPlaying ? "Skip current donation (S key)" : "No donation playing"}
-                >
-                  <span className="text-sm sm:text-base">⏭️</span>
-                  <span className="hidden sm:inline font-medium">Skip</span>
-                  <span className="sm:hidden font-medium">Skip</span>
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </header>
