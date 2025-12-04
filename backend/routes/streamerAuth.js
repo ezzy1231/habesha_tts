@@ -496,6 +496,33 @@ router.put(
 
     try {
       const ownsUuid = await ensureStreamerOwnsUuid(uuid, req.streamerId);
+      if (!ownsUuid) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      if (reset) {
+        await db.query('UPDATE users SET notification_sound = NULL WHERE telegram_id = $1', [req.streamerId]);
+        return res.json({ success: true, selectedSound: null, selectedValue: null });
+      }
+
+      const sound = await findNotificationSound({ slug: soundSlug, id: soundId });
+      if (!sound) {
+        return res.status(404).json({ error: 'Notification sound not found' });
+      }
+
+      const storageValue = await buildNotificationSoundStorageValue(sound);
+      if (typeof storageValue === 'undefined' || storageValue === null) {
+        return res.status(500).json({ error: 'Failed to derive storage value' });
+      }
+
+      await db.query('UPDATE users SET notification_sound = $1 WHERE telegram_id = $2', [storageValue, req.streamerId]);
+      res.json({ success: true, selectedSound: sound, selectedValue: storageValue });
+    } catch (e) {
+      console.error('[notification-sounds] Failed to update selection:', e);
+      res.status(500).json({ error: 'Failed to update notification sound' });
+    }
+  }
+);
 
 router.post('/:uuid/live', streamerSessionAuth, async (req, res) => {
   const { uuid } = req.params;
@@ -544,30 +571,3 @@ router.delete('/:uuid/live', streamerSessionAuth, async (req, res) => {
     res.status(500).json({ error: 'Failed to end live session' });
   }
 });
-      if (!ownsUuid) {
-        return res.status(403).json({ error: 'Forbidden' });
-      }
-
-      if (reset) {
-        await db.query('UPDATE users SET notification_sound = NULL WHERE telegram_id = $1', [req.streamerId]);
-        return res.json({ success: true, selectedSound: null, selectedValue: null });
-      }
-
-      const sound = await findNotificationSound({ slug: soundSlug, id: soundId });
-      if (!sound) {
-        return res.status(404).json({ error: 'Notification sound not found' });
-      }
-
-      const storageValue = await buildNotificationSoundStorageValue(sound);
-      if (typeof storageValue === 'undefined' || storageValue === null) {
-        return res.status(500).json({ error: 'Failed to derive storage value' });
-      }
-
-      await db.query('UPDATE users SET notification_sound = $1 WHERE telegram_id = $2', [storageValue, req.streamerId]);
-      res.json({ success: true, selectedSound: sound, selectedValue: storageValue });
-    } catch (e) {
-      console.error('[notification-sounds] Failed to update selection:', e);
-      res.status(500).json({ error: 'Failed to update notification sound' });
-    }
-  }
-);
