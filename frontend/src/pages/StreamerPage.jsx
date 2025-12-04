@@ -1598,6 +1598,19 @@ export default function StreamerPage() {
         message="Please enter your secret API Key to connect to your dashboard. You can find this key in the registration message from the Telegram bot."
       />
       <header className="mb-6">
+        {/* Dashboard Title (Outside Card) */}
+        <div className="flex items-center gap-3 mb-4 px-1">
+          <div className="p-2 gradient-primary rounded-xl shadow-lg">
+            <span className="text-white text-xl">🎙️</span>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+              Habesha TTS Dashboard
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Real-time donation management</p>
+          </div>
+        </div>
+
         <div className={`card shadow-xl overflow-hidden ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           
           {/* Zone 1: Status Bar (Top) */}
@@ -1627,7 +1640,7 @@ export default function StreamerPage() {
                       try { await logout(); } catch { }
                       navigate(`/streamer/${uuid}/login`);
                     }}
-                    className="text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors font-medium"
+                    className="px-2 py-0.5 rounded border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium text-[11px]"
                   >
                     Logout
                   </button>
@@ -1669,7 +1682,7 @@ export default function StreamerPage() {
                       </div>
                       <button
                         onClick={() => navigate(`/withdraw/${uuid}`)}
-                        className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg shadow-sm transition-all hover:shadow-md flex items-center gap-1.5 font-medium"
                       >
                         <span>💸</span> Withdraw
                       </button>
@@ -1791,13 +1804,13 @@ export default function StreamerPage() {
                       setVolume(newVolume);
                       localStorage.setItem('tts_volume', newVolume);
                     }}
-                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-blue-500"
+                    className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     style={{
                       background: `linear-gradient(to right, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} 0%, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} ${volume * 100}%, #E5E7EB ${volume * 100}%, #E5E7EB 100%)`
                     }}
                   />
                   {/* Tooltip */}
-                  <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none translate-y-1 group-hover:translate-y-0">
                     {Math.round(volume * 100)}%
                   </div>
               </div>
