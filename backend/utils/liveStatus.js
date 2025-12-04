@@ -131,8 +131,8 @@ export async function setStreamerLiveState({ streamerId, isLive, reason = 'manua
   const { rows } = await db.query(
     `UPDATE users
         SET live_status = $1,
-            live_since = CASE WHEN $1 THEN COALESCE(live_since, $2) ELSE NULL END,
-            last_live_ping = CASE WHEN $1 THEN $3 ELSE NULL END
+            live_since = CASE WHEN $1 THEN COALESCE(live_since, $2::timestamptz) ELSE NULL END,
+            last_live_ping = CASE WHEN $1 THEN $3::timestamptz ELSE NULL END
       WHERE telegram_id = $4
       RETURNING telegram_id, username, full_name, link_uuid, live_status, live_since, last_live_ping`,
     [Boolean(isLive), now, now, streamerId]
