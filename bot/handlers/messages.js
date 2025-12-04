@@ -186,14 +186,17 @@ export const registerMessageFlows = (bot, deps = {}) => {
 
         const streamers = (
           await db.query(
-            "SELECT telegram_id, username, full_name FROM users WHERE role = 'streamer' AND registration_status = 'approved' ORDER BY streamer_order ASC"
+            "SELECT telegram_id, username, full_name, live_status FROM users WHERE role = 'streamer' AND registration_status = 'approved' ORDER BY streamer_order ASC"
           )
         ).rows;
         if (streamers.length === 0) {
           await bot.sendMessage(chatId, '⚠️ እስካሁን ምንም Streamer የለም።');
           return;
         }
-        const buttons = streamers.map((s) => [{ text: s.full_name || s.username, callback_data: `choose_streamer_${s.telegram_id}` }]);
+        const buttons = streamers.map((s) => [{
+          text: `${s.live_status ? '🟢' : '⚫️'} ${s.full_name || s.username}`,
+          callback_data: `choose_streamer_${s.telegram_id}`,
+        }]);
         await bot.sendMessage(chatId, 'ልገሳ ለመላክ Streamer ይምረጡ:', {
           reply_markup: { inline_keyboard: buttons },
         });

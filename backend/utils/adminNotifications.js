@@ -8,6 +8,27 @@ const DEFAULT_ADMIN_RECIPIENTS = [
 const ADMIN_ALERT_RECIPIENTS = buildAdminRecipients();
 
 const ALERT_BUILDERS = {
+  streamer_live_status: async (payload = {}) => {
+    const {
+      streamerId,
+      liveStatus,
+      reason,
+      triggeredBy,
+      liveSince,
+      lastLivePing,
+    } = payload;
+    const streamer = await fetchUserSummary(streamerId);
+    const statusLabel = liveStatus ? '🟢 LIVE' : '⚫️ OFFLINE';
+    return formatAlertMessage([
+      '🎬 Streamer Live Status',
+      streamerId ? `Streamer: ${describeUser(streamer, streamerId)}` : null,
+      `Status: ${statusLabel}`,
+      reason ? `Reason: ${reason}` : null,
+      triggeredBy ? `Triggered by: ${triggeredBy}` : null,
+      liveSince ? `Live since: ${formatTimestamp(liveSince)}` : null,
+      lastLivePing ? `Last heartbeat: ${formatTimestamp(lastLivePing)}` : null,
+    ]);
+  },
   streamer_request_created: async (payload = {}) => {
     const {
       fullName,
@@ -80,6 +101,33 @@ const ALERT_BUILDERS = {
       rechargeId ? `Request ID: ${rechargeId}` : null,
     ]);
   },
+  donor_flag_created: async (payload = {}) => {
+    const { donationId, streamerId, donorId, actionLabel, reason } = payload;
+    const streamer = await fetchUserSummary(streamerId);
+    const donor = await fetchUserSummary(donorId);
+    return formatAlertMessage([
+      '🚩 New Donation Flag',
+      actionLabel ? `Action: ${actionLabel}` : null,
+      reason ? `Reason: ${reason}` : null,
+      `Streamer: ${describeUser(streamer, streamerId)}`,
+      donorId ? `Donor: ${describeUser(donor, donorId)}` : null,
+      donationId ? `Donation ID: ${donationId}` : null,
+      'Review: Admin → Donor Flags',
+    ]);
+  },
+  donor_flag_updated: async (payload = {}) => {
+    const { id, status, action, streamerId, donorId } = payload;
+    const streamer = await fetchUserSummary(streamerId);
+    const donor = await fetchUserSummary(donorId);
+    return formatAlertMessage([
+      'ℹ️ Donation Flag Updated',
+      id ? `Flag ID: ${id}` : null,
+      action ? `Action: ${action}` : null,
+      status ? `Status: ${status}` : null,
+      `Streamer: ${describeUser(streamer, streamerId)}`,
+      donorId ? `Donor: ${describeUser(donor, donorId)}` : null,
+    ]);
+  },
 };
 
 function buildAdminRecipients() {
@@ -111,6 +159,12 @@ function formatBirr(amount) {
     return String(amount ?? 'N/A');
   }
   return `Br ${numeric.toFixed(2)}`;
+}
+
+function formatTimestamp(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString('en-GB', { hour12: false });
 }
 
 async function fetchUserSummary(telegramId) {

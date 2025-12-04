@@ -20,7 +20,7 @@ export const registerCallbacks = (bot, deps = {}) => {
   const sendStreamerMenu = async (chatId) => {
     const streamers = (
       await db.query(
-        "SELECT telegram_id, username, full_name FROM users WHERE role = 'streamer' AND registration_status = 'approved' ORDER BY streamer_order ASC"
+        "SELECT telegram_id, username, full_name, live_status FROM users WHERE role = 'streamer' AND registration_status = 'approved' ORDER BY streamer_order ASC"
       )
     ).rows;
 
@@ -29,25 +29,23 @@ export const registerCallbacks = (bot, deps = {}) => {
       return false;
     }
 
-    const streamerEmojis = ['🥇', '🥈', '🥉', '🎮', '🕹️', '🎰', '🧩', '🎧', '🎫', '🎟️'];
-
-    const formatStreamerLabel = (streamer, index) => {
+    const formatStreamerLabel = (streamer) => {
       const displayName = streamer.full_name || streamer.username;
-      const emoji = streamerEmojis[index % streamerEmojis.length];
-      return `${emoji} ${displayName}`;
+      const statusIcon = streamer.live_status ? '🟢' : '⚫️';
+      return `${statusIcon} ${displayName}`;
     };
 
     const buttons = [];
     for (let i = 0; i < streamers.length; i += 2) {
       const row = [
         {
-          text: formatStreamerLabel(streamers[i], i),
+          text: formatStreamerLabel(streamers[i]),
           callback_data: `choose_streamer_${streamers[i].telegram_id}`,
         },
       ];
       if (streamers[i + 1]) {
         row.push({
-          text: formatStreamerLabel(streamers[i + 1], i + 1),
+          text: formatStreamerLabel(streamers[i + 1]),
           callback_data: `choose_streamer_${streamers[i + 1].telegram_id}`,
         });
       }
@@ -116,7 +114,26 @@ export const registerCallbacks = (bot, deps = {}) => {
 
       if (data.startsWith('choose_streamer_')) {
         if (await notifyBan()) return;
-        await userStates.set(tgId, { step: 'awaiting_donation', streamerId: data.split('_')[2] });
+        const streamerId = data.split('_')[2];
+        try {
+          const { rows } = await db.query(
+            "SELECT live_status FROM users WHERE telegram_id = $1 AND role = 'streamer'",
+            [streamerId]
+          );
+          if (!rows[0]?.live_status) {
+            await userStates.delete(tgId);
+            await bot.sendMessage(chatId, "Streamer isn’t live right now—come back soon!");
+            safeAnswerCallback(query.id, { text: '⚠️ Streamer offline', show_alert: true });
+            return;
+          }
+        } catch (error) {
+          console.error('[Bot] Failed to re-check live status on selection:', error);
+          await userStates.delete(tgId);
+          await bot.sendMessage(chatId, "Streamer isn’t live right now—come back soon!");
+          safeAnswerCallback(query.id, { text: '⚠️ Streamer offline', show_alert: true });
+          return;
+        }
+        await userStates.set(tgId, { step: 'awaiting_donation', streamerId });
         await bot.sendMessage(chatId, '💬 እባክዎ የልገሳ መልዕክትዎን አሁን ይጻፉ:');
         safeAnswerCallback(query.id);
         return;
