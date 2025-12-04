@@ -111,7 +111,7 @@ async function notifyDonorsStreamerLive(streamer) {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: "💸 ይለግሱ (Donate)", callback_data: `choose_streamer_${streamer.telegram_id}` }]
+          [{ text: "💸 ይለግሱ (Donate)", callback_data: `list_streamers` }]
         ]
       }
     };

@@ -84,6 +84,13 @@ export const registerCallbacks = (bot, deps = {}) => {
     };
 
     try {
+      if (data === 'list_streamers') {
+        if (await notifyBan()) return;
+        await sendStreamerMenu(chatId);
+        safeAnswerCallback(query.id);
+        return;
+      }
+
       if (data.startsWith('register_')) {
         if (user) {
           if (isDonorBanned(user)) {
