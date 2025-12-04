@@ -1598,55 +1598,57 @@ export default function StreamerPage() {
         message="Please enter your secret API Key to connect to your dashboard. You can find this key in the registration message from the Telegram bot."
       />
       <header className="mb-6">
-        {/* Dashboard Title (Outside Card) */}
-        <div className="flex items-center gap-3 mb-4 px-1">
-          <div className="p-2 gradient-primary rounded-xl shadow-lg">
-            <span className="text-white text-xl">🎙️</span>
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
-              Habesha TTS Dashboard
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Real-time donation management</p>
-          </div>
-        </div>
-
         <div className={`card shadow-xl overflow-hidden ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           
-          {/* Zone 1: Status Bar (Top) */}
-          <div className={`px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-xs border-b ${darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
+          {/* Zone 1: Brand & System Header */}
+          <div className={`px-4 py-3 flex items-center justify-between border-b ${darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
+            {/* Left: Brand */}
             <div className="flex items-center gap-3">
-              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-medium ${connectionBadgeClass}`}>
-                <span className="text-[10px]">🛰️</span>
-                {connectionStatusLabel}
-                {connectionAttempts > 0 && connectionStatus !== 'connected' ? (
-                  <span className="text-[11px] font-normal opacity-80">(attempt {connectionAttempts})</span>
-                ) : null}
-              </span>
-              <span className="text-gray-300 dark:text-gray-600">|</span>
-              <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                <span>Last heartbeat:</span>
-                <span className="font-mono font-medium text-gray-700 dark:text-gray-300">{lastHeartbeatLabel}</span>
-              </span>
+              <img src="/image/habesha-logo.png" alt="Habesha TTS" className="w-8 h-8 object-contain" />
+              <div>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-none">
+                  Habesha TTS
+                </h1>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wide uppercase mt-0.5">
+                  Streamer Dashboard
+                </p>
+              </div>
             </div>
 
+            {/* Right: System Controls */}
             <div className="flex items-center gap-3">
               <ThemeToggle isDarkMode={darkMode} toggleDarkMode={setDarkMode} />
               {usingSession && (
                 <>
-                  <div className="w-px h-3 bg-gray-300 dark:bg-gray-600"></div>
+                  <div className="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
                   <button
                     onClick={async () => {
                       try { await logout(); } catch { }
                       navigate(`/streamer/${uuid}/login`);
                     }}
-                    className="px-2 py-0.5 rounded border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium text-[11px]"
+                    className="px-3 py-1 rounded-md border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-xs font-semibold"
                   >
                     Logout
                   </button>
                 </>
               )}
             </div>
+          </div>
+
+          {/* Zone 1.5: Connection Status Strip */}
+          <div className={`px-4 py-1.5 flex items-center gap-3 text-xs border-b ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}`}>
+            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-medium ${connectionBadgeClass}`}>
+              <span className="text-[10px]">🛰️</span>
+              {connectionStatusLabel}
+              {connectionAttempts > 0 && connectionStatus !== 'connected' ? (
+                <span className="text-[11px] font-normal opacity-80">(attempt {connectionAttempts})</span>
+              ) : null}
+            </span>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <span>Last heartbeat:</span>
+              <span className="font-mono font-medium text-gray-700 dark:text-gray-300">{lastHeartbeatLabel}</span>
+            </span>
           </div>
 
           {/* Zone 2: Main Control Deck (Middle) */}
