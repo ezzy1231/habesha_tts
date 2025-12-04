@@ -98,6 +98,39 @@ async function notifyStreamerAutoEnd(streamer) {
   }
 }
 
+async function notifyDonorsStreamerLive(streamer) {
+  try {
+    const { bot } = await import('../../bot/bot.js');
+    if (!bot) return;
+
+    const { rows: donors } = await db.query("SELECT telegram_id FROM users WHERE role = 'donor'");
+    if (donors.length === 0) return;
+
+    const message = `📢 *${streamer.full_name || streamer.username}* አሁን ላይቭ ነው! 🎉\n\nልገሳ ለመላክ ከታች ያለውን ይጫኑ።`;
+    const opts = {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "💸 ይለግሱ (Donate)", callback_data: `choose_streamer_${streamer.telegram_id}` }]
+        ]
+      }
+    };
+
+    donors.forEach(donor => {
+      bot.sendMessage(donor.telegram_id, message, opts).catch(err => {
+        if (!err.message.includes('blocked') && !err.message.includes('chat not found')) {
+             console.warn(`[LiveStatus] Failed to notify donor ${donor.telegram_id}:`, err.message);
+        }
+      });
+    });
+    
+    console.log(`[LiveStatus] Notifying ${donors.length} donors about streamer ${streamer.username}`);
+
+  } catch (error) {
+    console.error('[LiveStatus] Failed to notify donors:', error);
+  }
+}
+
 export async function fetchStreamerByLinkUuid(linkUuid) {
   if (!linkUuid) return null;
   if (linkUuidCache.has(linkUuid)) {
@@ -147,6 +180,9 @@ export async function setStreamerLiveState({ streamerId, isLive, reason = 'manua
 
   if (updated.live_status) {
     scheduleWatchdog(updated, io);
+    if (!current.live_status) {
+      notifyDonorsStreamerLive(updated);
+    }
   } else {
     stopWatchdog(streamerId);
     if (reason === 'auto_end') {

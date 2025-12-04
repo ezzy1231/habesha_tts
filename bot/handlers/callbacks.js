@@ -122,14 +122,14 @@ export const registerCallbacks = (bot, deps = {}) => {
           );
           if (!rows[0]?.live_status) {
             await userStates.delete(tgId);
-            await bot.sendMessage(chatId, "Streamer isn’t live right now—come back soon!");
+            await bot.sendMessage(chatId, "⚠️ ስትሪመሩ አሁን ላይቭ አይደለም—እባክዎ ቆይተው ይመለሱ!");
             safeAnswerCallback(query.id, { text: '⚠️ Streamer offline', show_alert: true });
             return;
           }
         } catch (error) {
           console.error('[Bot] Failed to re-check live status on selection:', error);
           await userStates.delete(tgId);
-          await bot.sendMessage(chatId, "Streamer isn’t live right now—come back soon!");
+          await bot.sendMessage(chatId, "⚠️ ስትሪመሩ አሁን ላይቭ አይደለም—እባክዎ ቆይተው ይመለሱ!");
           safeAnswerCallback(query.id, { text: '⚠️ Streamer offline', show_alert: true });
           return;
         }
