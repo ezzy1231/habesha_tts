@@ -2020,6 +2020,7 @@ StreamerRequests.propTypes = {
 // --- Main Component ---
 export default function AdminDashboard() {
   const [tab, setTab] = useState('overview');
+  const [globalSearch, setGlobalSearch] = useState('');
   const [pendingCounts, setPendingCounts] = useState({ recharges: 0, withdrawals: 0, streamerRequests: 0, complaints: 0, flags: 0 });
   const [toasts, setToasts] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
