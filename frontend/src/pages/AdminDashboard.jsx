@@ -23,17 +23,20 @@ Currency.propTypes = { value: PropTypes.oneOfType([PropTypes.string, PropTypes.n
 
 function StatCard({ title, value, subtitle }) {
   return (
-    <div className="card p-4 sm:p-6 hover:shadow-lg transition-all duration-300 group">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">{title}</div>
-          <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-primary-500 dark:group-hover:text-primary-400 transition-colors truncate">
-            {value}
+    <div className="relative group">
+      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary-500 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-300 blur-[1px]"></div>
+      <div className="relative card p-4 sm:p-6 hover:shadow-lg transition-all duration-300 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2 uppercase tracking-wider">{title}</div>
+            <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-primary-500 group-hover:to-purple-600 transition-all truncate">
+              {value}
+            </div>
+            {subtitle && <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-1 sm:mt-2">{subtitle}</div>}
           </div>
-          {subtitle && <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-1 sm:mt-2">{subtitle}</div>}
-        </div>
-        <div className="p-2 sm:p-3 bg-gradient-to-br from-primary-100 to-primary-50 rounded-xl group-hover:from-primary-200 group-hover:to-primary-100 transition-all flex-shrink-0">
-          <div className="w-4 h-4 sm:w-6 sm:h-6 bg-primary-500 rounded-lg opacity-60"></div>
+          <div className="p-2 sm:p-3 bg-gradient-to-br from-primary-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl group-hover:scale-110 transition-transform duration-300 flex-shrink-0 shadow-sm">
+            <div className="w-4 h-4 sm:w-6 sm:h-6 bg-gradient-to-br from-primary-500 to-purple-600 rounded-lg opacity-80"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -87,78 +90,107 @@ function Overview({ apiClient, refreshKey }) {
         )}
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
-        <div className="card p-3 sm:p-4 md:p-6 animate-fade-in-stagger" style={{ animationDelay: '400ms' }}>
-          <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
-            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-white">Top Streamers</h3>
-            <div className="p-2 gradient-avatar-purple rounded-lg">
-              <span className="text-white text-sm sm:text-base md:text-lg">🎥</span>
+        {/* Top Streamers */}
+        <div className="relative group animate-fade-in-stagger" style={{ animationDelay: '400ms' }}>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-300 blur-[1px]"></div>
+          <div className="relative card p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 h-full">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Streamers</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Highest earning creators</p>
+              </div>
+              <div className="p-2.5 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
+                <span className="text-xl">🎥</span>
+              </div>
             </div>
-          </div>
-          <div className="space-y-2 sm:space-y-3 md:space-y-4">
-            {(data.topStreamers || []).map((s, idx) => (
-              <div key={s.streamer_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${400 + idx * 100}ms` }}>
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                  {s.profile_picture_url ? (
-                    <img
-                      src={s.profile_picture_url}
-                      alt="Profile"
-                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full gradient-avatar-purple text-white text-xs sm:text-sm font-bold flex-shrink-0">
-                      {idx + 1}
+            <div className="space-y-3">
+              {(data.topStreamers || []).map((s, idx) => (
+                <div key={s.streamer_id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors group/item">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="relative">
+                      {s.profile_picture_url ? (
+                        <img
+                          src={s.profile_picture_url}
+                          alt="Profile"
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white text-sm font-bold ring-2 ring-white dark:ring-gray-800 shadow-sm">
+                          {idx + 1}
+                        </div>
+                      )}
+                      {idx < 3 && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center text-[10px] border border-white dark:border-gray-800 shadow-sm">
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
+                        </div>
+                      )}
                     </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 dark:text-white truncate text-sm sm:text-base">
-                      {s.username || `Streamer #${s.streamer_id}`}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-gray-900 dark:text-white truncate group-hover/item:text-purple-600 dark:group-hover/item:text-purple-400 transition-colors">
+                        {s.username || `Streamer #${s.streamer_id}`}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">ID: {s.streamer_id}</div>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">ID: {s.streamer_id}</div>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-3">
+                    <div className="font-bold text-gray-900 dark:text-white"><Currency value={s.amount} /></div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">earned</div>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0 ml-2">
-                  <div className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base"><Currency value={s.amount} /></div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">earned</div>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-        <div className="card p-3 sm:p-4 md:p-6 animate-fade-in-stagger" style={{ animationDelay: '500ms' }}>
-          <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
-            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-white">Top Donors</h3>
-            <div className="p-2 gradient-avatar-cyan rounded-lg">
-              <span className="text-white text-sm sm:text-base md:text-lg">💎</span>
+
+        {/* Top Donors */}
+        <div className="relative group animate-fade-in-stagger" style={{ animationDelay: '500ms' }}>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-300 blur-[1px]"></div>
+          <div className="relative card p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 h-full">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Donors</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Most generous supporters</p>
+              </div>
+              <div className="p-2.5 bg-cyan-100 dark:bg-cyan-900/30 rounded-xl">
+                <span className="text-xl">💎</span>
+              </div>
             </div>
-          </div>
-          <div className="space-y-2 sm:space-y-3 md:space-y-4">
-            {(data.topDonors || []).map((d, idx) => (
-              <div key={d.donor_id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${500 + idx * 100}ms` }}>
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                  {d.profile_picture_url ? (
-                    <img
-                      src={d.profile_picture_url}
-                      alt="Profile"
-                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full gradient-avatar-cyan text-white text-xs sm:text-sm font-bold flex-shrink-0">
-                      {idx + 1}
+            <div className="space-y-3">
+              {(data.topDonors || []).map((d, idx) => (
+                <div key={d.donor_id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors group/item">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="relative">
+                      {d.profile_picture_url ? (
+                        <img
+                          src={d.profile_picture_url}
+                          alt="Profile"
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white text-sm font-bold ring-2 ring-white dark:ring-gray-800 shadow-sm">
+                          {idx + 1}
+                        </div>
+                      )}
+                      {idx < 3 && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center text-[10px] border border-white dark:border-gray-800 shadow-sm">
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
+                        </div>
+                      )}
                     </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 dark:text-white truncate text-sm sm:text-base">
-                      {d.username || `Donor #${d.donor_id}`}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-gray-900 dark:text-white truncate group-hover/item:text-cyan-600 dark:group-hover/item:text-cyan-400 transition-colors">
+                        {d.username || `Donor #${d.donor_id}`}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">ID: {d.donor_id}</div>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">ID: {d.donor_id}</div>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-3">
+                    <div className="font-bold text-gray-900 dark:text-white"><Currency value={d.amount} /></div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">donated</div>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0 ml-2">
-                  <div className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base"><Currency value={d.amount} /></div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">donated</div>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -2210,57 +2242,67 @@ export default function AdminDashboard() {
       />
       <div className="w-full px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 xl:px-12 xl:py-10 2xl:px-16 2xl:py-12">
         {/* Header */}
-        <div className="mb-4 sm:mb-6 md:mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 relative">
-            {/* Controls - Inside Card at Right Top Corner */}
-            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-              <button
-                onClick={toggleNotificationMute}
-                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 hover:scale-105"
-                title={notificationsMuted ? 'Unmute notifications' : 'Mute notifications'}
-                aria-label={notificationsMuted ? 'Unmute notifications' : 'Mute notifications'}
-              >
-                {notificationsMuted ? (
-                  <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                  </svg>
-                )}
-              </button>
-              <ThemeToggle isDarkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-            </div>
+        <div className="mb-6 sm:mb-8">
+          <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 sm:p-8">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary-500/10 to-purple-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+            
+            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4 sm:gap-6">
+                <div className="relative group">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-purple-600 rounded-full opacity-30 group-hover:opacity-50 blur transition duration-300"></div>
+                  <div className="relative bg-white dark:bg-gray-900 rounded-full p-2 ring-1 ring-gray-100 dark:ring-gray-700">
+                    <img src="/image/habesha-logo.png" alt="Habesha TTS" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
+                  </div>
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
+                    Habesha<span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-purple-600">TTS</span> Admin
+                  </h1>
+                  <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                    Command Center & Analytics
+                  </p>
+                </div>
+              </div>
 
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 truncate">
-                🎛️ Admin Panel
-              </h1>
-              <p className="text-xs sm:text-sm md:text-base lg:text-lg text-gray-600 dark:text-gray-300">
-                Manage streamers, donors, and donations
-              </p>
+              <div className="flex items-center gap-3 self-end sm:self-center">
+                <button
+                  onClick={toggleNotificationMute}
+                  className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 transition-all duration-200 hover:scale-105 ring-1 ring-gray-200 dark:ring-gray-700"
+                  title={notificationsMuted ? 'Unmute notifications' : 'Mute notifications'}
+                >
+                  {notificationsMuted ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                  )}
+                </button>
+                <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+                <ThemeToggle isDarkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="mb-4 sm:mb-6 md:mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-1 animate-fade-in">
-            <div className="flex flex-wrap justify-between items-center gap-1 sm:gap-2">
+        <div className="mb-6 sm:mb-8 sticky top-4 z-30">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-2 animate-fade-in">
+            <div className="flex overflow-x-auto pb-2 sm:pb-0 hide-scrollbar gap-2">
               {['overview', 'streamer-requests', 'streamers', 'donors', 'donations', 'withdrawals', 'recharges', 'flags', 'complaints', 'settings'].map((k, index) => (
                 <button
                   key={k}
                   onClick={() => setTab(k)}
-                  className={`flex-shrink-0 px-2 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-all duration-200 text-xs sm:text-sm md:text-base whitespace-nowrap relative animate-fade-in-stagger ${tab === k
-                    ? 'bg-primary-500 text-white shadow-lg transform scale-105 ring-2 ring-primary-300 ring-offset-2 ring-offset-white dark:ring-offset-gray-900'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow-md'
+                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl font-medium transition-all duration-300 text-sm whitespace-nowrap relative group ${tab === k
+                    ? 'bg-gradient-to-r from-primary-500 to-purple-600 text-white shadow-md ring-2 ring-primary-200 dark:ring-primary-900'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
                     }`}
-                  style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="text-lg sm:text-xl">
+                  <span className="flex items-center gap-2.5">
+                    <span className={`text-lg transition-transform duration-300 ${tab === k ? 'scale-110' : 'group-hover:scale-110'}`}>
                       {k === 'overview' && '📊'}
                       {k === 'streamer-requests' && '👥'}
                       {k === 'streamers' && '🎥'}
@@ -2272,31 +2314,31 @@ export default function AdminDashboard() {
                       {k === 'complaints' && '📝'}
                       {k === 'settings' && '⚙️'}
                     </span>
-                    <span className="hidden sm:block text-xs sm:text-sm font-medium">
-                      {k.replace('-', ' ')[0].toUpperCase() + k.replace('-', ' ').slice(1)}
+                    <span className="font-semibold tracking-wide">
+                      {k.replace('-', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                     </span>
                     {k === 'streamer-requests' && pendingCounts.streamerRequests > 0 && (
-                      <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-red-600 rounded-full h-5 min-w-[20px] animate-pulse shadow-md">
+                      <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
                         {pendingCounts.streamerRequests}
                       </span>
                     )}
                     {k === 'recharges' && pendingCounts.recharges > 0 && (
-                      <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-red-600 rounded-full h-5 min-w-[20px] animate-pulse shadow-md">
+                      <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
                         {pendingCounts.recharges}
                       </span>
                     )}
                     {k === 'flags' && pendingCounts.flags > 0 && (
-                      <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-red-600 rounded-full h-5 min-w-[20px] animate-pulse shadow-md">
+                      <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
                         {pendingCounts.flags}
                       </span>
                     )}
                     {k === 'withdrawals' && pendingCounts.withdrawals > 0 && (
-                      <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-red-600 rounded-full h-5 min-w-[20px] animate-pulse shadow-md">
+                      <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
                         {pendingCounts.withdrawals}
                       </span>
                     )}
                     {k === 'complaints' && pendingCounts.complaints > 0 && (
-                      <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-red-600 rounded-full h-5 min-w-[20px] animate-pulse shadow-md">
+                      <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
                         {pendingCounts.complaints}
                       </span>
                     )}
