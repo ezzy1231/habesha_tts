@@ -244,24 +244,24 @@ export const registerMessageFlows = (bot, deps = {}) => {
       if (String(process.env.ENABLE_GEMINI_TTS).toLowerCase() === 'true') {
         inline_keyboard.push(
           [
-            { text: '👩 ቁጣ ሴት', callback_data: `voice_gemini_Kore_${donationId}` },
-            { text: '🧑‍🦱 ጋለ ወንድ', callback_data: `voice_gemini_Charon_${donationId}` },
+            { text: '👩 የተቆጣች ሴት', callback_data: `voice_gemini_Kore_${donationId}` },
+            { text: '🧑‍🦱 የተነሳሳ ወንድ', callback_data: `voice_gemini_Charon_${donationId}` },
           ],
           [
-            { text: '👩 ደስታ ሴት', callback_data: `voice_gemini_Sulafat_${donationId}` },
-            { text: '🧑‍🦱 ምሬት ወንድ', callback_data: `voice_gemini_Zubenelgenubi_${donationId}` },
+            { text: '👩 የተደሰተች ሴት', callback_data: `voice_gemini_Sulafat_${donationId}` },
+            { text: '🧑‍🦱 የተማረረ ወንድ', callback_data: `voice_gemini_Zubenelgenubi_${donationId}` },
           ],
           [
-            { text: '👩 ንዴት ሴት', callback_data: `voice_gemini_Aoede_${donationId}` },
-            { text: '🧑‍🦱 ዕልልታ ወንድ', callback_data: `voice_gemini_Enceladus_${donationId}` },
+            { text: '👩 የተናደደች ሴት', callback_data: `voice_gemini_Aoede_${donationId}` },
+            { text: '🧑‍🦱 የፈነደቀ ወንድ', callback_data: `voice_gemini_Enceladus_${donationId}` },
           ],
           [
-            { text: '👩 ሐዘን ሴት', callback_data: `voice_gemini_Vindemiatrix_${donationId}` },
-            { text: '🧑‍🦱 ብስጭት ወንድ', callback_data: `voice_gemini_Achird_${donationId}` },
+            { text: '👩 የተከፋች ሴት', callback_data: `voice_gemini_Vindemiatrix_${donationId}` },
+            { text: '🧑‍🦱 የተበሳጨ ወንድ', callback_data: `voice_gemini_Achird_${donationId}` },
           ],
           [
-            { text: '👩 ጉጉት ሴት', callback_data: `voice_gemini_Despina_${donationId}` },
-            { text: '🧑‍🦱 ሣቅ ወንድ', callback_data: `voice_gemini_Iapetus_${donationId}` },
+            { text: '👩 የጓጓች ሴት', callback_data: `voice_gemini_Despina_${donationId}` },
+            { text: '🧑‍🦱 የተዝናና ወንድ', callback_data: `voice_gemini_Iapetus_${donationId}` },
           ],
         );
       }

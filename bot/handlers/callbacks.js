@@ -145,7 +145,7 @@ export const registerCallbacks = (bot, deps = {}) => {
           return;
         }
         await userStates.set(tgId, { step: 'awaiting_donation', streamerId });
-           await bot.sendMessage(chatId, '💬 እባክዎ የልገሳ መልዕክትዎን አሁን ይጻፉ:');
+        await bot.sendMessage(chatId, '💬 እባክዎ የልገሳ መልዕክትዎን አሁን ይጻፉ:');
         safeAnswerCallback(query.id);
         return;
       }
@@ -167,16 +167,16 @@ export const registerCallbacks = (bot, deps = {}) => {
         await pendingDonations.set(tgId, userPendingDonations);
 
         const voiceLabelMap = {
-          Kore: 'ቁጣ ሴት',
-          Charon: 'ጋለ ወንድ',
-          Sulafat: 'ደስታ ሴት',
-          Zubenelgenubi: 'ምሬት ወንድ',
-          Aoede: 'ንዴት ሴት',
-          Enceladus: 'ዕልልታ ወንድ',
-          Vindemiatrix: 'ሐዘን ሴት',
-          Achird: 'ብስጭት ወንድ',
-          Despina: 'ጉጉት ሴት',
-          Iapetus: 'ሣቅ ወንድ',
+          Kore: 'የተቆጣች ሴት',
+          Charon: 'የተነሳሳ ወንድ',
+          Sulafat: 'የተደሰተች ሴት',
+          Zubenelgenubi: 'የተማረረ ወንድ',
+          Aoede: 'የተናደደች ሴት',
+          Enceladus: 'የፈነደቀ ወንድ',
+          Vindemiatrix: 'የተከፋች ሴት',
+          Achird: 'የተበሳጨ ወንድ',
+          Despina: 'የጓጓች ሴት',
+          Iapetus: 'የተዝናና ወንድ',
         };
         const voiceLabel = voiceLabelMap[voice] || voice;
 
