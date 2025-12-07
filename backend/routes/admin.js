@@ -171,6 +171,36 @@ router.get("/overview", async (req, res) => {
         return { donor_id: did, username: userWithPic?.username || `Donor #${did}`, amount: amt, profile_picture_url: userWithPic?.profile_picture_url };
       }));
 
+    // Chart Data: Last 30 days
+    const chartRes = await db.query(`
+      SELECT 
+        DATE(created_at) as date, 
+        SUM(amount) as amount 
+      FROM donations 
+      WHERE status = 'paid' 
+        AND created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(created_at) 
+      ORDER BY DATE(created_at) ASC
+    `);
+    
+    // Fill in missing days with 0
+    const chartData = [];
+    const today = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const found = chartRes.rows.find(r => {
+        const rowDate = new Date(r.date).toISOString().split('T')[0];
+        return rowDate === dateStr;
+      });
+      
+      chartData.push({
+        date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        amount: found ? Number(found.amount) : 0
+      });
+    }
+
     res.json({
       totals: {
         total_amount: totalAmount,
@@ -179,7 +209,8 @@ router.get("/overview", async (req, res) => {
         unique_donors: uniqueDonors
       },
       topStreamers,
-      topDonors
+      topDonors,
+      chartData
     });
   } catch (error) {
     console.error("Error fetching admin overview:", error);

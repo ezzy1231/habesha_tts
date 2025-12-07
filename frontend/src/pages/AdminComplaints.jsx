@@ -78,104 +78,138 @@ export default function AdminComplaints({ apiClient, refreshData }) {
 
   return (
     <>
-      <div className="card p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <span className="text-2xl">📝</span> User Complaints
-          </h2>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            {complaints.length} total
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">User Complaints</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage and respond to user feedback</p>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300">
+            {complaints.length} Total
           </span>
         </div>
         
         {complaints.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-            <p className="text-gray-500 dark:text-gray-400">No complaints found.</p>
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">📝</span>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">No complaints found</h3>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Everything seems to be running smoothly!</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800/50">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-l-lg">
-                    ID
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    User ID
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Complaint
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-r-lg">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                {complaints.map((complaint) => (
-                  <tr key={complaint.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      #{complaint.id}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono">
-                      {complaint.telegram_id}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-300 max-w-xs truncate" title={complaint.complaint}>
-                      {complaint.complaint}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {new Date(complaint.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm">
-                      {complaint.responded ? (
-                        <span className="px-2.5 py-0.5 inline-flex text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
-                          Responded
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-0.5 inline-flex text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800">
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                      {!complaint.responded && (
-                        <button
-                          onClick={() => openResponseModal(complaint)}
-                          className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium transition-colors"
-                        >
-                          Respond
-                        </button>
-                      )}
-                    </td>
+          <>
+            {/* Mobile Card View */}
+            <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+              {complaints.map((complaint) => (
+                <div key={complaint.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono mb-1">
+                        #{complaint.id} • {new Date(complaint.created_at).toLocaleDateString()}
+                      </div>
+                      <div className="font-medium text-gray-900 dark:text-white truncate">
+                        User ID: {complaint.telegram_id}
+                      </div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${complaint.responded
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    }`}>
+                      {complaint.responded ? 'Responded' : 'Pending'}
+                    </span>
+                  </div>
+
+                  <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg mb-3">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+                      "{complaint.complaint}"
+                    </p>
+                  </div>
+
+                  {!complaint.responded && (
+                    <button
+                      onClick={() => openResponseModal(complaint)}
+                      className="w-full py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                    >
+                      Respond
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
+                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
+                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">User ID</th>
+                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Complaint</th>
+                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
+                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {complaints.map((complaint) => (
+                    <tr key={complaint.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="py-4 px-6 text-sm font-medium text-gray-900 dark:text-white">
+                        #{complaint.id}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-500 dark:text-gray-400 font-mono">
+                        {complaint.telegram_id}
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="text-sm text-gray-600 dark:text-gray-300 max-w-xs truncate" title={complaint.complaint}>
+                          {complaint.complaint}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(complaint.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="py-4 px-6 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${complaint.responded
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        }`}>
+                          {complaint.responded ? 'Responded' : 'Pending'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-center">
+                        {!complaint.responded && (
+                          <button
+                            onClick={() => openResponseModal(complaint)}
+                            className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium text-sm transition-colors hover:underline"
+                          >
+                            Respond
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 sm:p-8 border border-gray-100 dark:border-gray-700 transform transition-all scale-100">
-            <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white flex items-center gap-3">
+            <h2 className="text-xl font-bold mb-6 text-gray-900 dark:text-white flex items-center gap-3">
               <span>💬</span> Respond to Complaint
             </h2>
             
             {submissionStatus === 'success' ? (
-              <div className="text-center py-12 animate-fade-in">
-                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="text-center py-8 animate-fade-in">
+                <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <p className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Response Sent!</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Response Sent!</p>
                 <p className="text-gray-500 dark:text-gray-400">The user has been notified.</p>
               </div>
             ) : (

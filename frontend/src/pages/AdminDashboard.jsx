@@ -12,6 +12,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import SkeletonLoader from '../components/SkeletonLoader';
 import DonorFlagsPanel from '../components/DonorFlagsPanel';
 import { BAN_DURATION_OPTIONS, resolveBanDurationMinutes } from '../constants/banOptions';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const API = import.meta.env.VITE_BASE_URL || 'http://localhost:5000';
 const socket = io(API, { transports: ['websocket'] });
@@ -21,23 +22,18 @@ function Currency({ value }) {
 }
 Currency.propTypes = { value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]) };
 
-function StatCard({ title, value, subtitle }) {
+function StatCard({ title, value, subtitle, icon, iconClassName }) {
   return (
-    <div className="relative group">
-      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary-500 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-300 blur-[1px]"></div>
-      <div className="relative card p-4 sm:p-6 hover:shadow-lg transition-all duration-300 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2 uppercase tracking-wider">{title}</div>
-            <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-primary-500 group-hover:to-purple-600 transition-all truncate">
-              {value}
-            </div>
-            {subtitle && <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-1 sm:mt-2">{subtitle}</div>}
-          </div>
-          <div className="p-2 sm:p-3 bg-gradient-to-br from-primary-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl group-hover:scale-110 transition-transform duration-300 flex-shrink-0 shadow-sm">
-            <div className="w-4 h-4 sm:w-6 sm:h-6 bg-gradient-to-br from-primary-500 to-purple-600 rounded-lg opacity-80"></div>
-          </div>
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-3 rounded-xl bg-opacity-10 dark:bg-opacity-20 ${iconClassName || 'bg-primary-500 text-primary-500'}`}>
+          <span className="text-xl">{icon || '📊'}</span>
         </div>
+      </div>
+      <div>
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{value}</h3>
+        {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
       </div>
     </div>
   );
@@ -46,6 +42,8 @@ StatCard.propTypes = {
   title: PropTypes.string.isRequired,
   value: PropTypes.node.isRequired,
   subtitle: PropTypes.string,
+  icon: PropTypes.node,
+  iconClassName: PropTypes.string,
 };
 
 function Overview({ apiClient, refreshKey }) {
@@ -69,128 +67,135 @@ function Overview({ apiClient, refreshKey }) {
   if (error) return <div className="text-red-600">{error}</div>;
 
   const t = data.totals || {};
+  const chartData = data.chartData || [];
 
   return (
-    <div className="space-y-4 sm:space-y-6 md:space-y-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 animate-fade-in-stagger">
-        {loading ? (
-          <>
-            <SkeletonLoader type="stat" />
-            <SkeletonLoader type="stat" />
-            <SkeletonLoader type="stat" />
-            <SkeletonLoader type="stat" />
-          </>
-        ) : (
-          <>
-            <StatCard title="Total Amount" value={<Currency value={t.total_amount} />} subtitle={`${t.total_count || 0} donations`} className="animate-fade-in-stagger" style={{ animationDelay: '0ms' }} />
-            <StatCard title="Streamers" value={t.unique_streamers || 0} className="animate-fade-in-stagger" style={{ animationDelay: '100ms' }} />
-            <StatCard title="Donors" value={t.unique_donors || 0} className="animate-fade-in-stagger" style={{ animationDelay: '200ms' }} />
-            <StatCard title="Avg. Donation" value={<Currency value={(t.total_amount || 0) / Math.max(1, t.total_count || 1)} />} className="animate-fade-in-stagger" style={{ animationDelay: '300ms' }} />
-          </>
-        )}
+    <div className="space-y-6">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total Revenue" value={<Currency value={t.total_amount} />} subtitle={`${t.total_count || 0} donations`} icon="💰" iconClassName="bg-green-500 text-green-500" />
+        <StatCard title="Active Streamers" value={t.unique_streamers || 0} subtitle="Unique creators" icon="🎥" iconClassName="bg-purple-500 text-purple-500" />
+        <StatCard title="Active Donors" value={t.unique_donors || 0} subtitle="Unique supporters" icon="💎" iconClassName="bg-blue-500 text-blue-500" />
+        <StatCard title="Avg. Donation" value={<Currency value={(t.total_amount || 0) / Math.max(1, t.total_count || 1)} />} subtitle="Per transaction" icon="📊" iconClassName="bg-orange-500 text-orange-500" />
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+
+      {/* Revenue Chart */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Revenue Trends (Last 30 Days)</h3>
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
+              <XAxis 
+                dataKey="date" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#9ca3af', fontSize: 12 }} 
+                dy={10}
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#9ca3af', fontSize: 12 }} 
+                tickFormatter={(value) => `Br ${value}`}
+              />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
+                itemStyle={{ color: '#fff' }}
+                formatter={(value) => [`Br ${value}`, 'Revenue']}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="amount" 
+                stroke="#8b5cf6" 
+                strokeWidth={3}
+                fillOpacity={1} 
+                fill="url(#colorAmount)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Top Lists */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Top Streamers */}
-        <div className="relative group animate-fade-in-stagger" style={{ animationDelay: '400ms' }}>
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-300 blur-[1px]"></div>
-          <div className="relative card p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 h-full">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Streamers</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Highest earning creators</p>
-              </div>
-              <div className="p-2.5 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
-                <span className="text-xl">🎥</span>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {(data.topStreamers || []).map((s, idx) => (
-                <div key={s.streamer_id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors group/item">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="relative">
-                      {s.profile_picture_url ? (
-                        <img
-                          src={s.profile_picture_url}
-                          alt="Profile"
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white text-sm font-bold ring-2 ring-white dark:ring-gray-800 shadow-sm">
-                          {idx + 1}
-                        </div>
-                      )}
-                      {idx < 3 && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center text-[10px] border border-white dark:border-gray-800 shadow-sm">
-                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-gray-900 dark:text-white truncate group-hover/item:text-purple-600 dark:group-hover/item:text-purple-400 transition-colors">
-                        {s.username || `Streamer #${s.streamer_id}`}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Streamers</h3>
+            <span className="text-purple-500 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-full text-xs font-medium">By Revenue</span>
+          </div>
+          <div className="space-y-4">
+            {(data.topStreamers || []).map((s, idx) => (
+              <div key={s.streamer_id} className="flex items-center justify-between group">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    {s.profile_picture_url ? (
+                      <img src={s.profile_picture_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 font-bold">
+                        {s.username?.[0]?.toUpperCase() || '#'}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">ID: {s.streamer_id}</div>
+                    )}
+                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center text-xs font-bold shadow-sm border border-gray-100 dark:border-gray-700">
+                      {idx + 1}
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0 ml-3">
-                    <div className="font-bold text-gray-900 dark:text-white"><Currency value={s.amount} /></div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">earned</div>
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white group-hover:text-purple-500 transition-colors">
+                      {s.username || `Streamer #${s.streamer_id}`}
+                    </div>
+                    <div className="text-xs text-gray-500">ID: {s.streamer_id}</div>
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="font-bold text-gray-900 dark:text-white">
+                  <Currency value={s.amount} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
         {/* Top Donors */}
-        <div className="relative group animate-fade-in-stagger" style={{ animationDelay: '500ms' }}>
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-300 blur-[1px]"></div>
-          <div className="relative card p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 h-full">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Donors</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Most generous supporters</p>
-              </div>
-              <div className="p-2.5 bg-cyan-100 dark:bg-cyan-900/30 rounded-xl">
-                <span className="text-xl">💎</span>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {(data.topDonors || []).map((d, idx) => (
-                <div key={d.donor_id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors group/item">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="relative">
-                      {d.profile_picture_url ? (
-                        <img
-                          src={d.profile_picture_url}
-                          alt="Profile"
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white text-sm font-bold ring-2 ring-white dark:ring-gray-800 shadow-sm">
-                          {idx + 1}
-                        </div>
-                      )}
-                      {idx < 3 && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center text-[10px] border border-white dark:border-gray-800 shadow-sm">
-                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-gray-900 dark:text-white truncate group-hover/item:text-cyan-600 dark:group-hover/item:text-cyan-400 transition-colors">
-                        {d.username || `Donor #${d.donor_id}`}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Donors</h3>
+            <span className="text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full text-xs font-medium">By Contribution</span>
+          </div>
+          <div className="space-y-4">
+            {(data.topDonors || []).map((d, idx) => (
+              <div key={d.donor_id} className="flex items-center justify-between group">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    {d.profile_picture_url ? (
+                      <img src={d.profile_picture_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 font-bold">
+                        {d.username?.[0]?.toUpperCase() || '#'}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">ID: {d.donor_id}</div>
+                    )}
+                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center text-xs font-bold shadow-sm border border-gray-100 dark:border-gray-700">
+                      {idx + 1}
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0 ml-3">
-                    <div className="font-bold text-gray-900 dark:text-white"><Currency value={d.amount} /></div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">donated</div>
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white group-hover:text-blue-500 transition-colors">
+                      {d.username || `Donor #${d.donor_id}`}
+                    </div>
+                    <div className="text-xs text-gray-500">ID: {d.donor_id}</div>
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="font-bold text-gray-900 dark:text-white">
+                  <Currency value={d.amount} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -311,29 +316,40 @@ function Streamers({ apiClient, refreshKey }) {
 
   return (
     <>
-      <div className="card overflow-hidden">
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <div>
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Streamers Overview</h3>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">Drag and drop to reorder, then save.</p>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Streamers Management</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Drag and drop to reorder streamers on the public page.</p>
+          </div>
+          <button 
+            onClick={handleSaveOrder} 
+            disabled={isSaving} 
+            className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isSaving ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Saving...
+              </>
+            ) : (
+              'Save Order'
+            )}
+          </button>
         </div>
-        <button onClick={handleSaveOrder} disabled={isSaving} className="btn btn-primary btn-sm">
-          {isSaving ? 'Saving...' : 'Save Order'}
-        </button>
-      </div>
 
-        <div className="block sm:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        {/* Mobile List */}
+        <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
           {rows.map((s, index) => (
             <div
               key={s.telegram_id}
-              className="p-4 flex flex-col gap-3 animate-fade-in-stagger"
-              style={{ animationDelay: `${index * 50}ms` }}
+              className="p-4 flex flex-col gap-3"
             >
               <div className="flex items-center gap-3">
                 {s.profile_picture_url ? (
-                  <img src={s.profile_picture_url} alt="Profile" className="w-12 h-12 rounded-full object-cover" />
+                  <img src={s.profile_picture_url} alt="Profile" className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-gray-800" />
                 ) : (
-                  <div className="w-12 h-12 rounded-full gradient-avatar-purple flex items-center justify-center text-white font-semibold">
+                  <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold ring-2 ring-white dark:ring-gray-800">
                     {(s.username || 'S').charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -346,115 +362,110 @@ function Streamers({ apiClient, refreshKey }) {
                 <button
                   type="button"
                   onClick={() => openDeleteModal(s)}
-                  className="btn btn-outline btn-xs text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900/50"
+                  className="text-red-500 hover:text-red-700 text-sm font-medium px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                 >
                   Remove
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 gap-3 text-sm bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg">
                 <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 block">Link UUID</span>
-                  <code className="inline-block px-2 py-1 mt-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Link UUID</span>
+                  <code className="text-xs font-mono text-gray-700 dark:text-gray-300 mt-1 block truncate">
                     {s.link_uuid}
                   </code>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-gray-500 dark:text-gray-400 block">Total Earned</span>
-                  <div className="font-semibold text-gray-900 dark:text-white mt-1">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Total Earned</span>
+                  <div className="font-bold text-gray-900 dark:text-white mt-1">
                     <Currency value={s.total_earned} />
                   </div>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 block">Donations</span>
-                  <div className="font-semibold text-gray-900 dark:text-white mt-1">{s.donations_count}</div>
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-      <div className="hidden sm:block overflow-x-auto">
-        <table className="table">
-          <thead>
-            <tr>
-              <th className="w-12"></th>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Streamer</th>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Link UUID</th>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Donations</th>
-              <th className="font-semibold text-right text-gray-700 dark:text-gray-300">Total Earned</th>
-                <th className="font-semibold text-center text-gray-700 dark:text-gray-300 w-32">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((s, index) => (
-              <tr
-                key={s.telegram_id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragEnter={(e) => handleDragEnter(e, index)}
-                onDragEnd={handleDragEnd}
-                onDragOver={(e) => e.preventDefault()}
-                className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 animate-fade-in-stagger"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <td className="py-4 text-center text-gray-400 cursor-grab">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                </td>
-                <td className="py-4">
-                  <div className="flex items-center gap-3">
-                    {s.profile_picture_url ? (
-                      <img
-                        src={s.profile_picture_url}
-                        alt="Profile"
-                        className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full gradient-avatar-purple flex items-center justify-center text-white font-semibold flex-shrink-0">
-                        {(s.username || 'S').charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div>
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {s.username || 'Unknown Streamer'}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">ID: {s.telegram_id}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-4">
-                  <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">
-                    {s.link_uuid}
-                  </code>
-                </td>
-                <td className="py-4">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-900 dark:text-white">{s.donations_count}</span>
-                    <span className="badge badge-gray">donations</span>
-                  </div>
-                </td>
-                <td className="py-4 text-right">
-                  <div className="font-semibold text-lg text-gray-900 dark:text-white">
-                    <Currency value={s.total_earned} />
-                  </div>
-                </td>
-                <td className="py-4 text-center">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDeleteModal(s);
-                    }}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    className="btn btn-outline btn-xs text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900/50"
-                  >
-                    Remove
-                  </button>
-                </td>
+        {/* Desktop Table */}
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
+                <th className="py-3 px-6 w-12"></th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Streamer</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Link UUID</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Donations</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Total Earned</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center w-24">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {rows.map((s, index) => (
+                <tr
+                  key={s.telegram_id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragEnter={(e) => handleDragEnter(e, index)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => e.preventDefault()}
+                  className="group hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                >
+                  <td className="py-4 px-6 text-center text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing group-hover:text-gray-400 dark:group-hover:text-gray-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mx-auto" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                  </td>
+                  <td className="py-4 px-6">
+                    <div className="flex items-center gap-3">
+                      {s.profile_picture_url ? (
+                        <img
+                          src={s.profile_picture_url}
+                          alt="Profile"
+                          className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-sm ring-2 ring-white dark:ring-gray-800">
+                          {(s.username || 'S').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white text-sm">
+                          {s.username || 'Unknown Streamer'}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">ID: {s.telegram_id}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-4 px-6">
+                    <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded text-xs font-mono border border-gray-200 dark:border-gray-700">
+                      {s.link_uuid}
+                    </code>
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                      {s.donations_count}
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 text-right">
+                    <div className="font-bold text-gray-900 dark:text-white text-sm">
+                      <Currency value={s.total_earned} />
+                    </div>
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDeleteModal(s);
+                      }}
+                      className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                      title="Remove Streamer"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       <ConfirmationModal
         isOpen={deleteModal.isOpen}
@@ -473,7 +484,7 @@ Streamers.propTypes = {
   refreshKey: PropTypes.number.isRequired,
 };
 
-function Donors({ apiClient, refreshKey }) {
+function Donors({ apiClient, refreshKey }) { // Updated
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -599,39 +610,38 @@ function Donors({ apiClient, refreshKey }) {
   if (error) return <div className="text-red-600">{error}</div>;
 
   return (
-    <div className="card overflow-hidden animate-fade-in-stagger">
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Donors Management</h3>
-        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">Manage donor information and display names</p>
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Donors Management</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage donor information and display names</p>
       </div>
 
       {/* Mobile Card View */}
-      <div className="block sm:hidden">
-        <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {rows.map((d, index) => {
-            const isBanned = Boolean(d.is_banned);
-            return (
-            <div key={d.telegram_id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
+      <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+        {rows.map((d, index) => {
+          const isBanned = Boolean(d.is_banned);
+          return (
+            <div key={d.telegram_id} className={`p-4 ${isBanned ? 'bg-rose-50/50 dark:bg-rose-900/10' : ''}`}>
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full gradient-avatar-cyan flex items-center justify-center text-white font-semibold flex-shrink-0">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 ${isBanned ? 'bg-rose-400' : 'bg-cyan-500'}`}>
                   {(d.username || 'D').charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 dark:text-white truncate">
-                    {d.username || 'Unknown Donor'}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
-                    <span>ID: {d.telegram_id}</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="font-semibold text-gray-900 dark:text-white truncate">
+                      {d.username || 'Unknown Donor'}
+                    </div>
                     {isBanned ? (
-                      <span className="badge badge-rose text-[10px]">Banned</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">BANNED</span>
                     ) : (
-                      <span className="badge badge-success text-[10px]">Active</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">ACTIVE</span>
                     )}
                   </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">ID: {d.telegram_id}</div>
 
                   <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Display Name</label>
+                    <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg">
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1 uppercase tracking-wider">Display Name</label>
                       {editingId === d.telegram_id ? (
                         <div className="space-y-2">
                           <input
@@ -645,14 +655,14 @@ function Donors({ apiClient, refreshKey }) {
                             <button
                               disabled={saving}
                               onClick={() => save(d.telegram_id)}
-                              className="btn btn-success btn-sm flex-1"
+                              className="flex-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded transition-colors"
                             >
-                              {saving ? 'Saving...' : 'Save'}
+                              Save
                             </button>
                             <button
                               disabled={saving}
                               onClick={cancelEdit}
-                              className="btn btn-secondary btn-sm flex-1"
+                              className="flex-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-medium rounded transition-colors"
                             >
                               Cancel
                             </button>
@@ -661,11 +671,11 @@ function Donors({ apiClient, refreshKey }) {
                       ) : (
                         <div className="flex items-center justify-between">
                           <div className="font-medium text-gray-900 dark:text-white truncate">
-                            {d.display_name || d.username || <span className="text-gray-400 dark:text-gray-500">Not set</span>}
+                            {d.display_name || d.username || <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>}
                           </div>
                           <button
                             onClick={() => startEdit(d)}
-                            className="btn btn-outline btn-xs ml-2"
+                            className="text-primary-500 hover:text-primary-600 text-xs font-medium"
                           >
                             Edit
                           </button>
@@ -674,35 +684,29 @@ function Donors({ apiClient, refreshKey }) {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div>
+                      <div className="bg-gray-50 dark:bg-gray-700/30 p-2 rounded-lg">
                         <span className="text-xs text-gray-500 dark:text-gray-400 block">Donations</span>
-                        <div className="flex items-center gap-1 mt-1">
-                          <span className="font-semibold text-gray-900 dark:text-white text-sm">{d.donations_count}</span>
-                          <span className="badge badge-gray text-xs">donations</span>
-                        </div>
+                        <div className="font-semibold text-gray-900 dark:text-white text-sm mt-0.5">{d.donations_count}</div>
                       </div>
-                      <div>
+                      <div className="bg-gray-50 dark:bg-gray-700/30 p-2 rounded-lg text-right">
                         <span className="text-xs text-gray-500 dark:text-gray-400 block">Total Donated</span>
-                        <div className="font-semibold text-gray-900 dark:text-white text-sm mt-1">
+                        <div className="font-semibold text-gray-900 dark:text-white text-sm mt-0.5">
                           <Currency value={d.total_donated} />
                         </div>
                       </div>
                     </div>
 
-                    <div>
+                    <div className="flex items-center justify-between pt-1">
                       <Balance
                         value={d.balance}
-                        className="text-green-600 dark:text-green-400"
+                        className="text-green-600 dark:text-green-400 font-bold"
                         label="Balance"
                         showToggle={false}
                       />
-                    </div>
-
-                    <div className="flex flex-col gap-2 pt-1">
                       {isBanned ? (
                         <button
                           type="button"
-                          className="btn btn-outline btn-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          className="text-emerald-600 hover:text-emerald-700 text-xs font-medium px-2 py-1 rounded hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                           onClick={() => handleUnban(d)}
                         >
                           Unban Donor
@@ -710,7 +714,7 @@ function Donors({ apiClient, refreshKey }) {
                       ) : (
                         <button
                           type="button"
-                          className="btn btn-outline btn-sm border-rose-200 text-rose-600 hover:bg-rose-50"
+                          className="text-rose-600 hover:text-rose-700 text-xs font-medium px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-900/20"
                           onClick={() => openBanModal(d)}
                         >
                           Ban Donor
@@ -722,133 +726,146 @@ function Donors({ apiClient, refreshKey }) {
               </div>
             </div>
           );
-          })}
-        </div>
+        })}
       </div>
 
       {/* Desktop Table View */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="table">
+        <table className="w-full text-left border-collapse">
           <thead>
-            <tr>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Donor</th>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Display Name</th>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Donations</th>
-              <th className="font-semibold text-right text-gray-700 dark:text-gray-300">Total Donated</th>
-              <th className="font-semibold text-right text-gray-700 dark:text-gray-300">Balance</th>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Status</th>
-              <th className="font-semibold text-center text-gray-700 dark:text-gray-300">Actions</th>
+            <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Donor</th>
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Display Name</th>
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Donations</th>
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Total Donated</th>
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Balance</th>
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {rows.map((d, index) => {
               const isBanned = Boolean(d.is_banned);
               return (
                 <tr
                   key={d.telegram_id}
-                  className={`transition-colors animate-fade-in-stagger ${isBanned ? 'bg-rose-50/70 dark:bg-rose-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}
-                  style={{ animationDelay: `${index * 50}ms` }}
+                  className={`transition-colors ${isBanned ? 'bg-rose-50/30 dark:bg-rose-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                 >
-                  <td className="py-4">
+                  <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${isBanned ? 'bg-rose-400' : 'gradient-avatar-cyan'}`}>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm ${isBanned ? 'bg-rose-400' : 'bg-cyan-500'}`}>
                         {(d.username || 'D').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-white">
+                        <div className="font-medium text-gray-900 dark:text-white text-sm">
                           {d.username || 'Unknown Donor'}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">ID: {d.telegram_id}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="py-4">
+                  <td className="py-4 px-6">
                     {editingId === d.telegram_id ? (
                       <div className="flex items-center gap-2">
                         <input
                           type="text"
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
-                          className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                          placeholder="e.g. አበበ መኮንን"
+                          className="w-32 px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Name"
+                          autoFocus
                         />
                       </div>
                     ) : (
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {d.display_name || d.username || <span className="text-gray-400 dark:text-gray-500">Not set</span>}
+                      <div className="font-medium text-gray-900 dark:text-white text-sm">
+                        {d.display_name || d.username || <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>}
                       </div>
                     )}
                   </td>
-                  <td className="py-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900 dark:text-white">{d.donations_count}</span>
-                      <span className="badge badge-gray">donations</span>
-                    </div>
+                  <td className="py-4 px-6 text-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                      {d.donations_count}
+                    </span>
                   </td>
-                  <td className="py-4 text-right">
-                    <div className="font-semibold text-gray-900 dark:text-white">
+                  <td className="py-4 px-6 text-right">
+                    <div className="font-bold text-gray-900 dark:text-white text-sm">
                       <Currency value={d.total_donated} />
                     </div>
                   </td>
-                  <td className="py-4 text-right">
+                  <td className="py-4 px-6 text-right">
                     <Balance
                       value={d.balance}
-                      className="text-lg text-green-600 dark:text-green-400"
+                      className="text-sm font-bold text-green-600 dark:text-green-400"
                       showLabel={false}
                       showToggle={false}
                     />
                   </td>
-                  <td className="py-4">
+                  <td className="py-4 px-6 text-center">
                     {isBanned ? (
-                      <div className="space-y-1 text-sm">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-xs font-semibold">Banned</span>
-                        {d.ban_reason && <div className="text-rose-600 dark:text-rose-300">Reason: {d.ban_reason}</div>}
-                        <div className="text-gray-500 dark:text-gray-400 text-xs">Until: {formatBanExpiry(d.ban_expires_at)}</div>
+                      <div className="group relative inline-block">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 cursor-help">
+                          BANNED
+                        </span>
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                          <p className="font-bold">Reason:</p>
+                          <p>{d.ban_reason || 'No reason provided'}</p>
+                          <p className="mt-1 text-gray-400">Expires: {formatBanExpiry(d.ban_expires_at)}</p>
+                        </div>
                       </div>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">Active</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        ACTIVE
+                      </span>
                     )}
                   </td>
-                  <td className="py-4">
-                    <div className="flex flex-col items-center gap-2">
+                  <td className="py-4 px-6 text-center">
+                    <div className="flex items-center justify-center gap-2">
                       {editingId === d.telegram_id ? (
-                        <div className="flex gap-2">
+                        <>
                           <button
                             disabled={saving}
                             onClick={() => save(d.telegram_id)}
-                            className="btn btn-success btn-sm"
+                            className="text-green-600 hover:text-green-700 p-1"
+                            title="Save"
                           >
-                            {saving ? 'Saving...' : 'Save'}
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                           </button>
                           <button
                             disabled={saving}
                             onClick={cancelEdit}
-                            className="btn btn-secondary btn-sm"
+                            className="text-gray-400 hover:text-gray-600 p-1"
+                            title="Cancel"
                           >
-                            Cancel
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
-                        </div>
+                        </>
                       ) : (
                         <button
                           onClick={() => startEdit(d)}
-                          className="btn btn-outline btn-sm"
+                          className="text-gray-400 hover:text-primary-600 transition-colors p-1"
+                          title="Edit Name"
                         >
-                          Edit Name
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </button>
                       )}
+                      
+                      <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
+
                       {isBanned ? (
                         <button
                           onClick={() => handleUnban(d)}
-                          className="btn btn-outline btn-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          className="text-emerald-500 hover:text-emerald-700 transition-colors p-1"
+                          title="Unban Donor"
                         >
-                          Unban
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </button>
                       ) : (
                         <button
                           onClick={() => openBanModal(d)}
-                          className="btn btn-outline btn-sm border-rose-200 text-rose-600 hover:bg-rose-50"
+                          className="text-gray-400 hover:text-rose-600 transition-colors p-1"
+                          title="Ban Donor"
                         >
-                          Ban Donor
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                         </button>
                       )}
                     </div>
@@ -951,102 +968,101 @@ function Donations({ apiClient, refreshKey }) {
   if (error) return <div className="text-red-600">{error}</div>;
 
   return (
-    <div className="card overflow-hidden animate-fade-in-stagger">
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Recent Donations</h3>
-        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">View all donation transactions</p>
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recent Donations</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View all donation transactions</p>
       </div>
 
       {/* Mobile Card View */}
-      <div className="block sm:hidden">
-        <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {rows.map((d, index) => (
-            <div key={d.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 dark:text-white truncate">
-                    {d.donor?.username || 'Unknown Donor'}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    to {d.streamer?.username || 'Unknown Streamer'}
-                  </div>
+      <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+        {rows.map((d, index) => (
+          <div key={d.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-gray-900 dark:text-white truncate">
+                  {d.donor?.username || 'Unknown Donor'}
                 </div>
-                <span className={`badge ${d.status === 'paid'
-                  ? 'badge-success'
-                  : d.status === 'pending'
-                    ? 'badge-warning'
-                    : 'badge-gray'
-                  }`}>
-                  {d.status}
-                </span>
+                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <span>to</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{d.streamer?.username || 'Unknown Streamer'}</span>
+                </div>
               </div>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${d.status === 'paid'
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                : d.status === 'pending'
+                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                }`}>
+                {d.status}
+              </span>
+            </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Amount</span>
-                  <div className="font-semibold text-gray-900 dark:text-white">
-                    <Currency value={d.amount} />
-                  </div>
+            <div className="grid grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg">
+              <div>
+                <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Amount</span>
+                <div className="font-bold text-gray-900 dark:text-white mt-0.5">
+                  <Currency value={d.amount} />
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Date</span>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                    {new Date(d.created_at).toLocaleDateString()}
-                  </div>
+              </div>
+              <div className="text-right">
+                <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Date</span>
+                <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-0.5">
+                  {new Date(d.created_at).toLocaleDateString()}
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Time</span>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                    {new Date(d.created_at).toLocaleTimeString()}
-                  </div>
+                <div className="text-[10px] text-gray-400">
+                  {new Date(d.created_at).toLocaleTimeString()}
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
 
       {/* Desktop Table View */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="table">
+        <table className="w-full text-left border-collapse">
           <thead>
-            <tr>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">When</th>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Streamer</th>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Donor</th>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Amount</th>
-              <th className="font-semibold text-gray-700 dark:text-gray-300">Status</th>
+            <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">When</th>
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Streamer</th>
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Donor</th>
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Amount</th>
+              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {rows.map((d, index) => (
-              <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
-                <td className="py-4">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {new Date(d.created_at).toLocaleString()}
+              <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <td className="py-4 px-6">
+                  <div className="text-sm text-gray-900 dark:text-white font-medium">
+                    {new Date(d.created_at).toLocaleDateString()}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {new Date(d.created_at).toLocaleTimeString()}
                   </div>
                 </td>
-                <td className="py-4">
-                  <div className="font-medium text-gray-900 dark:text-white">
+                <td className="py-4 px-6">
+                  <div className="font-medium text-gray-900 dark:text-white text-sm">
                     {d.streamer?.username || '—'}
                   </div>
                 </td>
-                <td className="py-4">
-                  <div className="font-medium text-gray-900 dark:text-white">
+                <td className="py-4 px-6">
+                  <div className="font-medium text-gray-900 dark:text-white text-sm">
                     {d.donor?.username || '—'}
                   </div>
                 </td>
-                <td className="py-4">
-                  <div className="font-semibold text-gray-900 dark:text-white">
+                <td className="py-4 px-6 text-right">
+                  <div className="font-bold text-gray-900 dark:text-white text-sm">
                     <Currency value={d.amount} />
                   </div>
                 </td>
-                <td className="py-4">
-                  <span className={`badge ${d.status === 'paid'
-                    ? 'badge-success'
+                <td className="py-4 px-6 text-center">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${d.status === 'paid'
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                     : d.status === 'pending'
-                      ? 'badge-warning'
-                      : 'badge-gray'
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                     }`}>
                     {d.status}
                   </span>
@@ -1185,172 +1201,181 @@ function Recharges({ apiClient }) {
           </div>
         </div>
       )}
-      <div className="card overflow-hidden animate-fade-in-stagger">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Recharge Requests</h3>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recharge Requests</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage donor wallet top-ups</p>
+            </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-primary-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>Pending</button>
               <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'approved'
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-emerald-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>Approved</button>
               <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'rejected'
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-rose-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>Rejected</button>
             </div>
           </div>
         </div>
 
         {/* Mobile Card View */}
-        <div className="block sm:hidden">
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredRows.map((r, index) => (
-              <div key={r.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 dark:text-white truncate">
-                      {r.donor_username || 'Unknown Donor'}
+        <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+          {filteredRows.map((r, index) => (
+            <div key={r.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 dark:text-white truncate">
+                    {r.donor_username || 'Unknown Donor'}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {new Date(r.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${r.status === 'approved'
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : r.status === 'rejected'
+                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                  }`}>
+                  {r.status}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg">
+                  {r.screenshot_url ? (
+                    <img
+                      src={r.screenshot_url}
+                      alt="screenshot"
+                      className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0 border border-gray-200 dark:border-gray-600"
+                      onClick={() => openImageModal(r.screenshot_url)}
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                      <span className="text-gray-400 dark:text-gray-500 text-[10px]">No img</span>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(r.created_at).toLocaleDateString()}
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name on Payment</div>
+                    <div className="font-medium text-gray-900 dark:text-white truncate text-sm">
+                      {r.name_on_payment}
                     </div>
                   </div>
-                  <span className={`badge ${r.status === 'approved'
-                    ? 'badge-success'
-                    : r.status === 'rejected'
-                      ? 'badge-error'
-                      : 'badge-warning'
-                    }`}>
-                    {r.status}
-                  </span>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    {r.screenshot_url ? (
-                      <img
-                        src={r.screenshot_url}
-                        alt="screenshot"
-                        className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
-                        onClick={() => openImageModal(r.screenshot_url)}
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                        <span className="text-gray-400 dark:text-gray-500 text-xs">No img</span>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Name on Payment</div>
-                      <div className="font-medium text-gray-900 dark:text-white truncate">
-                        {r.name_on_payment}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Requested</span>
-                    <div className="font-semibold text-gray-900 dark:text-white">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Requested</span>
+                    <div className="font-bold text-gray-900 dark:text-white mt-0.5">
                       {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">—</span>}
                     </div>
                   </div>
-
                   {r.amount > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Approved</span>
-                      <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    <div className="text-right">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Approved</span>
+                      <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                         <Currency value={r.amount} />
                       </div>
                     </div>
                   )}
-
-                  {r.status === 'pending' && (
-                    <div className="flex gap-2 pt-2">
-                      <button onClick={() => approve(r.id, r.requested_amount)} className="btn btn-success btn-sm flex-1">Approve</button>
-                      <button onClick={() => openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="btn btn-danger btn-sm flex-1">Reject</button>
-                    </div>
-                  )}
                 </div>
+
+                {r.status === 'pending' && (
+                  <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+                    <button onClick={() => approve(r.id, r.requested_amount)} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors">Approve</button>
+                    <button onClick={() => openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors">Reject</button>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
 
         {/* Desktop Table View */}
         <div className="hidden sm:block overflow-x-auto">
-          <table className="table">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">When</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Donor</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Name on Payment</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Screenshot</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Requested</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Approved</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Status</th>
-                <th className="font-semibold text-center text-gray-700 dark:text-gray-300">Actions</th>
+              <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">When</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Donor</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Payment Name</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Screenshot</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Requested</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Approved</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {filteredRows.map((r, index) => (
-                <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
-                  <td className="py-4">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(r.created_at).toLocaleString()}
+                <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                  <td className="py-4 px-6">
+                    <div className="text-sm text-gray-900 dark:text-white font-medium">
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(r.created_at).toLocaleTimeString()}
                     </div>
                   </td>
-                  <td className="py-4">
-                    <div className="font-medium text-gray-900 dark:text-white">
+                  <td className="py-4 px-6">
+                    <div className="font-medium text-gray-900 dark:text-white text-sm">
                       {r.donor_username || '—'}
                     </div>
                   </td>
-                  <td className="py-4">
-                    <div className="text-gray-900 dark:text-white">
+                  <td className="py-4 px-6">
+                    <div className="text-sm text-gray-900 dark:text-white">
                       {r.name_on_payment}
                     </div>
                   </td>
-                  <td className="py-4">
+                  <td className="py-4 px-6">
                     {r.screenshot_url ? (
                       <img
                         src={r.screenshot_url}
                         alt="screenshot"
-                        className="w-20 h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                        className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity border border-gray-200 dark:border-gray-600"
                         onClick={() => openImageModal(r.screenshot_url)}
                       />
                     ) : (
-                      <span className="text-gray-400 dark:text-gray-500">—</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-xs">—</span>
                     )}
                   </td>
-                  <td className="py-4">
-                    <div className="font-semibold text-gray-900 dark:text-white">
+                  <td className="py-4 px-6 text-right">
+                    <div className="font-bold text-gray-900 dark:text-white text-sm">
                       {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">—</span>}
                     </div>
                   </td>
-                  <td className="py-4">
-                    <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  <td className="py-4 px-6 text-right">
+                    <div className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                       {r.amount > 0 ? <Currency value={r.amount} /> : <span className="text-gray-400">—</span>}
                     </div>
                   </td>
-                  <td className="py-4">
-                    <span className={`badge ${r.status === 'approved'
-                      ? 'badge-success'
+                  <td className="py-4 px-6 text-center">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${r.status === 'approved'
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                       : r.status === 'rejected'
-                        ? 'badge-error'
-                        : 'badge-warning'
+                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                       }`}>
                       {r.status}
                     </span>
                   </td>
-                  <td className="py-4">
+                  <td className="py-4 px-6 text-center">
                     <div className="flex justify-center">
                       {r.status === 'pending' && (
                         <div className="flex gap-2">
-                          <button onClick={() => approve(r.id, r.requested_amount)} className="btn btn-success btn-sm">Approve</button>
-                          <button onClick={() => openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="btn btn-danger btn-sm">Reject</button>
+                          <button onClick={() => approve(r.id, r.requested_amount)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors" title="Approve">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                          </button>
+                          <button onClick={() => openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors" title="Reject">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1454,157 +1479,162 @@ function Withdrawals({ apiClient }) {
         confirmButtonClass={confirmModal.action === 'reject' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
-      <div className="card overflow-hidden animate-fade-in-stagger">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Withdrawal Requests</h3>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Withdrawal Requests</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage streamer payout requests</p>
+            </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-primary-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>Pending</button>
               <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'approved'
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-emerald-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>Approved</button>
               <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'rejected'
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-rose-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>Rejected</button>
             </div>
           </div>
         </div>
 
         {/* Mobile Card View */}
-        <div className="block sm:hidden">
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredRows.map((w, index) => (
-              <div key={w.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 dark:text-white truncate">
-                      {w.streamer_username || 'Unknown Streamer'}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(w.created_at).toLocaleDateString()}
-                    </div>
+        <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+          {filteredRows.map((w, index) => (
+            <div key={w.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 dark:text-white truncate">
+                    {w.streamer_username || 'Unknown Streamer'}
                   </div>
-                  <span className={`badge ${w.status === 'approved'
-                    ? 'badge-success'
-                    : w.status === 'rejected'
-                      ? 'badge-error'
-                      : 'badge-warning'
-                    }`}>
-                    {w.status}
-                  </span>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {new Date(w.created_at).toLocaleDateString()}
+                  </div>
                 </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Telebirr Username</div>
-                    <div className="font-medium text-gray-900 dark:text-white truncate">
-                      {w.telebirr_username}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Phone Number</div>
-                    <div className="font-medium text-gray-900 dark:text-white">
-                      {w.phone_number}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Amount</div>
-                      <div className="font-semibold text-gray-900 dark:text-white">
-                        <Currency value={w.amount} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Payout (60%)</div>
-                      <div className="font-semibold text-green-600 dark:text-green-400">
-                        <Currency value={w.amount * 0.6} />
-                      </div>
-                    </div>
-                  </div>
-
-                  {w.status === 'pending' && (
-                    <div className="flex gap-2 pt-2">
-                      <button onClick={() => openConfirmModal('approve', w.id, 'Approve Withdrawal', `Are you sure you want to approve this withdrawal request from ${w.streamer_username}?`)} className="btn btn-success btn-sm flex-1">Approve</button>
-                      <button onClick={() => openConfirmModal('reject', w.id, 'Reject Withdrawal', `Are you sure you want to reject this withdrawal request from ${w.streamer_username}?`)} className="btn btn-danger btn-sm flex-1">Reject</button>
-                    </div>
-                  )}
-                </div>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${w.status === 'approved'
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : w.status === 'rejected'
+                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                  }`}>
+                  {w.status}
+                </span>
               </div>
-            ))}
-          </div>
+
+              <div className="space-y-3">
+                <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Telebirr</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{w.telebirr_username}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Phone</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{w.phone_number}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Amount</span>
+                    <div className="font-bold text-gray-900 dark:text-white mt-0.5">
+                      <Currency value={w.amount} />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Payout (60%)</span>
+                    <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      <Currency value={w.amount * 0.6} />
+                    </div>
+                  </div>
+                </div>
+
+                {w.status === 'pending' && (
+                  <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+                    <button onClick={() => openConfirmModal('approve', w.id, 'Approve Withdrawal', `Are you sure you want to approve this withdrawal request from ${w.streamer_username}?`)} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors">Approve</button>
+                    <button onClick={() => openConfirmModal('reject', w.id, 'Reject Withdrawal', `Are you sure you want to reject this withdrawal request from ${w.streamer_username}?`)} className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors">Reject</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Desktop Table View */}
         <div className="hidden sm:block overflow-x-auto">
-          <table className="table">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">When</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Streamer</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Telebirr Username</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Phone Number</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Amount</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Payout (60%)</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Status</th>
-                <th className="font-semibold text-center text-gray-700 dark:text-gray-300">Actions</th>
+              <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">When</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Streamer</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Telebirr Username</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone Number</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Amount</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Payout (60%)</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {filteredRows.map((w, index) => (
-                <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
-                  <td className="py-4">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(w.created_at).toLocaleString()}
+                <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                  <td className="py-4 px-6">
+                    <div className="text-sm text-gray-900 dark:text-white font-medium">
+                      {new Date(w.created_at).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(w.created_at).toLocaleTimeString()}
                     </div>
                   </td>
-                  <td className="py-4">
-                    <div className="font-medium text-gray-900 dark:text-white">
+                  <td className="py-4 px-6">
+                    <div className="font-medium text-gray-900 dark:text-white text-sm">
                       {w.streamer_username || '—'}
                     </div>
                   </td>
-                  <td className="py-4">
-                    <div className="text-gray-900 dark:text-white">
+                  <td className="py-4 px-6">
+                    <div className="text-sm text-gray-900 dark:text-white">
                       {w.telebirr_username}
                     </div>
                   </td>
-                  <td className="py-4">
-                    <div className="text-gray-900 dark:text-white">
+                  <td className="py-4 px-6">
+                    <div className="text-sm text-gray-900 dark:text-white">
                       {w.phone_number}
                     </div>
                   </td>
-                  <td className="py-4">
-                    <div className="font-semibold text-gray-900 dark:text-white">
+                  <td className="py-4 px-6 text-right">
+                    <div className="font-bold text-gray-900 dark:text-white text-sm">
                       <Currency value={w.amount} />
                     </div>
                   </td>
-                  <td className="py-4">
-                    <div className="font-semibold text-green-600 dark:text-green-400">
+                  <td className="py-4 px-6 text-right">
+                    <div className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                       <Currency value={w.amount * 0.6} />
                     </div>
                   </td>
-                  <td className="py-4">
-                    <span className={`badge ${w.status === 'approved'
-                      ? 'badge-success'
+                  <td className="py-4 px-6 text-center">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${w.status === 'approved'
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                       : w.status === 'rejected'
-                        ? 'badge-error'
-                        : 'badge-warning'
+                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                       }`}>
                       {w.status}
                     </span>
                   </td>
-                  <td className="py-4">
+                  <td className="py-4 px-6 text-center">
                     <div className="flex justify-center">
                       {w.status === 'pending' && (
                         <div className="flex gap-2">
-                          <button onClick={() => openConfirmModal('approve', w.id, 'Approve Withdrawal', `Are you sure you want to approve this withdrawal request from ${w.streamer_username}?`)} className="btn btn-success btn-sm">Approve</button>
-                          <button onClick={() => openConfirmModal('reject', w.id, 'Reject Withdrawal', `Are you sure you want to reject this withdrawal request from ${w.streamer_username}?`)} className="btn btn-danger btn-sm">Reject</button>
+                          <button onClick={() => openConfirmModal('approve', w.id, 'Approve Withdrawal', `Are you sure you want to approve this withdrawal request from ${w.streamer_username}?`)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors" title="Approve">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                          </button>
+                          <button onClick={() => openConfirmModal('reject', w.id, 'Reject Withdrawal', `Are you sure you want to reject this withdrawal request from ${w.streamer_username}?`)} className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors" title="Reject">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1693,129 +1723,141 @@ function StreamerRequests({ apiClient }) {
         confirmButtonClass={confirmModal.action === 'reject' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
-      <div className="card overflow-hidden animate-fade-in-stagger">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Streamer Requests</h3>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Streamer Requests</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Review new streamer applications</p>
+            </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-primary-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>Pending</button>
               <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'approved'
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-emerald-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>Approved</button>
               <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'rejected'
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-rose-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>Rejected</button>
             </div>
           </div>
         </div>
 
         {/* Mobile Card View */}
-        <div className="block sm:hidden">
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredRows.map((r, index) => (
-              <div key={r.telegram_id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
-                <div className="flex items-start gap-3 mb-3">
-                  {r.profile_picture_url ? (
-                    <img
-                      src={r.profile_picture_url}
-                      alt="Profile"
-                      className="w-12 h-12 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
-                      onClick={() => openImageModal(r.profile_picture_url)}
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                      <span className="text-gray-400 dark:text-gray-500">—</span>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
+        <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+          {filteredRows.map((r, index) => (
+            <div key={r.telegram_id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              <div className="flex items-start gap-3 mb-3">
+                {r.profile_picture_url ? (
+                  <img
+                    src={r.profile_picture_url}
+                    alt="Profile"
+                    className="w-12 h-12 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0 border border-gray-200 dark:border-gray-600"
+                    onClick={() => openImageModal(r.profile_picture_url)}
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                    <span className="text-gray-400 dark:text-gray-500 text-[10px]">No img</span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
                     <div className="font-medium text-gray-900 dark:text-white truncate">
                       {r.full_name}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      @{r.username} • {new Date(r.created_at).toLocaleDateString()}
-                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${r.registration_status === 'approved'
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                      : r.registration_status === 'rejected'
+                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      }`}>
+                      {r.registration_status}
+                    </span>
                   </div>
-                  <span className={`badge ${r.registration_status === 'approved'
-                    ? 'badge-success'
-                    : r.registration_status === 'rejected'
-                      ? 'badge-error'
-                      : 'badge-warning'
-                    }`}>
-                    {r.registration_status}
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Phone Number</div>
-                  <div className="font-medium text-gray-900 dark:text-white truncate">
-                    {r.phone_number}
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    @{r.username}
                   </div>
-
-                  {r.registration_status === 'pending' && (
-                    <div className="flex gap-2 pt-2">
-                      <button onClick={() => openConfirmModal('approve', r.telegram_id, 'Approve Streamer', `Are you sure you want to approve ${r.full_name || r.username}?`)} className="btn btn-success btn-sm flex-1">Approve</button>
-                      <button onClick={() => openConfirmModal('reject', r.telegram_id, 'Reject Streamer', `Are you sure you want to reject ${r.full_name || r.username}?`)} className="btn btn-danger btn-sm flex-1">Reject</button>
-                    </div>
-                  )}
                 </div>
               </div>
-            ))}
-          </div>
+
+              <div className="space-y-3">
+                <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Phone</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{r.phone_number}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Submitted</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{new Date(r.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+
+                {r.registration_status === 'pending' && (
+                  <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+                    <button onClick={() => openConfirmModal('approve', r.telegram_id, 'Approve Streamer', `Are you sure you want to approve ${r.full_name || r.username}?`)} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors">Approve</button>
+                    <button onClick={() => openConfirmModal('reject', r.telegram_id, 'Reject Streamer', `Are you sure you want to reject ${r.full_name || r.username}?`)} className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors">Reject</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Desktop Table View */}
         <div className="hidden sm:block overflow-x-auto">
-          <table className="table">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Submitted</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Picture</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Full Name</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Username</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Phone Number</th>
-                <th className="font-semibold text-gray-700 dark:text-gray-300">Status</th>
-                <th className="font-semibold text-center text-gray-700 dark:text-gray-300">Actions</th>
+              <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Submitted</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Picture</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Full Name</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Username</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone Number</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {filteredRows.map((r, index) => (
-                <tr key={r.telegram_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${index * 50}ms` }}>
-                  <td className="py-4">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(r.created_at).toLocaleString()}
+                <tr key={r.telegram_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                  <td className="py-4 px-6">
+                    <div className="text-sm text-gray-900 dark:text-white font-medium">
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(r.created_at).toLocaleTimeString()}
                     </div>
                   </td>
-                  <td className="py-4">
+                  <td className="py-4 px-6">
                     {r.profile_picture_url ? (
                       <img
                         src={r.profile_picture_url}
                         alt="Profile"
-                        className="w-12 h-12 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                        className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity border border-gray-200 dark:border-gray-600"
                         onClick={() => openImageModal(r.profile_picture_url)}
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                        <span className="text-gray-400 dark:text-gray-500">—</span>
+                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+                        <span className="text-gray-400 dark:text-gray-500 text-[10px]">No img</span>
                       </div>
                     )}
                   </td>
-                  <td className="py-4">
-                    <div className="font-medium text-gray-900 dark:text-white">
+                  <td className="py-4 px-6">
+                    <div className="font-medium text-gray-900 dark:text-white text-sm">
                       {r.full_name}
                     </div>
                   </td>
-                  <td className="py-4">
-                    <div className="text-gray-900 dark:text-white">
+                  <td className="py-4 px-6">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                       @{r.username}
                     </div>
                   </td>
-                  <td className="py-4">
-                    <div className="text-gray-900 dark:text-white">
+                  <td className="py-4 px-6">
+                    <div className="text-sm text-gray-900 dark:text-white">
                       {r.phone_number}
                     </div>
                   </td>
@@ -1888,6 +1930,7 @@ export default function AdminDashboard() {
   const [flagRefreshKey, setFlagRefreshKey] = useState(0);
   const [adminToken, setAdminToken] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     // Check for theme in localStorage
     const saved = localStorage.getItem('theme');
@@ -2216,9 +2259,67 @@ export default function AdminDashboard() {
     };
   }, [apiClient, fetchCounts, addToast, notificationsMuted, notificationAudioReady, triggerFlagRefresh]);
 
+  const NAV_ITEMS = [
+    { 
+      id: 'overview', 
+      label: 'Overview', 
+      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg> 
+    },
+    { 
+      id: 'streamer-requests', 
+      label: 'Streamer Requests', 
+      count: pendingCounts.streamerRequests,
+      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+    },
+    { 
+      id: 'streamers', 
+      label: 'Streamers', 
+      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+    },
+    { 
+      id: 'donors', 
+      label: 'Donors', 
+      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+    },
+    { 
+      id: 'donations', 
+      label: 'Donations', 
+      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    },
+    { 
+      id: 'withdrawals', 
+      label: 'Withdrawals', 
+      count: pendingCounts.withdrawals,
+      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z" /></svg>
+    },
+    { 
+      id: 'recharges', 
+      label: 'Recharges', 
+      count: pendingCounts.recharges,
+      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+    },
+    { 
+      id: 'flags', 
+      label: 'Flags', 
+      count: pendingCounts.flags,
+      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-8a2 2 0 012-2h14a2 2 0 012 2v8H3zM3 10V3m0 7h14v-7H3" /></svg>
+    },
+    { 
+      id: 'complaints', 
+      label: 'Complaints', 
+      count: pendingCounts.complaints,
+      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+    },
+    { 
+      id: 'settings', 
+      label: 'Settings', 
+      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+    }
+  ];
+
   if (!apiClient) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <ApiKeyModal
           isOpen={isModalOpen}
           onClose={handleModalClose}
@@ -2226,13 +2327,13 @@ export default function AdminDashboard() {
           title="Admin Authentication Required"
           message="Please enter the Admin Token to access this dashboard. The token can be found in your project's .env file."
         />
-        <div className="text-center"><p>Waiting for Admin Token...</p></div>
+        <div className="text-center"><p className="text-gray-500 dark:text-gray-400">Waiting for Admin Token...</p></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen gradient-light dark:gradient-dark">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 font-sans overflow-hidden">
       <ApiKeyModal
         isOpen={isModalOpen}
         onClose={handleModalClose}
@@ -2240,136 +2341,209 @@ export default function AdminDashboard() {
         title="Admin Authentication Required"
         message="Please enter Admin Token to access this dashboard. The token can be found in your project's .env file."
       />
-      <div className="w-full px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 xl:px-12 xl:py-10 2xl:px-16 2xl:py-12">
+
+      {/* Mobile Sidebar Overlay */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
+          <aside className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col z-50">
+             {/* Logo */}
+             <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100 dark:border-gray-700/50">
+                <div className="flex items-center gap-3">
+                   <div className="relative w-8 h-8">
+                      <div className="absolute inset-0 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-lg opacity-20 blur-sm"></div>
+                      <img src="/image/habesha-logo.png" alt="Logo" className="relative w-full h-full object-contain" />
+                   </div>
+                   <span className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">HabeshaTTS</span>
+                </div>
+                <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+             </div>
+             
+             {/* Nav Items */}
+             <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
+               {NAV_ITEMS.map((item) => (
+                 <button
+                   key={item.id}
+                   onClick={() => { setTab(item.id); setIsMobileMenuOpen(false); }}
+                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                     tab === item.id
+                       ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30'
+                       : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                   }`}
+                 >
+                   <div className="flex items-center gap-3">
+                     <span className={`transition-colors ${tab === item.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                       {item.icon}
+                     </span>
+                     <span className="font-medium text-sm">{item.label}</span>
+                   </div>
+                   {item.count > 0 && (
+                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                       tab === item.id ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                     }`}>
+                       {item.count}
+                     </span>
+                   )}
+                 </button>
+               ))}
+             </nav>
+
+             {/* User Profile */}
+             <div className="p-4 border-t border-gray-100 dark:border-gray-700/50">
+               <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
+                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white font-bold shadow-md">
+                   A
+                 </div>
+                 <div className="flex-1 min-w-0">
+                   <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">Admin User</p>
+                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">admin@habeshatts.com</p>
+                 </div>
+               </div>
+             </div>
+          </aside>
+        </div>
+      )}
+
+      {/* Sidebar - Desktop */}
+      <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-20">
+        {/* Logo */}
+        <div className="h-16 flex items-center gap-3 px-6 border-b border-gray-100 dark:border-gray-700/50">
+          <div className="relative w-8 h-8">
+             <div className="absolute inset-0 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-lg opacity-20 blur-sm"></div>
+             <img src="/image/habesha-logo.png" alt="Logo" className="relative w-full h-full object-contain" />
+          </div>
+          <span className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">HabeshaTTS</span>
+        </div>
+
+        {/* Nav Items */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                tab === item.id
+                  ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className={`transition-colors ${tab === item.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                  {item.icon}
+                </span>
+                <span className="font-medium text-sm">{item.label}</span>
+              </div>
+              {item.count > 0 && (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  tab === item.id ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                }`}>
+                  {item.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {/* User Profile (Bottom Sidebar) */}
+        <div className="p-4 border-t border-gray-100 dark:border-gray-700/50">
+          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white font-bold shadow-md">
+              A
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">Admin User</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">admin@habeshatts.com</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Wrapper */}
+      <div className="flex-1 flex flex-col min-w-0 bg-gray-50 dark:bg-gray-900">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 sm:p-8">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary-500/10 to-purple-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+        <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-10">
+          {/* Mobile Menu Button */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="md:hidden p-2 -ml-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+
+          {/* Search Bar */}
+          <div className="flex-1 max-w-xl px-4 hidden md:block">
+            <div className="relative group">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400 group-focus-within:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Global Search..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl leading-5 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all sm:text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-2 sm:gap-4">
+            <button
+              onClick={toggleNotificationMute}
+              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative"
+              title={notificationsMuted ? 'Unmute notifications' : 'Mute notifications'}
+            >
+              {notificationsMuted ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+              ) : (
+                <>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-800"></span>
+                </>
+              )}
+            </button>
             
-            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4 sm:gap-6">
-                <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-purple-600 rounded-full opacity-30 group-hover:opacity-50 blur transition duration-300"></div>
-                  <div className="relative bg-white dark:bg-gray-900 rounded-full p-2 ring-1 ring-gray-100 dark:ring-gray-700">
-                    <img src="/image/habesha-logo.png" alt="Habesha TTS" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
-                  </div>
-                </div>
-                <div>
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
-                    Habesha<span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-purple-600">TTS</span> Admin
-                  </h1>
-                  <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                    Command Center & Analytics
-                  </p>
-                </div>
-              </div>
+            <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+            
+            <ThemeToggle isDarkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+          </div>
+        </header>
 
-              <div className="flex items-center gap-3 self-end sm:self-center">
-                <button
-                  onClick={toggleNotificationMute}
-                  className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 transition-all duration-200 hover:scale-105 ring-1 ring-gray-200 dark:ring-gray-700"
-                  title={notificationsMuted ? 'Unmute notifications' : 'Mute notifications'}
-                >
-                  {notificationsMuted ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                    </svg>
-                  )}
-                </button>
-                <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
-                <ThemeToggle isDarkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-              </div>
+        {/* Scrollable Content */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scroll-smooth">
+          <div className="max-w-7xl mx-auto space-y-6">
+            {/* Page Title (Optional, based on tab) */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {NAV_ITEMS.find(i => i.id === tab)?.label}
+              </h2>
+              {/* Breadcrumbs or Actions could go here */}
+            </div>
+
+            {/* Content */}
+            <div className="animate-fade-in">
+              {tab === 'overview' && <Overview apiClient={apiClient} refreshKey={refreshKey} />}
+              {tab === 'streamer-requests' && <StreamerRequests apiClient={apiClient} />}
+              {tab === 'streamers' && <Streamers apiClient={apiClient} refreshKey={refreshKey} />}
+              {tab === 'donors' && <Donors apiClient={apiClient} refreshKey={refreshKey} />}
+              {tab === 'donations' && <Donations apiClient={apiClient} refreshKey={refreshKey} />}
+              {tab === 'withdrawals' && <Withdrawals apiClient={apiClient} />}
+              {tab === 'recharges' && <Recharges apiClient={apiClient} />}
+              {tab === 'flags' && (
+                <DonorFlagsPanel
+                  apiClient={apiClient}
+                  refreshKey={flagRefreshKey}
+                  onFlagResolved={fetchCounts}
+                />
+              )}
+              {tab === 'complaints' && <AdminComplaints apiClient={apiClient} refreshData={refreshData} />}
+              {tab === 'settings' && <Settings apiClient={apiClient} />}
             </div>
           </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="mb-6 sm:mb-8 sticky top-4 z-30">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-2 animate-fade-in">
-            <div className="flex overflow-x-auto pb-2 sm:pb-0 hide-scrollbar gap-2">
-              {['overview', 'streamer-requests', 'streamers', 'donors', 'donations', 'withdrawals', 'recharges', 'flags', 'complaints', 'settings'].map((k, index) => (
-                <button
-                  key={k}
-                  onClick={() => setTab(k)}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl font-medium transition-all duration-300 text-sm whitespace-nowrap relative group ${tab === k
-                    ? 'bg-gradient-to-r from-primary-500 to-purple-600 text-white shadow-md ring-2 ring-primary-200 dark:ring-primary-900'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
-                    }`}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <span className={`text-lg transition-transform duration-300 ${tab === k ? 'scale-110' : 'group-hover:scale-110'}`}>
-                      {k === 'overview' && '📊'}
-                      {k === 'streamer-requests' && '👥'}
-                      {k === 'streamers' && '🎥'}
-                      {k === 'donors' && '💎'}
-                      {k === 'donations' && '💰'}
-                      {k === 'withdrawals' && '💸'}
-                      {k === 'recharges' && '🔄'}
-                      {k === 'flags' && '🚩'}
-                      {k === 'complaints' && '📝'}
-                      {k === 'settings' && '⚙️'}
-                    </span>
-                    <span className="font-semibold tracking-wide">
-                      {k.replace('-', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                    </span>
-                    {k === 'streamer-requests' && pendingCounts.streamerRequests > 0 && (
-                      <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
-                        {pendingCounts.streamerRequests}
-                      </span>
-                    )}
-                    {k === 'recharges' && pendingCounts.recharges > 0 && (
-                      <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
-                        {pendingCounts.recharges}
-                      </span>
-                    )}
-                    {k === 'flags' && pendingCounts.flags > 0 && (
-                      <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
-                        {pendingCounts.flags}
-                      </span>
-                    )}
-                    {k === 'withdrawals' && pendingCounts.withdrawals > 0 && (
-                      <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
-                        {pendingCounts.withdrawals}
-                      </span>
-                    )}
-                    {k === 'complaints' && pendingCounts.complaints > 0 && (
-                      <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
-                        {pendingCounts.complaints}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Content Area */}
-        <div className="animate-fade-in space-y-4 sm:space-y-6">
-          {tab === 'overview' && <Overview apiClient={apiClient} refreshKey={refreshKey} />}
-          {tab === 'streamer-requests' && <StreamerRequests apiClient={apiClient} />}
-          {tab === 'streamers' && <Streamers apiClient={apiClient} refreshKey={refreshKey} />}
-          {tab === 'donors' && <Donors apiClient={apiClient} refreshKey={refreshKey} />}
-          {tab === 'donations' && <Donations apiClient={apiClient} refreshKey={refreshKey} />}
-          {tab === 'withdrawals' && <Withdrawals apiClient={apiClient} />}
-          {tab === 'recharges' && <Recharges apiClient={apiClient} />}
-          {tab === 'flags' && (
-            <DonorFlagsPanel
-              apiClient={apiClient}
-              refreshKey={flagRefreshKey}
-              onFlagResolved={fetchCounts}
-            />
-          )}
-          {tab === 'complaints' && <AdminComplaints apiClient={apiClient} refreshData={refreshData} />}
-          {tab === 'settings' && <Settings apiClient={apiClient} />}
-        </div>
+        </main>
       </div>
 
+      {/* Toast Notifications */}
       {toasts.length > 0 && (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 max-w-xs sm:max-w-sm">
           {toasts.map((toast) => (

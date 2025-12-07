@@ -156,64 +156,88 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
     const banForm = getBanForm(flag.id, flag.reason || '');
 
     return (
-      <div key={flag.id} className="p-4 sm:p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
+      <div key={flag.id} className="p-4 sm:p-5 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-lg">🚩</span>
-              <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+              <h4 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                 {flag.action_label || flag.action}
               </h4>
             </div>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Streamer: <strong>{flag.streamer_name || `#${flag.streamer_id}`}</strong> · Donor: <strong>{flag.donor_name || `#${flag.donor_id || 'Unknown'}`}</strong>
-            </p>
+            <div className="flex flex-wrap gap-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1">
+                <span>Streamer:</span>
+                <span className="font-medium text-gray-900 dark:text-white">{flag.streamer_name || `#${flag.streamer_id}`}</span>
+              </span>
+              <span className="hidden sm:inline text-gray-300 dark:text-gray-600">•</span>
+              <span className="flex items-center gap-1">
+                <span>Donor:</span>
+                <span className="font-medium text-gray-900 dark:text-white">{flag.donor_name || `#${flag.donor_id || 'Unknown'}`}</span>
+              </span>
+            </div>
           </div>
-          <div className="text-right">
-            <span className={`badge ${badgeClass} uppercase tracking-wide text-[11px]`}>{flag.status}</span>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(flag.created_at)}</div>
+          <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2">
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
+              flag.status === 'resolved' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+              flag.status === 'dismissed' ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' :
+              'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+            }`}>
+              {flag.status}
+            </span>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{formatDate(flag.created_at)}</div>
           </div>
         </div>
 
-        <div className="mt-3 text-sm text-gray-700 dark:text-gray-200 space-y-2">
+        <div className="mt-4 space-y-3">
           {flag.reason && (
-            <p className="italic text-gray-800 dark:text-gray-100">“{flag.reason}”</p>
-          )}
-          {typeof flag.donation_amount !== 'undefined' && (
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              <span>Donation</span>
-              <Balance value={flag.donation_amount} showLabel={false} showToggle={false} context="admin" />
+            <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
+              <p className="text-sm text-gray-600 dark:text-gray-300 italic">“{flag.reason}”</p>
             </div>
           )}
+          
+          <div className="flex flex-wrap gap-4 text-xs">
+            {typeof flag.donation_amount !== 'undefined' && (
+              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold">
+                <span>Donation Amount:</span>
+                <Balance value={flag.donation_amount} showLabel={false} showToggle={false} context="admin" />
+              </div>
+            )}
+          </div>
+
           {flag.donation_message && (
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-xs text-gray-600 dark:text-gray-300">
-              <p className="font-semibold mb-1">Donor Message</p>
-              <p className="leading-relaxed">{flag.donation_message}</p>
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Donor Message</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{flag.donation_message}</p>
             </div>
           )}
         </div>
 
         {isPending ? (
-          <div className="mt-4 space-y-3">
-            <textarea
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Optional resolution notes for admins"
-              value={notes[flag.id] || ''}
-              onChange={(e) => setNotes((prev) => ({ ...prev, [flag.id]: e.target.value }))}
-              rows={2}
-            />
-            <div className="flex flex-col sm:flex-row gap-2">
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Resolution Notes</label>
+              <textarea
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-shadow"
+                placeholder="Optional notes for admins..."
+                value={notes[flag.id] || ''}
+                onChange={(e) => setNotes((prev) => ({ ...prev, [flag.id]: e.target.value }))}
+                rows={2}
+              />
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
-                className="btn btn-success flex-1"
+                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
                 disabled={resolvingId === flag.id}
                 onClick={() => handleResolve(flag.id, 'resolved')}
               >
-                {resolvingId === flag.id ? 'Saving...' : 'Mark Actioned'}
+                {resolvingId === flag.id ? 'Saving...' : 'Mark Resolved'}
               </button>
               <button
                 type="button"
-                className="btn btn-outline flex-1 border-rose-200 text-rose-600 hover:bg-rose-50"
+                className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
                 disabled={resolvingId === flag.id}
                 onClick={() => handleResolve(flag.id, 'dismissed')}
               >
@@ -221,52 +245,65 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
               </button>
             </div>
 
-            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-950/30 p-3 space-y-3">
-              <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Moderation tools</p>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Ban reason</label>
-                <textarea
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-400"
-                  rows={2}
-                  value={banForm.reason}
-                  onChange={(e) => updateBanForm(flag.id, { reason: e.target.value }, flag.reason || '')}
-                  placeholder="Explain why the donor should be banned"
-                />
+            <div className="bg-rose-50 dark:bg-rose-900/10 rounded-xl border border-rose-100 dark:border-rose-900/30 p-4 space-y-4">
+              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                <p className="text-xs font-bold uppercase tracking-wide">Moderation Actions</p>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Duration</label>
-                <select
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-400"
-                  value={banForm.duration}
-                  onChange={(e) => updateBanForm(flag.id, { duration: e.target.value }, flag.reason || '')}
-                >
-                  {BAN_DURATION_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-                {banForm.duration === 'custom' && (
-                  <input
-                    type="number"
-                    min="1"
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-400"
-                    placeholder="Enter minutes (e.g. 120)"
-                    value={banForm.customMinutes}
-                    onChange={(e) => updateBanForm(flag.id, { customMinutes: e.target.value }, flag.reason || '')}
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Ban Reason</label>
+                  <textarea
+                    className="w-full rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                    rows={2}
+                    value={banForm.reason}
+                    onChange={(e) => updateBanForm(flag.id, { reason: e.target.value }, flag.reason || '')}
+                    placeholder="Reason for banning donor..."
                   />
-                )}
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Duration</label>
+                    <select
+                      className="w-full rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                      value={banForm.duration}
+                      onChange={(e) => updateBanForm(flag.id, { duration: e.target.value }, flag.reason || '')}
+                    >
+                      {BAN_DURATION_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {banForm.duration === 'custom' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Minutes</label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="w-full rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                        placeholder="e.g. 120"
+                        value={banForm.customMinutes}
+                        onChange={(e) => updateBanForm(flag.id, { customMinutes: e.target.value }, flag.reason || '')}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2">
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   type="button"
-                  className="btn btn-outline border-rose-200 text-rose-600 hover:bg-rose-50 flex-1"
+                  className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!flag.donor_id || banActionId === flag.id}
                   onClick={() => handleBanDonor(flag)}
                 >
-                  {banActionId === flag.id ? 'Applying ban...' : 'Apply Ban'}
+                  {banActionId === flag.id ? 'Applying ban...' : 'Ban Donor'}
                 </button>
                 <button
                   type="button"
-                  className="btn btn-outline border-emerald-200 text-emerald-700 hover:bg-emerald-50 flex-1"
+                  className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!flag.donor_id || unbanActionId === flag.id}
                   onClick={() => handleUnbanDonor(flag)}
                 >
@@ -274,14 +311,17 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
                 </button>
               </div>
               {!flag.donor_id && (
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Donor ID missing. This usually means the donor checked out anonymously.</p>
+                <p className="text-[10px] text-rose-600 dark:text-rose-400 italic text-center">
+                  Cannot ban: Donor ID missing (likely anonymous checkout).
+                </p>
               )}
             </div>
           </div>
         ) : (
-          <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 space-y-1">
-            <p>Resolved by {flag.resolved_by || 'admin'} on {formatDate(flag.resolved_at)}.</p>
-            {flag.resolution_notes && <p className="text-gray-600 dark:text-gray-300">Notes: {flag.resolution_notes}</p>}
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            <span>Resolved by {flag.resolved_by || 'admin'} on {formatDate(flag.resolved_at)}</span>
+            {flag.resolution_notes && <span className="text-gray-400 dark:text-gray-500">• Notes: {flag.resolution_notes}</span>}
           </div>
         )}
       </div>
@@ -289,31 +329,33 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
   };
 
   return (
-    <div className="card p-4 sm:p-6 animate-fade-in-stagger">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Streamer Reports</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Review and action streamer-submitted donor flags.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {STATUS_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                filter === option.value
-                  ? 'bg-primary-500 text-white border-primary-500 shadow'
-                  : 'border-gray-300 text-gray-600 dark:text-gray-300 hover:border-primary-400'
-              }`}
-              onClick={() => setFilter(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Streamer Reports</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Review and action streamer-submitted donor flags</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {STATUS_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  filter === option.value
+                    ? 'bg-primary-500 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                onClick={() => setFilter(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="mt-6 space-y-4">
+      <div className="p-6 space-y-4">
         {loading && (
           <div className="py-12 text-center">
             <LoadingSpinner size="md" text="Loading streamer flags..." />
