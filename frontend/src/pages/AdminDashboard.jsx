@@ -1341,9 +1341,9 @@ function Recharges({ apiClient }) {
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
       {modal.open && modal.recharge && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6">
+        <div className="fixed inset-0 z-[9998] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 pt-16 sm:pt-20">
           <div 
-            className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+            className="relative w-full max-w-xl md:max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
