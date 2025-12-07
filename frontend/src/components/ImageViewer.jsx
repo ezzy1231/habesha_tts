@@ -212,7 +212,7 @@ export default function ImageViewer({ isOpen, src, alt, onClose }) {
 
       {/* Image Container */}
       <div
-        className="relative flex items-center justify-center w-full h-full p-4 pt-20 pb-16 overflow-hidden"
+        className="relative flex items-center justify-center w-full h-full pt-16 pb-12 px-4 overflow-hidden"
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -222,7 +222,7 @@ export default function ImageViewer({ isOpen, src, alt, onClose }) {
       >
         {/* Loading Spinner */}
         {isLoading && !hasError && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center z-20">
             <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
           </div>
         )}
@@ -242,7 +242,7 @@ export default function ImageViewer({ isOpen, src, alt, onClose }) {
         <img
           src={src}
           alt={alt || 'Preview'}
-          className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ring-1 ring-white/10 transition-all duration-200 select-none ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+          className={`w-auto h-auto max-w-[90vw] max-h-[calc(100vh-8rem)] object-contain rounded-xl shadow-2xl ring-1 ring-white/10 transition-all duration-200 select-none ${isLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
           style={{
             transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
             transformOrigin: 'center center',

@@ -1341,8 +1341,8 @@ function Recharges({ apiClient }) {
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
       {modal.open && modal.recharge && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 transition-all">
-          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden transform transition-all scale-100">
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 transition-all">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl transform transition-all scale-100">
             <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
               <div className="text-lg font-semibold text-gray-900 dark:text-white">Review Recharge</div>
               <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
