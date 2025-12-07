@@ -166,9 +166,23 @@ export const registerCallbacks = (bot, deps = {}) => {
         pending.voice = voice;
         await pendingDonations.set(tgId, userPendingDonations);
 
+        const voiceLabelMap = {
+          Kore: 'ቁጣ ሴት',
+          Charon: 'ጋለ ወንድ',
+          Sulafat: 'ደስታ ሴት',
+          Zubenelgenubi: 'ምሬት ወንድ',
+          Aoede: 'ንዴት ሴት',
+          Enceladus: 'ዕልልታ ወንድ',
+          Vindemiatrix: 'ሐዘን ሴት',
+          Achird: 'ብስጭት ወንድ',
+          Despina: 'ጉጉት ሴት',
+          Iapetus: 'ሣቅ ወንድ',
+        };
+        const voiceLabel = voiceLabelMap[voice] || voice;
+
         await bot.sendMessage(
           chatId,
-          `🗣 ድምፅ ወደ ${voice} ተቀይሯል።\n\n💰 ዋጋ: ${pending.amount} ብር። የመክፈያ ዘዴ ይምረጡ:`,
+          `🗣 ድምፅ ወደ ${voiceLabel} ተቀይሯል።\n\n💰 ዋጋ: ${pending.amount} ብር። የመክፈያ ዘዴ ይምረጡ:`,
           {
             reply_markup: {
               inline_keyboard: [[{ text: '👛 ከ Wallet ይክፈሉ', callback_data: `paywallet_${donationId}` }]],
@@ -212,12 +226,16 @@ export const registerCallbacks = (bot, deps = {}) => {
 
         let stylePrompt = '';
         if (pending.engine === 'gemini') {
-          if (pending.voice === 'Kore') stylePrompt = 'A warm, excited, and welcoming tone, speaking like a cheerful host.';
-          else if (pending.voice === 'Charon') stylePrompt = 'A confident, clear, and slightly deeper voice.';
-          else if (pending.voice === 'Aoede') stylePrompt = 'A high-definition, clear, and articulate female voice.';
-          else if (pending.voice === 'Achird') stylePrompt = 'A friendly and approachable male voice.';
-          else if (pending.voice === 'Leda') stylePrompt = 'A clear and professional female voice.';
-          else if (pending.voice === 'Enceladus') stylePrompt = 'A deep and authoritative male voice.';
+          if (pending.voice === 'Kore') stylePrompt = 'A high-pitched, fast, and sharply annoyed tone, with rising volume and quick pace.';
+          else if (pending.voice === 'Charon') stylePrompt = 'An upbeat, fast-paced, and enthusiastic tone, like a thrilled news anchor.';
+          else if (pending.voice === 'Sulafat') stylePrompt = 'A sincere, contented, and friendly tone, sounding genuinely pleased and warm.';
+          else if (pending.voice === 'Zubenelgenubi') stylePrompt = 'A hollow, heartbroken, and desolate tone, with a very slow, heavy, and resigned pace.';
+          else if (pending.voice === 'Aoede') stylePrompt = 'A commanding, irritated tone, with a deliberate, firm, and slightly harsh cadence.';
+          else if (pending.voice === 'Enceladus') stylePrompt = 'A deep, confident, and satisfied tone, conveying professional pride and pleasure.';
+          else if (pending.voice === 'Vindemiatrix') stylePrompt = 'A soft, somber, and weary tone, conveying exhaustion and grief.';
+          else if (pending.voice === 'Achird') stylePrompt = 'A frustrated, slightly defensive tone, with a quick and slightly strained pace.';
+          else if (pending.voice === 'Despina') stylePrompt = 'An energetic and highly inviting tone, expressing eagerness and anticipation.';
+          else if (pending.voice === 'Iapetus') stylePrompt = 'A lighthearted, warm, and amused tone, with a casual, approachable quality.';
         }
 
         await ttsQueue.add('generate-tts', {

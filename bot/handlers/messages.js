@@ -244,16 +244,24 @@ export const registerMessageFlows = (bot, deps = {}) => {
       if (String(process.env.ENABLE_GEMINI_TTS).toLowerCase() === 'true') {
         inline_keyboard.push(
           [
-            { text: '👩 Kore (Gemini)', callback_data: `voice_gemini_Kore_${donationId}` },
-            { text: '🧑‍🦱 Charon (Gemini)', callback_data: `voice_gemini_Charon_${donationId}` },
+            { text: '👩 ቁጣ ሴት', callback_data: `voice_gemini_Kore_${donationId}` },
+            { text: '🧑‍🦱 ጋለ ወንድ', callback_data: `voice_gemini_Charon_${donationId}` },
           ],
           [
-            { text: '👩 Aoede (HD Gemini)', callback_data: `voice_gemini_Aoede_${donationId}` },
-            { text: '🧑‍🦱 Achird (Friendly Gemini)', callback_data: `voice_gemini_Achird_${donationId}` },
+            { text: '👩 ደስታ ሴት', callback_data: `voice_gemini_Sulafat_${donationId}` },
+            { text: '🧑‍🦱 ምሬት ወንድ', callback_data: `voice_gemini_Zubenelgenubi_${donationId}` },
           ],
           [
-            { text: '👩 Leda (Female Gemini)', callback_data: `voice_gemini_Leda_${donationId}` },
-            { text: '🧑‍🦱 Enceladus (Male Gemini)', callback_data: `voice_gemini_Enceladus_${donationId}` },
+            { text: '👩 ንዴት ሴት', callback_data: `voice_gemini_Aoede_${donationId}` },
+            { text: '🧑‍🦱 ዕልልታ ወንድ', callback_data: `voice_gemini_Enceladus_${donationId}` },
+          ],
+          [
+            { text: '👩 ሐዘን ሴት', callback_data: `voice_gemini_Vindemiatrix_${donationId}` },
+            { text: '🧑‍🦱 ብስጭት ወንድ', callback_data: `voice_gemini_Achird_${donationId}` },
+          ],
+          [
+            { text: '👩 ጉጉት ሴት', callback_data: `voice_gemini_Despina_${donationId}` },
+            { text: '🧑‍🦱 ሣቅ ወንድ', callback_data: `voice_gemini_Iapetus_${donationId}` },
           ],
         );
       }
