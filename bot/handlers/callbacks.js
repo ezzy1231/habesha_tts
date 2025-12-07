@@ -222,10 +222,11 @@ export const registerCallbacks = (bot, deps = {}) => {
         }
 
         const donorName = donation.donor_name;
-        const spokenText = `<speak>ልገሳ ከ <break time="0.4s"/> ${donorName} <break time="0.4s"/> መልዕክት <break time="1s"/> ${donation.message}</speak>`;
+        let spokenText = `<speak>ልገሳ ከ <break time="0.4s"/> ${donorName} <break time="0.4s"/> መልዕክት <break time="1s"/> ${donation.message}</speak>`;
 
         let stylePrompt = '';
         if (pending.engine === 'gemini') {
+          spokenText = `ልገሳ ከ ${donorName} ... መልዕክት ... ${donation.message}`;
           if (pending.voice === 'Kore') stylePrompt = 'A high-pitched, fast, and sharply annoyed tone, with rising volume and quick pace.';
           else if (pending.voice === 'Charon') stylePrompt = 'An upbeat, fast-paced, and enthusiastic tone, like a thrilled news anchor.';
           else if (pending.voice === 'Sulafat') stylePrompt = 'A sincere, contented, and friendly tone, sounding genuinely pleased and warm.';
