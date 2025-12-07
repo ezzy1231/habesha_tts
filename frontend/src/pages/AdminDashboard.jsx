@@ -848,7 +848,7 @@ function Donors({ apiClient, refreshKey, search }) {
                           type="text"
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
-                          className="w-32 px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          className="w-64 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 shadow-sm"
                           placeholder="Name"
                           autoFocus
                         />
@@ -980,8 +980,8 @@ function Donors({ apiClient, refreshKey, search }) {
       )}
 
       {banModal.open && banModal.donor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl p-6 space-y-4 animate-scale-in">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 transition-all">
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl p-6 space-y-4 animate-scale-in transform transition-all scale-100">
             <div>
               <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Ban Donor</h4>
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -1340,8 +1340,8 @@ function Recharges({ apiClient }) {
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
       {modal.open && modal.recharge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-lg overflow-hidden">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 transition-all">
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden transform transition-all scale-100">
             <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
               <div className="text-lg font-semibold text-gray-900 dark:text-white">Review Recharge</div>
               <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -1613,22 +1613,22 @@ function Recharges({ apiClient }) {
       </div>
       {imageModal.open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-fade-in"
           onClick={closeImageModal}
         >
           <button
             onClick={closeImageModal}
-            className="absolute top-4 right-4 z-60 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center justify-center transition-all duration-200 hover:scale-110"
+            className="absolute top-6 right-6 z-[110] p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
             aria-label="Close image"
           >
-            <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
           <img
             src={imageModal.src}
             alt="Enlarged view"
-            className="max-h-[90vh] max-w-[90vw] w-auto h-auto object-contain rounded-lg shadow-2xl"
+            className="max-h-[90vh] max-w-[90vw] w-auto h-auto object-contain rounded-lg shadow-2xl ring-1 ring-white/10"
             onClick={(e) => e.stopPropagation()}
           />
         </div>
@@ -2119,22 +2119,22 @@ function StreamerRequests({ apiClient }) {
       </div>
       {imageModal.open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-fade-in"
           onClick={closeImageModal}
         >
           <button
             onClick={closeImageModal}
-            className="absolute top-4 right-4 z-60 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center justify-center transition-all duration-200 hover:scale-110"
+            className="absolute top-6 right-6 z-[110] p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
             aria-label="Close image"
           >
-            <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
           <img
             src={imageModal.src}
             alt="Enlarged view"
-            className="max-h-[90vh] max-w-[90vw] w-auto h-auto object-contain rounded-lg shadow-2xl"
+            className="max-h-[90vh] max-w-[90vw] w-auto h-auto object-contain rounded-lg shadow-2xl ring-1 ring-white/10"
             onClick={(e) => e.stopPropagation()}
           />
         </div>

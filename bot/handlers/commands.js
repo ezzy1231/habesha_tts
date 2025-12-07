@@ -36,23 +36,25 @@ export const registerCommands = (bot, deps = {}) => {
       return false;
     }
 
-    const formatStreamerLabel = (streamer) => {
+    const formatStreamerLabel = (streamer, index) => {
       const displayName = streamer.full_name || streamer.username;
       const statusIcon = streamer.live_status ? '🟢' : '⚫️';
-      return `${statusIcon} ${displayName}`;
+      const rankIcons = ['🥇', '🥈', '🥉', '🎮', '🕹️', '👾', '🎲', '🎯', '🎪', '🎭', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🎷', '🎺', '🎸', '🎻'];
+      const rankIcon = rankIcons[index] || '👤';
+      return `${rankIcon} ${displayName} ${statusIcon}`;
     };
 
     const buttons = [];
     for (let i = 0; i < streamers.length; i += 2) {
       const row = [
         {
-          text: formatStreamerLabel(streamers[i]),
+          text: formatStreamerLabel(streamers[i], i),
           callback_data: `choose_streamer_${streamers[i].telegram_id}`,
         },
       ];
       if (streamers[i + 1]) {
         row.push({
-          text: formatStreamerLabel(streamers[i + 1]),
+          text: formatStreamerLabel(streamers[i + 1], i + 1),
           callback_data: `choose_streamer_${streamers[i + 1].telegram_id}`,
         });
       }
