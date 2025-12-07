@@ -349,21 +349,53 @@ router.get("/donors", async (req, res) => {
   try {
     await expireDonorBans();
 
-    const usersRes = await db.query(`
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
+    const search = req.query.search ? req.query.search.trim() : '';
+
+    let query = `
       SELECT telegram_id, username, display_name, balance,
              is_banned, ban_reason, ban_expires_at, banned_at
       FROM users WHERE role = 'donor'
-    `);
+    `;
+    const params = [];
+
+    if (search) {
+      query += ` AND (username ILIKE $1 OR display_name ILIKE $1 OR CAST(telegram_id AS TEXT) ILIKE $1)`;
+      params.push(`%${search}%`);
+    }
+
+    // Get total count for pagination
+    const countRes = await db.query(`SELECT COUNT(*) FROM (${query}) AS count_table`, params);
+    const totalCount = parseInt(countRes.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limit, offset);
+
+    const usersRes = await db.query(query, params);
     const donorsData = usersRes.rows;
 
-    const donationsRes = await db.query("SELECT donor_id, amount FROM donations WHERE status = 'paid'");
-    const paidDonations = donationsRes.rows;
+    // Get donation stats for these donors only
+    // Note: This is an approximation for performance. Ideally we'd join or subquery.
+    // For now, let's fetch aggregate stats for these specific donors.
+    const donorIds = donorsData.map(d => d.telegram_id);
+    let paidDonations = [];
+    
+    if (donorIds.length > 0) {
+      const donationsRes = await db.query(`
+        SELECT donor_id, amount 
+        FROM donations 
+        WHERE status = 'paid' AND donor_id = ANY($1::bigint[])
+      `, [donorIds]);
+      paidDonations = donationsRes.rows;
+    }
 
     const result = donorsData.map(d => {
-      const total_donated = paidDonations
-        .filter(donation => String(donation.donor_id) === String(d.telegram_id))
-        .reduce((sum, donation) => sum + (Number(donation.amount) || 0), 0);
-      const donations_count = paidDonations.filter(donation => String(donation.donor_id) === String(d.telegram_id)).length;
+      const donorDonations = paidDonations.filter(donation => String(donation.donor_id) === String(d.telegram_id));
+      const total_donated = donorDonations.reduce((sum, donation) => sum + (Number(donation.amount) || 0), 0);
+      const donations_count = donorDonations.length;
 
       return {
         telegram_id: d.telegram_id,
@@ -378,7 +410,16 @@ router.get("/donors", async (req, res) => {
         donations_count
       };
     });
-    res.json({ donors: result });
+
+    res.json({ 
+      donors: result,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages
+      }
+    });
   } catch (error) {
     console.error("Error fetching donors:", error);
     res.status(500).json({ error: "Failed to load donors data" });
@@ -854,9 +895,19 @@ router.post("/recharges/:id/reject", async (req, res) => {
 
 router.get("/donations", async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit || '100'), 500);
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit || '50'), 100);
+    const offset = (page - 1) * limit;
 
-    const donationsRes = await db.query("SELECT id, streamer_id, donor_id, donor_name, amount, message, status, audio_file, created_at FROM donations WHERE status = 'paid' ORDER BY created_at DESC LIMIT $1", [limit]);
+    // Get total count
+    const countRes = await db.query("SELECT COUNT(*) FROM donations WHERE status = 'paid'");
+    const totalCount = parseInt(countRes.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    const donationsRes = await db.query(
+      "SELECT id, streamer_id, donor_id, donor_name, amount, message, status, audio_file, created_at FROM donations WHERE status = 'paid' ORDER BY created_at DESC LIMIT $1 OFFSET $2", 
+      [limit, offset]
+    );
     const donations = donationsRes.rows;
 
     const usersRes = await db.query("SELECT telegram_id, username, display_name, role FROM users");
@@ -876,7 +927,16 @@ router.get("/donations", async (req, res) => {
         created_at: d.created_at
       };
     });
-    res.json({ donations: list });
+    
+    res.json({ 
+      donations: list,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages
+      }
+    });
   } catch (error) {
     console.error("Error fetching donations:", error);
     res.status(500).json({ error: "Failed to load donations data" });
@@ -1195,8 +1255,25 @@ router.get("/streamer-donations/:telegram_id", async (req, res) => {
 
 router.get("/complaints", async (req, res) => {
   try {
-    const complaintsRes = await db.query("SELECT id, telegram_id, complaint, created_at, responded FROM complaints ORDER BY created_at DESC");
-    res.json(complaintsRes.rows);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
+
+    const countRes = await db.query("SELECT COUNT(*) FROM complaints");
+    const totalCount = parseInt(countRes.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    const complaintsRes = await db.query("SELECT id, telegram_id, complaint, created_at, responded FROM complaints ORDER BY created_at DESC LIMIT $1 OFFSET $2", [limit, offset]);
+    
+    res.json({
+      complaints: complaintsRes.rows,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages
+      }
+    });
   } catch (error) {
     console.error("Error fetching complaints:", error);
     res.status(500).json({ error: "Failed to load complaints" });

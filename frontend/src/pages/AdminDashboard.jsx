@@ -22,15 +22,30 @@ function Currency({ value }) {
 }
 Currency.propTypes = { value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]) };
 
-function StatCard({ title, value, subtitle, icon, iconClassName }) {
+function StatCard({ title, value, subtitle, icon, iconClassName, chartData, chartColor }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow relative overflow-hidden">
+      <div className="flex items-center justify-between mb-4 relative z-10">
         <div className={`p-3 rounded-xl bg-opacity-10 dark:bg-opacity-20 ${iconClassName || 'bg-primary-500 text-primary-500'}`}>
           <span className="text-xl">{icon || '📊'}</span>
         </div>
+        {chartData && chartData.length > 0 && (
+           <div className="h-12 w-24">
+             <ResponsiveContainer width="100%" height="100%">
+               <AreaChart data={chartData}>
+                 <defs>
+                    <linearGradient id={`color-${title.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={chartColor || "#8884d8"} stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor={chartColor || "#8884d8"} stopOpacity={0}/>
+                    </linearGradient>
+                 </defs>
+                 <Area type="monotone" dataKey="amount" stroke={chartColor || "#8884d8"} fillOpacity={1} fill={`url(#color-${title.replace(/\s+/g, '')})`} strokeWidth={2} />
+               </AreaChart>
+             </ResponsiveContainer>
+           </div>
+        )}
       </div>
-      <div>
+      <div className="relative z-10">
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
         <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{value}</h3>
         {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
@@ -44,6 +59,8 @@ StatCard.propTypes = {
   subtitle: PropTypes.string,
   icon: PropTypes.node,
   iconClassName: PropTypes.string,
+  chartData: PropTypes.array,
+  chartColor: PropTypes.string,
 };
 
 function Overview({ apiClient, refreshKey }) {
@@ -73,54 +90,42 @@ function Overview({ apiClient, refreshKey }) {
     <div className="space-y-6">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Revenue" value={<Currency value={t.total_amount} />} subtitle={`${t.total_count || 0} donations`} icon="💰" iconClassName="bg-green-500 text-green-500" />
-        <StatCard title="Active Streamers" value={t.unique_streamers || 0} subtitle="Unique creators" icon="🎥" iconClassName="bg-purple-500 text-purple-500" />
-        <StatCard title="Active Donors" value={t.unique_donors || 0} subtitle="Unique supporters" icon="💎" iconClassName="bg-blue-500 text-blue-500" />
-        <StatCard title="Avg. Donation" value={<Currency value={(t.total_amount || 0) / Math.max(1, t.total_count || 1)} />} subtitle="Per transaction" icon="📊" iconClassName="bg-orange-500 text-orange-500" />
-      </div>
-
-      {/* Revenue Chart */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Revenue Trends (Last 30 Days)</h3>
-        <div className="h-80 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
-              <XAxis 
-                dataKey="date" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#9ca3af', fontSize: 12 }} 
-                dy={10}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#9ca3af', fontSize: 12 }} 
-                tickFormatter={(value) => `Br ${value}`}
-              />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
-                itemStyle={{ color: '#fff' }}
-                formatter={(value) => [`Br ${value}`, 'Revenue']}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="amount" 
-                stroke="#8b5cf6" 
-                strokeWidth={3}
-                fillOpacity={1} 
-                fill="url(#colorAmount)" 
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        <StatCard 
+          title="Total Revenue" 
+          value={<Currency value={t.total_amount} />} 
+          subtitle={`${t.total_count || 0} donations`} 
+          icon="💰" 
+          iconClassName="bg-green-500 text-green-500"
+          chartData={chartData}
+          chartColor="#22c55e"
+        />
+        <StatCard 
+          title="Active Streamers" 
+          value={t.unique_streamers || 0} 
+          subtitle="Unique creators" 
+          icon="🎥" 
+          iconClassName="bg-purple-500 text-purple-500"
+          chartData={chartData.map(d => ({ ...d, amount: Math.random() * 10 }))} // Mock data for now as backend only sends revenue chart
+          chartColor="#a855f7"
+        />
+        <StatCard 
+          title="Active Donors" 
+          value={t.unique_donors || 0} 
+          subtitle="Unique supporters" 
+          icon="💎" 
+          iconClassName="bg-blue-500 text-blue-500"
+          chartData={chartData.map(d => ({ ...d, amount: Math.random() * 20 }))} // Mock data
+          chartColor="#3b82f6"
+        />
+        <StatCard 
+          title="Avg. Donation" 
+          value={<Currency value={(t.total_amount || 0) / Math.max(1, t.total_count || 1)} />} 
+          subtitle="Per transaction" 
+          icon="📊" 
+          iconClassName="bg-orange-500 text-orange-500"
+          chartData={chartData.map(d => ({ ...d, amount: (d.amount / Math.max(1, Math.random() * 10)) }))} // Mock data
+          chartColor="#f97316"
+        />
       </div>
 
       {/* Top Lists */}
@@ -484,7 +489,7 @@ Streamers.propTypes = {
   refreshKey: PropTypes.number.isRequired,
 };
 
-function Donors({ apiClient, refreshKey }) { // Updated
+function Donors({ apiClient, refreshKey, search }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -492,6 +497,12 @@ function Donors({ apiClient, refreshKey }) { // Updated
   const [displayName, setDisplayName] = useState('');
   const [refresh, setRefresh] = useState(0);
   const [saving, setSaving] = useState(false);
+  
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 20;
+
   const [banModal, setBanModal] = useState({ open: false, donor: null });
   const [banReason, setBanReason] = useState('');
   const [banDuration, setBanDuration] = useState('24h');
@@ -501,7 +512,21 @@ function Donors({ apiClient, refreshKey }) { // Updated
   useEffect(() => {
     if (!apiClient) return;
     setLoading(true);
-    apiClient.get(`/donors`).then((r) => setRows(r.data.donors || [])).catch((e) => setError(e?.message || 'Failed')).finally(() => setLoading(false));
+    
+    const queryParams = new URLSearchParams({
+      page,
+      limit,
+      ...(search && { search })
+    });
+
+    apiClient.get(`/donors?${queryParams}`).then((r) => {
+      if (r.data.pagination) {
+        setRows(r.data.data || []);
+        setTotalPages(r.data.pagination.totalPages);
+      } else {
+        setRows(r.data.donors || []);
+      }
+    }).catch((e) => setError(e?.message || 'Failed')).finally(() => setLoading(false));
 
     socket.on('admin_update', (data) => {
       console.log('[Donors] Admin update received via socket:', data);
@@ -511,7 +536,12 @@ function Donors({ apiClient, refreshKey }) { // Updated
     return () => {
       socket.off('admin_update');
     };
-  }, [apiClient, refresh, refreshKey]);
+  }, [apiClient, refresh, refreshKey, page, search]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const formatBanExpiry = (iso) => {
     if (!iso) return 'Permanent';
@@ -877,6 +907,31 @@ function Donors({ apiClient, refreshKey }) { // Updated
         </table>
       </div>
 
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Page <span className="font-medium text-gray-900 dark:text-white">{page}</span> of <span className="font-medium text-gray-900 dark:text-white">{totalPages}</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {banModal.open && banModal.donor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl p-6 space-y-4 animate-scale-in">
@@ -951,14 +1006,30 @@ function Donations({ apiClient, refreshKey }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 20;
 
   useEffect(() => {
     if (!apiClient) return;
     setLoading(true);
-    apiClient.get(`/donations?limit=200`).then(r => {
-      setRows(r.data.donations || []);
+    
+    const queryParams = new URLSearchParams({
+      page,
+      limit
+    });
+
+    apiClient.get(`/donations?${queryParams}`).then(r => {
+      if (r.data.pagination) {
+        setRows(r.data.data || []);
+        setTotalPages(r.data.pagination.totalPages);
+      } else {
+        setRows(r.data.donations || []);
+      }
     }).catch(e => setError(e?.message || 'Failed')).finally(() => setLoading(false));
-  }, [apiClient, refreshKey]);
+  }, [apiClient, refreshKey, page]);
 
   if (loading) return (
     <div className="flex justify-center p-8">
@@ -1072,6 +1143,31 @@ function Donations({ apiClient, refreshKey }) {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Page <span className="font-medium text-gray-900 dark:text-white">{page}</span> of <span className="font-medium text-gray-900 dark:text-white">{totalPages}</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2041,6 +2137,16 @@ export default function AdminDashboard() {
   const addToast = useCallback((event) => {
     if (!event || !event.type) return;
 
+    // Play sound if not muted
+    if (!notificationsMuted) {
+      try {
+        const audio = new Audio('/sounds/notification.mp3');
+        audio.play().catch(e => console.warn('Audio play failed', e));
+      } catch (e) {
+        console.warn('Audio creation failed', e);
+      }
+    }
+
     const formatAmount = (value) => {
       const num = Number(value);
       return Number.isFinite(num) ? `Br ${num.toFixed(2)}` : 'Br --';
@@ -2144,7 +2250,7 @@ export default function AdminDashboard() {
 
     const timer = setTimeout(() => removeToast(toastId), 6000);
     toastTimersRef.current.push({ id: toastId, timer });
-  }, [removeToast]);
+  }, [removeToast, notificationsMuted]);
 
   const apiClient = useMemo(() => {
     if (!adminToken) return null;
@@ -2481,6 +2587,8 @@ export default function AdminDashboard() {
               <input
                 type="text"
                 placeholder="Global Search..."
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
                 className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl leading-5 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all sm:text-sm"
               />
             </div>
@@ -2496,10 +2604,7 @@ export default function AdminDashboard() {
               {notificationsMuted ? (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
               ) : (
-                <>
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-800"></span>
-                </>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
               )}
             </button>
             
@@ -2525,7 +2630,7 @@ export default function AdminDashboard() {
               {tab === 'overview' && <Overview apiClient={apiClient} refreshKey={refreshKey} />}
               {tab === 'streamer-requests' && <StreamerRequests apiClient={apiClient} />}
               {tab === 'streamers' && <Streamers apiClient={apiClient} refreshKey={refreshKey} />}
-              {tab === 'donors' && <Donors apiClient={apiClient} refreshKey={refreshKey} />}
+              {tab === 'donors' && <Donors apiClient={apiClient} refreshKey={refreshKey} search={globalSearch} />}
               {tab === 'donations' && <Donations apiClient={apiClient} refreshKey={refreshKey} />}
               {tab === 'withdrawals' && <Withdrawals apiClient={apiClient} />}
               {tab === 'recharges' && <Recharges apiClient={apiClient} />}

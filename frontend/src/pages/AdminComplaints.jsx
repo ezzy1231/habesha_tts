@@ -12,6 +12,11 @@ export default function AdminComplaints({ apiClient, refreshData }) {
   const [sending, setSending] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState('idle'); // 'idle', 'success', 'error'
   const [submissionError, setSubmissionError] = useState('');
+  
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 20;
 
   const fetchComplaints = useCallback(async () => {
     if (!apiClient) {
@@ -21,14 +26,23 @@ export default function AdminComplaints({ apiClient, refreshData }) {
     }
     try {
       setLoading(true);
-      const response = await apiClient.get('/complaints');
-      setComplaints(response.data);
+      const queryParams = new URLSearchParams({
+        page,
+        limit
+      });
+      const response = await apiClient.get(`/complaints?${queryParams}`);
+      if (response.data.pagination) {
+        setComplaints(response.data.data || []);
+        setTotalPages(response.data.pagination.totalPages);
+      } else {
+        setComplaints(response.data || []);
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to fetch complaints.');
     } finally {
       setLoading(false);
     }
-  }, [apiClient]);
+  }, [apiClient, page]);
 
   useEffect(() => {
     fetchComplaints();
@@ -192,6 +206,31 @@ export default function AdminComplaints({ apiClient, refreshData }) {
               </table>
             </div>
           </>
+        )}
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Page <span className="font-medium text-gray-900 dark:text-white">{page}</span> of <span className="font-medium text-gray-900 dark:text-white">{totalPages}</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
