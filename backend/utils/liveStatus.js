@@ -10,7 +10,8 @@ const linkUuidCache = new Map();  // linkUuid -> streamerRow
 
 const baseSelect = `
   SELECT telegram_id, username, full_name, link_uuid,
-         live_status, live_since, last_live_ping
+         live_status, live_since, last_live_ping,
+         profile_picture_file_id
     FROM users
    WHERE role = 'streamer'
 `;
@@ -25,6 +26,7 @@ function normalizeStreamerRow(row) {
     live_status: Boolean(row.live_status),
     live_since: row.live_since,
     last_live_ping: row.last_live_ping,
+    profile_picture_file_id: row.profile_picture_file_id,
   };
 }
 
@@ -106,9 +108,8 @@ async function notifyDonorsStreamerLive(streamer) {
     const { rows: donors } = await db.query("SELECT telegram_id FROM users WHERE role = 'donor'");
     if (donors.length === 0) return;
 
-    const message = `📢 *${streamer.full_name || streamer.username}* አሁን ላይቭ ነው! 🎉\n\nልገሳ ለመላክ ከታች ያለውን ይጫኑ።`;
+    const caption = `📢 ${streamer.full_name || streamer.username} አሁን ላይቭ ነው! 🎉\n\nልገሳ ለመላክ ከታች ያለውን ይጫኑ።`;
     const opts = {
-      parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
           [{ text: "💸 ይለግሱ (Donate)", callback_data: `list_streamers` }]
@@ -117,9 +118,13 @@ async function notifyDonorsStreamerLive(streamer) {
     };
 
     donors.forEach(donor => {
-      bot.sendMessage(donor.telegram_id, message, opts).catch(err => {
+      const send = streamer.profile_picture_file_id
+        ? bot.sendPhoto(donor.telegram_id, streamer.profile_picture_file_id, { ...opts, caption })
+        : bot.sendMessage(donor.telegram_id, caption, opts);
+
+      send.catch(err => {
         if (!err.message.includes('blocked') && !err.message.includes('chat not found')) {
-             console.warn(`[LiveStatus] Failed to notify donor ${donor.telegram_id}:`, err.message);
+          console.warn(`[LiveStatus] Failed to notify donor ${donor.telegram_id}:`, err.message);
         }
       });
     });
