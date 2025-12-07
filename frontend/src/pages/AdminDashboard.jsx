@@ -11,6 +11,7 @@ import AdminComplaints from './AdminComplaints';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SkeletonLoader from '../components/SkeletonLoader';
 import DonorFlagsPanel from '../components/DonorFlagsPanel';
+import ImageViewer from '../components/ImageViewer';
 import { BAN_DURATION_OPTIONS, resolveBanDurationMinutes } from '../constants/banOptions';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -1611,28 +1612,12 @@ function Recharges({ apiClient }) {
           </table>
         </div>
       </div>
-      {imageModal.open && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in"
-          onClick={closeImageModal}
-        >
-          <button
-            onClick={closeImageModal}
-            className="fixed top-4 right-4 z-[110] p-2 rounded-full bg-black/50 text-white hover:bg-white/20 transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
-            aria-label="Close image"
-          >
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <img
-            src={imageModal.src}
-            alt="Enlarged view"
-            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      <ImageViewer
+        isOpen={imageModal.open}
+        src={imageModal.src}
+        alt="Payment Screenshot"
+        onClose={closeImageModal}
+      />
     </>
   );
 }
@@ -2117,28 +2102,12 @@ function StreamerRequests({ apiClient }) {
           </table>
         </div>
       </div>
-      {imageModal.open && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in"
-          onClick={closeImageModal}
-        >
-          <button
-            onClick={closeImageModal}
-            className="fixed top-4 right-4 z-[110] p-2 rounded-full bg-black/50 text-white hover:bg-white/20 transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
-            aria-label="Close image"
-          >
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <img
-            src={imageModal.src}
-            alt="Enlarged view"
-            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      <ImageViewer
+        isOpen={imageModal.open}
+        src={imageModal.src}
+        alt="Verification Document"
+        onClose={closeImageModal}
+      />
     </>
   );
 }
