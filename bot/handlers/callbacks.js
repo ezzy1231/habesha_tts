@@ -226,14 +226,14 @@ export const registerCallbacks = (bot, deps = {}) => {
 
         let stylePrompt = '';
         if (pending.engine === 'gemini') {
-          if (pending.voice === 'Kore') stylePrompt = 'A high-pitched, fast, and sharply annoyed tone, with rising volume and quick pace.';
-          else if (pending.voice === 'Charon') stylePrompt = 'An upbeat, fast-paced, and enthusiastic tone, like a thrilled news anchor.';
+          if (pending.voice === 'Kore') stylePrompt = 'A high-pitched and sharply annoyed tone, with rising volume and clipped delivery.';
+          else if (pending.voice === 'Charon') stylePrompt = 'An upbeat and enthusiastic tone, like a thrilled news anchor.';
           else if (pending.voice === 'Sulafat') stylePrompt = 'A sincere, contented, and friendly tone, sounding genuinely pleased and warm.';
           else if (pending.voice === 'Zubenelgenubi') stylePrompt = 'A hollow, heartbroken, and desolate tone, with a very slow, heavy, and resigned pace.';
           else if (pending.voice === 'Aoede') stylePrompt = 'A commanding, irritated tone, with a deliberate, firm, and slightly harsh cadence.';
           else if (pending.voice === 'Enceladus') stylePrompt = 'A deep, confident, and satisfied tone, conveying professional pride and pleasure.';
           else if (pending.voice === 'Vindemiatrix') stylePrompt = 'A soft, somber, and weary tone, conveying exhaustion and grief.';
-          else if (pending.voice === 'Achird') stylePrompt = 'A frustrated, slightly defensive tone, with a quick and slightly strained pace.';
+          else if (pending.voice === 'Achird') stylePrompt = 'A frustrated, slightly defensive tone, with a slightly strained pace.';
           else if (pending.voice === 'Despina') stylePrompt = 'An energetic and highly inviting tone, expressing eagerness and anticipation.';
           else if (pending.voice === 'Iapetus') stylePrompt = 'A lighthearted, warm, and amused tone, with a casual, approachable quality.';
         }
