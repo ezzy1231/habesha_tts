@@ -320,11 +320,13 @@ return (
           ref={imageRef}
           src={src}
           alt={alt || 'Preview'}
-          className={`w-auto h-auto max-w-[85vw] max-h-[calc(100vh-10rem)] object-contain rounded-lg shadow-2xl transition-all duration-300 select-none ${isLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
+          className={`w-auto h-auto max-w-[95vw] sm:max-w-[90vw] max-h-[80vh] sm:max-h-[85vh] object-contain rounded-lg shadow-2xl transition-all duration-300 select-none ${isLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
           style={{
             transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`,
             transformOrigin: 'center center',
             willChange: 'transform',
+            minWidth: '300px',
+            minHeight: '200px',
           }}
           onLoad={() => setIsLoading(false)}
           onError={() => {
