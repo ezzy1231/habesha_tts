@@ -172,7 +172,7 @@ export async function setStreamerLiveState({ streamerId, isLive, reason = 'manua
             live_since = CASE WHEN $1 THEN COALESCE(live_since, $2::timestamptz) ELSE NULL END,
             last_live_ping = CASE WHEN $1 THEN $3::timestamptz ELSE NULL END
       WHERE telegram_id = $4
-      RETURNING telegram_id, username, full_name, link_uuid, live_status, live_since, last_live_ping`,
+      RETURNING telegram_id, username, full_name, link_uuid, live_status, live_since, last_live_ping, profile_picture_file_id`,
     [Boolean(isLive), now, now, streamerId]
   );
   const updated = normalizeStreamerRow(rows[0]);
@@ -208,7 +208,7 @@ export async function recordStreamerHeartbeat({ linkUuid, io }) {
     `UPDATE users
         SET last_live_ping = NOW()
       WHERE telegram_id = $1
-      RETURNING telegram_id, username, full_name, link_uuid, live_status, live_since, last_live_ping`,
+      RETURNING telegram_id, username, full_name, link_uuid, live_status, live_since, last_live_ping, profile_picture_file_id`,
     [streamer.telegram_id]
   );
   const updated = normalizeStreamerRow(rows[0]);
