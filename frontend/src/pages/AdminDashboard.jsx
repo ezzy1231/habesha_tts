@@ -1613,30 +1613,24 @@ function Recharges({ apiClient }) {
       </div>
       {imageModal.open && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-fade-in"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in"
           onClick={closeImageModal}
         >
-          <div
-            className="relative w-full max-w-5xl md:max-w-6xl max-h-[90vh] flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
+          <button
+            onClick={closeImageModal}
+            className="fixed top-4 right-4 z-[110] p-2 rounded-full bg-black/50 text-white hover:bg-white/20 transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
+            aria-label="Close image"
           >
-            <button
-              onClick={closeImageModal}
-              className="absolute -top-4 -right-4 md:top-2 md:right-2 z-[110] p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
-              aria-label="Close image"
-            >
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <div className="w-full h-full max-h-[90vh] overflow-auto flex items-center justify-center">
-              <img
-                src={imageModal.src}
-                alt="Enlarged view"
-                className="w-full h-full object-contain rounded-lg shadow-2xl ring-1 ring-white/10"
-              />
-            </div>
-          </div>
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={imageModal.src}
+            alt="Enlarged view"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </>
@@ -2125,12 +2119,12 @@ function StreamerRequests({ apiClient }) {
       </div>
       {imageModal.open && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-fade-in"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in"
           onClick={closeImageModal}
         >
           <button
             onClick={closeImageModal}
-            className="absolute top-6 right-6 z-[110] p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
+            className="fixed top-4 right-4 z-[110] p-2 rounded-full bg-black/50 text-white hover:bg-white/20 transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
             aria-label="Close image"
           >
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2140,7 +2134,7 @@ function StreamerRequests({ apiClient }) {
           <img
             src={imageModal.src}
             alt="Enlarged view"
-            className="max-h-[90vh] max-w-[90vw] w-auto h-auto object-contain rounded-lg shadow-2xl ring-1 ring-white/10"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
         </div>
