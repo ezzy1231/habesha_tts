@@ -128,6 +128,53 @@ function Overview({ apiClient, refreshKey }) {
         />
       </div>
 
+      {/* Revenue Trends Chart */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Revenue Trends</h3>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Last 30 Days</span>
+        </div>
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+              <XAxis 
+                dataKey="date" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#6B7280', fontSize: 12 }} 
+                dy={10}
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#6B7280', fontSize: 12 }} 
+                tickFormatter={(value) => `Br ${value}`}
+              />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#fff', borderRadius: '0.75rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                itemStyle={{ color: '#111827', fontWeight: 600 }}
+                formatter={(value) => [`Br ${Number(value).toFixed(2)}`, 'Revenue']}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="amount" 
+                stroke="#22c55e" 
+                strokeWidth={3} 
+                fillOpacity={1} 
+                fill="url(#colorRevenue)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* Top Lists */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Top Streamers */}
@@ -1181,7 +1228,7 @@ function Recharges({ apiClient }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refresh, setRefresh] = useState(0);
-  const [modal, setModal] = useState({ open: false, id: null, amount: '' });
+  const [modal, setModal] = useState({ open: false, id: null, amount: '', recharge: null });
   const [saving, setSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [imageModal, setImageModal] = useState({ open: false, src: '' });
@@ -1202,11 +1249,16 @@ function Recharges({ apiClient }) {
     };
   }, [apiClient, refresh]);
 
-  const approve = (id, requestedAmount) => {
-    setModal({ open: true, id, amount: requestedAmount ? String(requestedAmount) : '' });
+  const openReviewModal = (recharge) => {
+    setModal({ 
+      open: true, 
+      id: recharge.id, 
+      amount: recharge.requested_amount ? String(recharge.requested_amount) : '',
+      recharge: recharge
+    });
   };
 
-  const confirmApprove = async () => {
+  const handleApprove = async () => {
     if (!apiClient || !modal.id) return;
     const value = Number(modal.amount);
     if (!Number.isFinite(value) || value <= 0) {
@@ -1216,14 +1268,30 @@ function Recharges({ apiClient }) {
     try {
       setSaving(true);
       await apiClient.post(`/recharges/${modal.id}/approve?amount=${encodeURIComponent(value)}`);
-      setModal({ open: false, id: null, amount: '' });
+      setModal({ open: false, id: null, amount: '', recharge: null });
       setRefresh(x => x + 1);
     } finally {
       setSaving(false);
     }
   };
 
-  const closeModal = () => setModal({ open: false, id: null, amount: '' });
+  const handleReject = async () => {
+    if (!apiClient || !modal.id) return;
+    if (!confirm('Are you sure you want to reject this recharge?')) return;
+    
+    try {
+      setSaving(true);
+      await apiClient.post(`/recharges/${modal.id}/reject`);
+      setModal({ open: false, id: null, amount: '', recharge: null });
+      setRefresh(x => x + 1);
+    } catch (e) {
+      alert(`Failed to reject: ${e?.response?.data?.error || e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const closeModal = () => setModal({ open: false, id: null, amount: '', recharge: null });
 
   const openImageModal = (src) => setImageModal({ open: true, src });
   const closeImageModal = () => setImageModal({ open: false, src: '' });
@@ -1271,28 +1339,86 @@ function Recharges({ apiClient }) {
         confirmButtonClass={confirmModal.action === 'reject' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
-      {modal.open && (
+      {modal.open && modal.recharge && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-lg">
-            <div className="p-4 border-b dark:border-gray-700">
-              <div className="text-lg font-semibold">Approve Recharge</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter the amount to credit to the donor&apos;s wallet.</div>
+          <div className="w-full max-w-md rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-lg overflow-hidden">
+            <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <div className="text-lg font-semibold text-gray-900 dark:text-white">Review Recharge</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Request from <span className="font-medium text-gray-900 dark:text-white">{modal.recharge.donor_username || 'Unknown'}</span>
+              </div>
             </div>
-            <div className="p-4 space-y-3">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Amount (Br)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={modal.amount}
-                onChange={(e) => setModal(m => ({ ...m, amount: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="e.g. 100.00"
-              />
-            </div>
-            <div className="px-4 pb-4 flex items-center justify-end gap-2">
-              <button onClick={closeModal} className="btn btn-secondary">Cancel</button>
-              <button disabled={saving} onClick={confirmApprove} className="btn btn-success">{saving ? "Saving..." : "Approve"}</button>
+            
+            <div className="p-6 space-y-6">
+              {/* Details */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Name on Payment</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{modal.recharge.name_on_payment}</span>
+                </div>
+                
+                {modal.recharge.screenshot_url && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Screenshot</span>
+                    <div className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                      <img 
+                        src={modal.recharge.screenshot_url} 
+                        alt="Payment Screenshot" 
+                        className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => openImageModal(modal.recharge.screenshot_url)}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 pointer-events-none">
+                        <span className="text-white text-xs font-bold bg-black/50 px-2 py-1 rounded">Click to enlarge</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Approved Amount (Br)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={modal.amount}
+                    onChange={(e) => setModal(m => ({ ...m, amount: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-shadow"
+                    placeholder="0.00"
+                  />
+                  {modal.recharge.requested_amount && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                      Requested: <span className="font-medium">{modal.recharge.requested_amount}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button 
+                  onClick={handleReject} 
+                  disabled={saving}
+                  className="py-3 px-4 bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-400 rounded-xl font-bold transition-colors disabled:opacity-50"
+                >
+                  Reject
+                </button>
+                <button 
+                  onClick={handleApprove} 
+                  disabled={saving}
+                  className="py-3 px-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none"
+                >
+                  {saving ? "Processing..." : "Approve"}
+                </button>
+              </div>
+              
+              <button 
+                onClick={closeModal}
+                className="w-full py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -1384,9 +1510,14 @@ function Recharges({ apiClient }) {
                 </div>
 
                 {r.status === 'pending' && (
-                  <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
-                    <button onClick={() => approve(r.id, r.requested_amount)} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors">Approve</button>
-                    <button onClick={() => openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors">Reject</button>
+                  <div className="pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+                    <button 
+                      onClick={() => openReviewModal(r)} 
+                      className="w-full py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
+                    >
+                      <span>Review Request</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </button>
                   </div>
                 )}
               </div>
@@ -1465,14 +1596,12 @@ function Recharges({ apiClient }) {
                   <td className="py-4 px-6 text-center">
                     <div className="flex justify-center">
                       {r.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <button onClick={() => approve(r.id, r.requested_amount)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors" title="Approve">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                          </button>
-                          <button onClick={() => openConfirmModal('reject', r.id, 'Reject Recharge', `Are you sure you want to reject this recharge from ${r.donor_username || r.name_on_payment}?`)} className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors" title="Reject">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
-                        </div>
+                        <button 
+                          onClick={() => openReviewModal(r)} 
+                          className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-bold transition-all shadow-sm hover:shadow flex items-center gap-2"
+                        >
+                          Review
+                        </button>
                       )}
                     </div>
                   </td>
