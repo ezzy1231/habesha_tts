@@ -30,7 +30,7 @@ function StatCard({ title, value, subtitle, icon, iconClassName, chartData, char
           <span className="text-xl">{icon || '📊'}</span>
         </div>
         {chartData && chartData.length > 0 && (
-           <div className="h-12 w-24">
+           <div className="h-12 w-24 min-w-[6rem]">
              <ResponsiveContainer width="100%" height="100%">
                <AreaChart data={chartData}>
                  <defs>
@@ -521,7 +521,7 @@ function Donors({ apiClient, refreshKey, search }) {
 
     apiClient.get(`/donors?${queryParams}`).then((r) => {
       if (r.data.pagination) {
-        setRows(r.data.data || []);
+        setRows(r.data.donors || []);
         setTotalPages(r.data.pagination.totalPages);
       } else {
         setRows(r.data.donors || []);
@@ -1023,7 +1023,7 @@ function Donations({ apiClient, refreshKey }) {
 
     apiClient.get(`/donations?${queryParams}`).then(r => {
       if (r.data.pagination) {
-        setRows(r.data.data || []);
+        setRows(r.data.donations || []);
         setTotalPages(r.data.pagination.totalPages);
       } else {
         setRows(r.data.donations || []);

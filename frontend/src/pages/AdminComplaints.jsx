@@ -32,10 +32,10 @@ export default function AdminComplaints({ apiClient, refreshData }) {
       });
       const response = await apiClient.get(`/complaints?${queryParams}`);
       if (response.data.pagination) {
-        setComplaints(response.data.data || []);
+        setComplaints(response.data.complaints || []);
         setTotalPages(response.data.pagination.totalPages);
       } else {
-        setComplaints(response.data || []);
+        setComplaints(response.data.complaints || []);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to fetch complaints.');
