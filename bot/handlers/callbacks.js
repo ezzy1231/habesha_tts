@@ -145,19 +145,7 @@ export const registerCallbacks = (bot, deps = {}) => {
           return;
         }
         await userStates.set(tgId, { step: 'awaiting_donation', streamerId });
-        
-        const displayName = streamer.full_name || streamer.username;
-        const caption = `📢 ${displayName} አሁን ላይቭ ነው! 🎉\n\nልገሳ ለመላክ ከታች ያለውን ይጫኑ።`;
-        
-        if (streamer.profile_picture_file_id) {
-             await bot.sendPhoto(chatId, streamer.profile_picture_file_id, {
-                caption: caption
-             });
-        } else {
-             await bot.sendMessage(chatId, caption);
-        }
-        
-        // await bot.sendMessage(chatId, '💬 እባክዎ የልገሳ መልዕክትዎን አሁን ይጻፉ:');
+           await bot.sendMessage(chatId, '💬 እባክዎ የልገሳ መልዕክትዎን አሁን ይጻፉ:');
         safeAnswerCallback(query.id);
         return;
       }
