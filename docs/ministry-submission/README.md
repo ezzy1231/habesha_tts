@@ -4,7 +4,14 @@ This folder contains documents prepared for submission to the **Ministry of Inno
 
 ## 📄 Documents Included
 
-### 1. CONCEPT_PAPER.md
+### 1. COVER_LETTER.md ⭐ (Submit First)
+Formal cover letter addressed to the Ministry requesting:
+- Innovation recognition
+- Licensing guidance
+- Payment integration support
+- Ecosystem connection
+
+### 2. CONCEPT_PAPER.md
 The main concept paper covering:
 - Executive Summary
 - Problem Statement & Solution

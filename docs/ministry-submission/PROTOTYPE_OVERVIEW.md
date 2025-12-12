@@ -26,6 +26,25 @@
 
 HabeshaTTS is a complete donation platform that enables fans to send **spoken Amharic messages** to their favorite streamers during live broadcasts. The platform uses **Google Cloud's AI Text-to-Speech** technology to convert text donations into natural-sounding Amharic speech in real-time.
 
+### Live Platform Metrics
+
+| Metric | Value |
+|--------|-------|
+| Total Revenue | Br 8,500.00 |
+| Total Donations | 387 transactions |
+| Active Streamers | 2 creators |
+| Active Donors | 7 supporters |
+| Average Donation | Br 21.96 |
+| Top Streamer Revenue | Br 8,200.00 (EZHU) |
+| Top Donor Contribution | Br 4,880.00 (Lie_ed) |
+
+### Revenue Model
+
+| Party | Share | Per 100 ETB |
+|-------|-------|-------------|
+| Streamer | 60% | 60 ETB |
+| Platform | 40% | 40 ETB |
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        USER JOURNEY                                  │
@@ -562,18 +581,61 @@ HabeshaTTS is a complete donation platform that enables fans to send **spoken Am
 
 ## 9. Demo Access
 
-### Live Demo
+### Live Platform
 
 - **Website:** www.habeshatts.com
 - **Telegram Bot:** @HabeshaTTSBot
-- **Admin Dashboard:** Available upon request
+- **Status:** Fully operational with real users and transactions
 
-### Test Credentials
+### Platform Features Demonstrated
+
+#### Screenshot 1: Streamer Dashboard
+
+![Streamer Dashboard](./screenshots/streamer-dashboard.png)
+
+- Real-time donation queue with Amharic message display
+- Audio playback controls with volume slider
+- Balance tracking and "Go Live Now" status toggle
+- Withdrawal requests via Telebirr
+
+---
+
+#### Screenshot 2: Withdrawal System
+
+![Withdrawal Page](./screenshots/withdrawal.png)
+
+- Balance display with Telebirr username field
+- Phone number verification
+- Simple, clean interface
+
+---
+
+#### Screenshot 3: Admin Dashboard
+
+![Admin Dashboard](./screenshots/admin-dashboard.png)
+
+- Platform overview cards (Revenue, Streamers, Donors, Avg)
+- Revenue Trends chart (30-day view)
+- Top Streamers and Top Donors leaderboards
+- Full navigation: Overview, Requests, Streamers, Donors, Donations, Withdrawals, Recharges, Flags, Complaints, Settings
+
+---
+
+#### Screenshot 4: OTP Login System
+
+![OTP Login](./screenshots/otp-login.png)
+
+- Secure Telegram-based authentication
+- 6-digit verification code
+- "Send Code to Telegram" integration
+
+### Test Access
 
 For ministry evaluation, we can provide:
-- Test donor account
+- Test donor account with pre-loaded balance
 - Test streamer dashboard access
-- Admin dashboard demo
+- Admin dashboard demonstration
+- Live walkthrough of complete donation flow
 
 ---
 
@@ -581,6 +643,8 @@ For ministry evaluation, we can provide:
 
 ## 🇪🇹 HabeshaTTS - Built in Ethiopia, For Ethiopia 🇪🇹
 
-**Contact:** www.habeshatts.com
+**Founder:** Edilu Densemo Tafesse  
+**Website:** www.habeshatts.com  
+**Email:** ediludensemo1@gmail.com
 
 </div>
