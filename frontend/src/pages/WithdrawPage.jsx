@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import io from "socket.io-client";
@@ -97,8 +97,7 @@ export default function WithdrawPage() {
 
     const socket = io(SOCKET_URL, { transports: ["websocket"], reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000 });
     socket.emit("join_streamer_room", uuid);
-    socket.on("withdrawal_approved", (data) => {
-      // console.log("ðŸ’¸ Withdrawal approved received:", data);
+    socket.on("withdrawal_approved", (data) => {// console.log("💸 Withdrawal approved received:", data);
       setStreamerBalance(typeof data?.newBalance === 'number' ? data.newBalance : 0);
     });
 
@@ -182,7 +181,7 @@ export default function WithdrawPage() {
           onClick={() => navigate(`/streamer/${uuid}`)}
           className="mb-6 btn btn-secondary"
         >
-          â† Back to Dashboard
+          ← Back to Dashboard
         </button>
 
         <div className="card p-6 relative">

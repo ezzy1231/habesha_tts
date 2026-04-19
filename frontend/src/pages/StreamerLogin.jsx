@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -37,16 +37,13 @@ export default function StreamerLogin() {
   }, [uuid, cooldown]);
 
   // Redirect to dashboard only if authenticated user matches the UUID
-  useEffect(() => {
-    // console.log('[StreamerLogin] Check:', { isAuthenticated, user: user?.telegram_id, streamer: streamer?.telegram_id });
+  useEffect(() => {// console.log('[StreamerLogin] Check:', { isAuthenticated, user: user?.telegram_id, streamer: streamer?.telegram_id });
     if (isAuthenticated && user && streamer) {
       // Check if the authenticated user's telegram_id matches the streamer for this UUID
-      if (String(user.telegram_id) === String(streamer.telegram_id)) {
-        // console.log('[StreamerLogin] Match confirmed. Redirecting to dashboard.');
+      if (String(user.telegram_id) === String(streamer.telegram_id)) {// console.log('[StreamerLogin] Match confirmed. Redirecting to dashboard.');
         navigate(`/streamer/${uuid}`, { replace: true });
       } else {
-        // Wrong user is logged in, clear the session to allow login as the correct streamer
-        // console.log('[StreamerLogin] Mismatch detected:', user.telegram_id, '!==', streamer.telegram_id);
+        // Wrong user is logged in, clear the session to allow login as the correct streamer// console.log('[StreamerLogin] Mismatch detected:', user.telegram_id, '!==', streamer.telegram_id);
         logout();
       }
     }
@@ -109,7 +106,7 @@ export default function StreamerLogin() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600">Loadingâ€¦</div>
+        <div className="text-gray-600">Loading…</div>
       </div>
     );
   }
