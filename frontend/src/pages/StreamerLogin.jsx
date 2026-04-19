@@ -128,27 +128,28 @@ export default function StreamerLogin() {
   const displayName = streamer.full_name || (streamer.username ? `@${streamer.username}` : 'Streamer');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen streamer-bg-light dark:streamer-bg-dark flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="floating-element absolute -top-40 -right-40 w-80 h-80 bg-blue-200 dark:bg-blue-900 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-xl opacity-30"></div>
-        <div className="floating-element-delayed absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-xl opacity-30"></div>
+        <div className="floating-element absolute -top-40 -right-40 w-96 h-96 bg-blue-300/30 dark:bg-blue-600/10 rounded-full filter blur-3xl"></div>
+        <div className="floating-element-delayed absolute -bottom-40 -left-40 w-96 h-96 bg-purple-300/30 dark:bg-purple-600/10 rounded-full filter blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-200/20 dark:bg-indigo-900/10 rounded-full filter blur-3xl"></div>
       </div>
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo/Brand area */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-2xl shadow-lg shadow-purple-500/25 mb-4">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Welcome Back</h1>
-          <p className="text-gray-600 dark:text-gray-300 font-medium">{displayName}</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">Welcome Back</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">{displayName}</p>
         </div>
 
         {/* Main card */}
-        <div className="glass-card rounded-2xl shadow-2xl p-8 space-y-6">
+        <div className="streamer-card streamer-glow-blue rounded-2xl shadow-2xl p-8 space-y-6">
           {error && (
             <div className="p-4 bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-200 flex items-center gap-3">
               <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -204,7 +205,7 @@ export default function StreamerLogin() {
               <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">Then enter your code</span>
+              <span className="px-4 bg-white/70 dark:bg-gray-900/60 text-gray-400 dark:text-gray-500 text-xs font-semibold uppercase tracking-wider">Then enter your code</span>
             </div>
           </div>
 

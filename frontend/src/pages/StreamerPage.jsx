@@ -1538,8 +1538,8 @@ export default function StreamerPage() {
   };
 
   const themeClasses = darkMode
-    ? "min-h-screen gradient-dark text-gray-100"
-    : "min-h-screen gradient-light text-gray-900";
+    ? "min-h-screen streamer-bg-dark text-gray-100"
+    : "min-h-screen streamer-bg-light text-gray-900";
   const cardBg = darkMode ? "card-dark" : "card-light";
   const connectionStatusLabelMap = {
     connected: 'Live Connection',
@@ -1598,15 +1598,18 @@ export default function StreamerPage() {
         message="Please enter your secret API Key to connect to your dashboard. You can find this key in the registration message from the Telegram bot."
       />
       <header className="mb-6">
-        <div className={`card shadow-xl overflow-hidden ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className={`streamer-card streamer-glow-blue overflow-hidden`}>
           
           {/* Zone 1: Brand & System Header */}
-          <div className={`px-4 py-3 flex items-center justify-between border-b ${darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
+          <div className={`px-4 py-3 flex items-center justify-between border-b ${darkMode ? 'border-white/[0.06] bg-black/20' : 'border-gray-100 bg-gray-50/60'}`}>
             {/* Left: Brand */}
             <div className="flex items-center gap-3">
-              <img src="/image/habesha-logo.png" alt="Habesha TTS" className="w-8 h-8 object-contain" />
+              <div className="relative w-9 h-9">
+                <div className="absolute inset-0 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-xl opacity-20 blur-sm"></div>
+                <img src="/image/habesha-logo.png" alt="Habesha TTS" className="relative w-full h-full object-contain" />
+              </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-none">
+                <h1 className="text-base font-bold text-gray-900 dark:text-white leading-none tracking-tight">
                   Habesha TTS
                 </h1>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wide uppercase mt-0.5">
@@ -1620,13 +1623,13 @@ export default function StreamerPage() {
               <ThemeToggle isDarkMode={darkMode} toggleDarkMode={setDarkMode} />
               {usingSession && (
                 <>
-                  <div className="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+                  <div className="w-px h-4 bg-gray-200 dark:bg-white/10"></div>
                   <button
                     onClick={async () => {
                       try { await logout(); } catch { }
                       navigate(`/streamer/${uuid}/login`);
                     }}
-                    className="px-3 py-1 rounded-md border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-xs font-semibold"
+                    className="px-3 py-1.5 rounded-lg border border-red-200/60 dark:border-red-900/40 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-xs font-semibold"
                   >
                     Logout
                   </button>
@@ -1636,8 +1639,8 @@ export default function StreamerPage() {
           </div>
 
           {/* Zone 1.5: Connection Status Strip */}
-          <div className={`px-4 py-1.5 flex items-center gap-3 text-xs border-b ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}`}>
-            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-medium ${connectionBadgeClass}`}>
+          <div className={`px-4 py-2 flex items-center gap-3 text-xs border-b ${darkMode ? 'border-white/[0.06] bg-black/10' : 'border-gray-100 bg-white/40'}`}>
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-[11px] ${connectionBadgeClass}`}>
               <span className="text-[10px]">🛰️</span>
               {connectionStatusLabel}
               {connectionAttempts > 0 && connectionStatus !== 'connected' ? (
@@ -1652,7 +1655,7 @@ export default function StreamerPage() {
           </div>
 
           {/* Zone 2: Main Control Deck (Middle) */}
-          <div className="p-4 sm:p-6">
+          <div className="p-5 sm:p-6">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               
               {/* Left: Identity & Balance */}
@@ -1661,30 +1664,30 @@ export default function StreamerPage() {
                   {/* Avatar */}
                   <div className="relative">
                     {streamerInfo.profile_picture_url ? (
-                      <img src={streamerInfo.profile_picture_url} alt="Profile" className="w-14 h-14 rounded-full object-cover ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-gray-800" />
+                      <img src={streamerInfo.profile_picture_url} alt="Profile" className="w-14 h-14 rounded-2xl object-cover ring-2 ring-offset-2 ring-blue-500/50 dark:ring-blue-400/30 dark:ring-offset-gray-900" />
                     ) : (
-                      <div className="w-14 h-14 rounded-full gradient-avatar-purple flex items-center justify-center text-white font-bold text-xl ring-2 ring-offset-2 ring-purple-500 dark:ring-offset-gray-800">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl ring-2 ring-offset-2 ring-purple-500/40 dark:ring-offset-gray-900 shadow-lg shadow-purple-500/20">
                         {(streamerInfo.username || 'S').charAt(0).toUpperCase()}
                       </div>
                     )}
-                    <div className="absolute -bottom-1 -right-1 bg-gray-900 text-white text-[10px] px-1.5 py-0.5 rounded-full border border-white dark:border-gray-800">
+                    <div className="absolute -bottom-1 -right-1 bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded-md border border-white/20 font-semibold tracking-wide uppercase">
                       Streamer
                     </div>
                   </div>
 
                   <div className="flex-1">
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight">
                       {streamerInfo.full_name || `@${streamerInfo.username}`}
                     </h1>
                     
-                    <div className="flex items-center gap-3 mt-1">
-                      <div className="flex items-baseline gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-lg">
+                    <div className="flex items-center gap-3 mt-2">
+                      <div className="flex items-baseline gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40">
                         <span className="text-sm">💰</span>
-                        <Balance value={streamerInfo.balance} showLabel={false} />
+                        <span className="text-emerald-700 dark:text-emerald-400 font-bold text-lg"><Balance value={streamerInfo.balance} showLabel={false} /></span>
                       </div>
                       <button
                         onClick={() => navigate(`/withdraw/${uuid}`)}
-                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg shadow-sm transition-all hover:shadow-md flex items-center gap-1.5 font-medium"
+                        className="text-xs bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-3.5 py-2 rounded-xl shadow-md shadow-emerald-500/20 transition-all hover:shadow-lg hover:shadow-emerald-500/25 flex items-center gap-1.5 font-semibold"
                       >
                         <span>💸</span> Withdraw
                       </button>
@@ -1695,15 +1698,15 @@ export default function StreamerPage() {
 
               {/* Right: Live Control */}
               {streamerInfo && (
-                <div className="flex flex-col items-end gap-2 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-gray-100 dark:border-gray-700">
+                <div className="flex flex-col items-end gap-2.5 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-gray-100/60 dark:border-white/[0.06]">
                   <button
                     type="button"
                     disabled={!apiClient || liveToggleLoading}
                     onClick={handleLiveToggle}
-                    className={`w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] ${
+                    className={`w-full md:w-auto flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-2xl font-bold shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] ${
                       isLive
-                        ? 'bg-white text-rose-600 border-2 border-rose-100 hover:border-rose-200 hover:bg-rose-50 dark:bg-gray-800 dark:text-rose-400 dark:border-rose-900/50 dark:hover:bg-rose-900/20'
-                        : 'gradient-primary text-white hover:shadow-blue-500/25'
+                        ? 'bg-white text-rose-600 border-2 border-rose-100 hover:border-rose-200 hover:bg-rose-50 dark:bg-gray-800/80 dark:text-rose-400 dark:border-rose-900/50 dark:hover:bg-rose-900/20 streamer-glow-live'
+                        : 'bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-600 text-white hover:shadow-xl hover:shadow-purple-500/25'
                     } ${(!apiClient || liveToggleLoading) ? 'opacity-60 cursor-not-allowed' : ''}`}
                   >
                     {liveToggleLoading ? (
@@ -1734,7 +1737,7 @@ export default function StreamerPage() {
           </div>
 
           {/* Zone 3: Audio Toolbar (Bottom) */}
-          <div className={`px-4 py-3 border-t flex flex-wrap items-center justify-between gap-4 ${darkMode ? 'bg-gray-900/30 border-gray-700' : 'bg-gray-50/50 border-gray-100'}`}>
+          <div className={`px-4 py-3 border-t flex flex-wrap items-center justify-between gap-4 ${darkMode ? 'bg-black/15 border-white/[0.06]' : 'bg-gray-50/60 border-gray-100'}`}>
             
             {/* Audio Toggle */}
             <button
@@ -1806,9 +1809,9 @@ export default function StreamerPage() {
                       setVolume(newVolume);
                       localStorage.setItem('tts_volume', newVolume);
                     }}
-                    className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer dark:bg-gray-700/60 focus:outline-none focus:ring-2 focus:ring-blue-500/30 accent-blue-500"
                     style={{
-                      background: `linear-gradient(to right, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} 0%, ${volume === 0 ? '#9CA3AF' : volume <= 0.33 ? '#3B82F6' : volume <= 0.80 ? '#10B981' : '#AC3939'} ${volume * 100}%, #E5E7EB ${volume * 100}%, #E5E7EB 100%)`
+                      background: `linear-gradient(to right, ${volume === 0 ? '#6B7280' : volume <= 0.33 ? '#6366f1' : volume <= 0.80 ? '#10B981' : '#EF4444'} 0%, ${volume === 0 ? '#6B7280' : volume <= 0.33 ? '#6366f1' : volume <= 0.80 ? '#10B981' : '#EF4444'} ${volume * 100}%, ${darkMode ? '#374151' : '#E5E7EB'} ${volume * 100}%, ${darkMode ? '#374151' : '#E5E7EB'} 100%)`
                     }}
                   />
                   {/* Tooltip */}
@@ -1870,43 +1873,84 @@ export default function StreamerPage() {
         </div>
       )}
 
-      <div className={`${cardBg} p-3 sm:p-4 rounded-xl mb-4 sm:mb-6 shadow-xl border`}>
+      {/* Stats Section */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="streamer-card p-4 sm:p-5 group hover:shadow-lg transition-all duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:shadow-lg group-hover:shadow-emerald-500/25 transition-shadow">
+              <span className="text-white text-lg">💰</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Total Earned</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight truncate">
+                <Currency value={streamerInfo?.total_earned || streamerInfo?.balance || 0} />
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="streamer-card p-4 sm:p-5 group hover:shadow-lg transition-all duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:shadow-lg group-hover:shadow-blue-500/25 transition-shadow">
+              <span className="text-white text-lg">🎁</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Total Donations</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight">{pagination?.totalCount || 0}</p>
+            </div>
+          </div>
+        </div>
+        <div className="streamer-card p-4 sm:p-5 group hover:shadow-lg transition-all duration-200 col-span-2 sm:col-span-1">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-md shadow-purple-500/20 group-hover:shadow-lg group-hover:shadow-purple-500/25 transition-shadow">
+              <span className="text-white text-lg">🎵</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Queue</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight">{queue.length} <span className="text-sm font-normal text-gray-400 dark:text-gray-500">pending</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={`streamer-card p-4 sm:p-5 mb-4 sm:mb-6 ${currentPlaying ? 'ring-1 ring-emerald-500/30 dark:ring-emerald-400/20' : ''} transition-all duration-300`}>
         <div className="flex flex-col gap-3 sm:gap-4">
           {/* Queue Info and Playing Indicator - Horizontal Layout */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-2 sm:p-3 gradient-primary rounded-xl shadow-lg">
-                <span className="text-white text-lg sm:text-2xl">🎵</span>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/20">
+                <span className="text-white text-lg sm:text-xl">🎵</span>
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1">
+                <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1 tracking-tight">
                   Audio Queue
                 </h3>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm">
                   <div className="flex items-center gap-2">
                     <span className="badge badge-primary">{queue.length}</span>
-                    <span className="text-gray-600 dark:text-gray-300">
+                    <span className="text-gray-500 dark:text-gray-400">
                       pending donation{queue.length !== 1 ? "s" : ""}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="badge badge-gray">{pagination?.totalCount || 0}</span>
-                    <span className="text-gray-600 dark:text-gray-300">total</span>
+                    <span className="text-gray-500 dark:text-gray-400">total</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Now Playing Indicator - Aligned to the right on desktop, below on mobile */}
+            {/* Now Playing Indicator */}
             {currentPlaying && (
-              <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 gradient-success text-white rounded-xl shadow-lg animate-pulse">
-                <div className="relative">
-                  <span className="text-sm sm:text-lg animate-pulse">🔊</span>
-                  <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-white rounded-full animate-ping"></div>
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/25">
+                <div className="flex items-end gap-[3px] h-5">
+                  <span className="waveform-bar" style={{height: '4px'}}></span>
+                  <span className="waveform-bar" style={{height: '12px'}}></span>
+                  <span className="waveform-bar" style={{height: '8px'}}></span>
+                  <span className="waveform-bar" style={{height: '16px'}}></span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-xs sm:text-sm">Now Playing</p>
-                  <p className="text-xs opacity-90 truncate">Donation #{currentPlaying}</p>
+                  <p className="font-bold text-xs sm:text-sm">Now Playing</p>
+                  <p className="text-[11px] opacity-80 truncate">Donation #{currentPlaying}</p>
                 </div>
               </div>
             )}
@@ -1931,6 +1975,14 @@ export default function StreamerPage() {
         </div>
       </div>
 
+      {/* Section Label */}
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600">Recent Donations</p>
+        {donations.length > 0 && (
+          <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-600 font-medium">{donations.length} shown</p>
+        )}
+      </div>
+
       <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {loading && donations.length === 0 && (
           <div className="col-span-full flex justify-center p-8 sm:p-12">
@@ -1942,14 +1994,14 @@ export default function StreamerPage() {
           </div>
         )}
         {!loading && donations.length === 0 ? (
-          <div className={`${cardBg} p-6 sm:p-8 lg:p-12 rounded-xl text-center shadow-xl border col-span-full`}>
+          <div className="streamer-card p-6 sm:p-8 lg:p-12 text-center col-span-full">
             <div className="mb-4 sm:mb-6">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto gradient-primary rounded-full flex items-center justify-center shadow-lg">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20">
                 <span className="text-2xl sm:text-4xl">💰</span>
               </div>
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3">እስካሁን ምንም ልገሳ የለም።</h3>
-            <p className="text-sm sm:text-lg text-gray-600 dark:text-gray-300 mb-4 sm:mb-6 max-w-md mx-auto">
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 tracking-tight">እስካሁን ምንም ልገሳ የለም።</h3>
+            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 max-w-md mx-auto">
               ተመልካቾችዎ የቴሌግራም bot Link በማጋራት ልገሳ እንዲያደርጉ ያበረታቷቸው።
             </p>
             <div className="flex justify-center">
@@ -1984,12 +2036,15 @@ export default function StreamerPage() {
       )}
 
       <footer className="mt-8 sm:mt-12 lg:mt-16 text-center">
-        <div className="card p-4 sm:p-6 max-w-md mx-auto">
-          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-            <img src="/image/habesha-logo.png" alt="Habesha TTS" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
-            <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">Powered by Habesha TTS</span>
+        <div className="streamer-card p-4 sm:p-5 max-w-md mx-auto">
+          <div className="flex items-center justify-center gap-2.5 mb-2">
+            <div className="relative w-8 h-8 sm:w-9 sm:h-9">
+              <div className="absolute inset-0 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-lg opacity-15 blur-sm"></div>
+              <img src="/image/habesha-logo.png" alt="Habesha TTS" className="relative w-full h-full object-contain" />
+            </div>
+            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 text-sm sm:text-base">Powered by Habesha TTS</span>
           </div>
-          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+          <p className="text-xs text-gray-400 dark:text-gray-500">
             "ፈጣን ልገሳ በሀገረኛ መንገድ"
           </p>
         </div>
@@ -1997,22 +2052,26 @@ export default function StreamerPage() {
 
       {flagToasts.length > 0 && (
         <div
-          className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 w-72 pointer-events-none"
+          className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 w-72 sm:w-80"
           aria-live="assertive"
         >
           {flagToasts.map((toast) => (
             <div
               key={toast.id}
-              className={`pointer-events-auto rounded-xl border shadow-2xl px-4 py-3 flex items-start gap-3 text-sm font-medium ${toast.type === "success"
-                ? "bg-white dark:bg-slate-900 border-green-400/70 text-green-800 dark:text-green-200"
-                : "bg-white dark:bg-slate-900 border-red-400/70 text-red-800 dark:text-red-200"
+              className={`rounded-2xl border shadow-2xl px-4 py-3.5 flex items-start gap-3 text-sm font-medium animate-slide-in-right overflow-hidden relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl ${
+                toast.type === "success"
+                  ? "border-emerald-200/60 dark:border-emerald-800/40"
+                  : "border-red-200/60 dark:border-red-800/40"
               }`}
             >
-              <div className="text-lg leading-none">
+              <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                toast.type === "success" ? "bg-emerald-500" : "bg-red-500"
+              }`}></div>
+              <div className="text-lg leading-none pl-1">
                 {toast.type === "success" ? "✅" : "⚠️"}
               </div>
               <div className="flex-1">
-                <p className="leading-tight">{toast.message}</p>
+                <p className="leading-tight text-gray-900 dark:text-white">{toast.message}</p>
               </div>
             </div>
           ))}

@@ -78,20 +78,20 @@ export default function DonationCard({ donation, isPlaying = false, onFlagAction
 
   return (
     <div
-      className={`card hover:shadow-lg group transition-all duration-300 ${
+      className={`card group transition-all duration-300 ${
         isPlaying 
-          ? "ring-2 ring-success-500 ring-opacity-50 border-success-200 dark:border-success-800" 
-          : "hover-scale-102"
+          ? "ring-1 ring-emerald-500/40 dark:ring-emerald-400/30 shadow-lg shadow-emerald-500/10" 
+          : "hover:shadow-lg hover:shadow-gray-900/5 dark:hover:shadow-black/20 hover-scale-102"
       }`}
     >
-      <div className="p-3 sm:p-4 lg:p-6">
+      <div className="p-3 sm:p-4 lg:p-5">
         {/* Header with donor info and status */}
         <div className="flex items-start justify-between mb-3 sm:mb-4 gap-2">
           <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 min-w-0 flex-1">
-            <div className={`relative w-8 h-8 sm:w-10 sm:h-12 lg:w-12 lg:h-12 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shadow-lg transition-all duration-300 flex-shrink-0 ${
+            <div className={`relative w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center text-xs sm:text-sm font-bold shadow-md transition-all duration-300 flex-shrink-0 ${
               isPlaying 
-                ? "gradient-avatar-green text-white scale-110" 
-                : "gradient-avatar-blue text-white hover-scale-105"
+                ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white scale-105 shadow-emerald-500/25" 
+                : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white hover-scale-105 shadow-blue-500/15"
             }`}>
               {initials(donation.donor_name || "Donor")}
               {isPlaying && (

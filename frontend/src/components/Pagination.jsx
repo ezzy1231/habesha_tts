@@ -39,12 +39,12 @@ const Pagination = ({ pagination, onPageChange }) => {
 
     if (startPage > 1) {
       pageNumbers.push(
-        <button key={1} onClick={() => handlePageClick(1)} className="px-3 py-2 mx-1 text-sm rounded-lg transition-colors duration-200 hover:bg-blue-500 hover:text-white text-gray-700 dark:text-gray-300">
+        <button key={1} onClick={() => handlePageClick(1)} className="w-9 h-9 mx-0.5 text-sm rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30">
           1
         </button>
       );
       if (startPage > 2) {
-        pageNumbers.push(<span key="start-ellipsis" className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300">...</span>);
+        pageNumbers.push(<span key="start-ellipsis" className="px-1.5 py-2 text-sm text-gray-400 dark:text-gray-600">…</span>);
       }
     }
 
@@ -53,10 +53,10 @@ const Pagination = ({ pagination, onPageChange }) => {
         <button
           key={i}
           onClick={() => handlePageClick(i)}
-          className={`px-3 py-2 mx-1 text-sm rounded-lg transition-colors duration-200 ${
+          className={`w-9 h-9 mx-0.5 text-sm rounded-xl transition-all duration-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 ${
             currentPage === i 
-              ? 'bg-blue-500 text-white' 
-              : 'hover:bg-blue-500 hover:text-white text-gray-700 dark:text-gray-300'
+              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/25' 
+              : 'hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400'
           }`}
         >
           {i}
@@ -66,10 +66,10 @@ const Pagination = ({ pagination, onPageChange }) => {
 
     if (endPage < totalPages) {
       if (endPage < totalPages - 1) {
-        pageNumbers.push(<span key="end-ellipsis" className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300">...</span>);
+        pageNumbers.push(<span key="end-ellipsis" className="px-1.5 py-2 text-sm text-gray-400 dark:text-gray-600">…</span>);
       }
       pageNumbers.push(
-        <button key={totalPages} onClick={() => handlePageClick(totalPages)} className="px-3 py-2 mx-1 text-sm rounded-lg transition-colors duration-200 hover:bg-blue-500 hover:text-white text-gray-700 dark:text-gray-300">
+        <button key={totalPages} onClick={() => handlePageClick(totalPages)} className="w-9 h-9 mx-0.5 text-sm rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30">
           {totalPages}
         </button>
       );
@@ -79,24 +79,26 @@ const Pagination = ({ pagination, onPageChange }) => {
   };
 
   return (
-    <div className="flex justify-center items-center mt-8">
-      <button
-        onClick={() => handlePageClick(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="px-3 py-2 mx-1 rounded-lg transition-colors duration-200 hover:bg-blue-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
-      >
-        <span className="hidden sm:inline">&lt; Prev</span>
-        <span className="sm:hidden">&lt;</span>
-      </button>
-      {renderPageNumbers()}
-      <button
-        onClick={() => handlePageClick(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="px-3 py-2 mx-1 rounded-lg transition-colors duration-200 hover:bg-blue-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
-      >
-        <span className="hidden sm:inline">Next &gt;</span>
-        <span className="sm:hidden">&gt;</span>
-      </button>
+    <div className="flex justify-center items-center mt-6 sm:mt-8">
+      <div className="inline-flex items-center gap-1 px-2 py-1.5 rounded-2xl bg-white/70 dark:bg-gray-900/60 backdrop-blur-xl border border-gray-200/60 dark:border-white/[0.08] shadow-sm">
+        <button
+          onClick={() => handlePageClick(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1.5 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 dark:text-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+        >
+          <span className="hidden sm:inline">← Prev</span>
+          <span className="sm:hidden">←</span>
+        </button>
+        {renderPageNumbers()}
+        <button
+          onClick={() => handlePageClick(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1.5 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 dark:text-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+        >
+          <span className="hidden sm:inline">Next →</span>
+          <span className="sm:hidden">→</span>
+        </button>
+      </div>
     </div>
   );
 };
