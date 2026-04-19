@@ -1883,7 +1883,7 @@ export default function StreamerPage() {
             <div className="min-w-0">
               <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Total Earned</p>
               <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight truncate">
-                <Currency value={streamerInfo?.total_earned || streamerInfo?.balance || 0} />
+                Br {Number(streamerInfo?.total_earned || streamerInfo?.balance || 0).toFixed(2)}
               </p>
             </div>
           </div>
