@@ -5,13 +5,13 @@
 
 /* Custom Components */
 @layer components {
-  /* Card Component */
+  /* Card Component — enterprise glass morphism */
   .card {
-    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm transition-all duration-300;
+    @apply bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/60 dark:border-gray-700/60 rounded-2xl shadow-sm transition-all duration-300;
   }
   
   .card:hover {
-    @apply shadow-md;
+    @apply shadow-lg shadow-gray-200/50 dark:shadow-gray-900/50;
   }
 
   /* Button Component */
@@ -153,21 +153,29 @@
     @apply bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300;
   }
 
-  /* Table Component */
+  /* Table Component — enterprise data grid */
   .table {
     @apply w-full border-collapse text-xs;
   }
 
   .table th {
-    @apply text-left font-semibold text-gray-700 dark:text-gray-300 p-2 border-b border-gray-200 dark:border-gray-700;
+    @apply text-left font-semibold text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400 p-3 bg-gray-50/80 dark:bg-gray-800/50 border-b border-gray-200/80 dark:border-gray-700/80 first:rounded-tl-xl last:rounded-tr-xl;
   }
 
   .table td {
-    @apply p-2 border-b border-gray-100 dark:border-gray-800;
+    @apply p-3 border-b border-gray-100/80 dark:border-gray-800/80 text-gray-700 dark:text-gray-300;
+  }
+
+  .table tbody tr {
+    @apply transition-colors duration-150;
   }
 
   .table tbody tr:hover {
-    @apply bg-gray-50 dark:bg-gray-700/50;
+    @apply bg-primary-50/50 dark:bg-primary-900/10;
+  }
+
+  .table tbody tr:nth-child(even) {
+    @apply bg-gray-50/30 dark:bg-gray-800/20;
   }
 
   /* Loading States */
@@ -179,7 +187,7 @@
   @keyframes fade-in {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(8px);
     }
     to {
       opacity: 1;
@@ -188,13 +196,13 @@
   }
 
   .animate-fade-in {
-    animation: fade-in 0.5s ease-out forwards;
+    animation: fade-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
 
   @keyframes fade-in-stagger {
     from {
       opacity: 0;
-      transform: translateY(10px) scale(0.95);
+      transform: translateY(10px) scale(0.97);
     }
     to {
       opacity: 1;
@@ -203,7 +211,35 @@
   }
 
   .animate-fade-in-stagger {
-    animation: fade-in-stagger 0.4s ease-out forwards;
+    animation: fade-in-stagger 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* Slide-in from right for toasts */
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* Shimmer effect for loading */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.08) 50%, transparent 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
   }
 
   .loading-spinner-lg {

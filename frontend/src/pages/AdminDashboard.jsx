@@ -25,13 +25,15 @@ Currency.propTypes = { value: PropTypes.oneOfType([PropTypes.string, PropTypes.n
 
 function StatCard({ title, value, subtitle, icon, iconClassName, chartData, chartColor }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow relative overflow-hidden">
+    <div className="group bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-gray-200/60 dark:border-gray-700/60 hover:shadow-xl hover:shadow-gray-200/40 dark:hover:shadow-gray-900/40 hover:border-gray-300/60 dark:hover:border-gray-600/60 transition-all duration-300 relative overflow-hidden">
+      {/* Subtle gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent dark:from-gray-700/20 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
       <div className="flex items-center justify-between mb-4 relative z-10">
-        <div className={`p-3 rounded-xl bg-opacity-10 dark:bg-opacity-20 ${iconClassName || 'bg-primary-500 text-primary-500'}`}>
+        <div className={`p-3 rounded-2xl bg-opacity-10 dark:bg-opacity-20 ring-1 ring-inset ring-black/5 dark:ring-white/10 ${iconClassName || 'bg-primary-500 text-primary-500'}`}>
           <span className="text-xl">{icon || '📊'}</span>
         </div>
         {chartData && chartData.length > 0 && (
-           <div className="h-12 w-24 min-w-[6rem]">
+           <div className="h-12 w-24 min-w-[6rem] opacity-60 group-hover:opacity-100 transition-opacity">
              <ResponsiveContainer width="100%" height="100%">
                <AreaChart data={chartData}>
                  <defs>
@@ -47,9 +49,9 @@ function StatCard({ title, value, subtitle, icon, iconClassName, chartData, char
         )}
       </div>
       <div className="relative z-10">
-        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{value}</h3>
-        {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{title}</p>
+        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{value}</h3>
+        {subtitle && <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 font-medium">{subtitle}</p>}
       </div>
     </div>
   );
@@ -130,10 +132,13 @@ function Overview({ apiClient, refreshKey }) {
       </div>
 
       {/* Revenue Trends Chart */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-gray-200/60 dark:border-gray-700/60">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Revenue Trends</h3>
-          <span className="text-sm text-gray-500 dark:text-gray-400">Last 30 Days</span>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Revenue Trends</h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Platform earnings over time</p>
+          </div>
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg">Last 30 Days</span>
         </div>
         <div className="h-80 w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -179,10 +184,10 @@ function Overview({ apiClient, refreshKey }) {
       {/* Top Lists */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Top Streamers */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-gray-200/60 dark:border-gray-700/60">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Streamers</h3>
-            <span className="text-purple-500 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-full text-xs font-medium">By Revenue</span>
+            <span className="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1.5 rounded-lg text-xs font-semiboldg text-xs font-semibold">By Revenue</span>
           </div>
           <div className="space-y-4">
             {(data.topStreamers || []).map((s, idx) => (
@@ -216,10 +221,10 @@ function Overview({ apiClient, refreshKey }) {
         </div>
 
         {/* Top Donors */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-gray-200/60 dark:border-gray-700/60">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Donors</h3>
-            <span className="text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full text-xs font-medium">By Contribution</span>
+            <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg text-xs font-semiboldtext-xs font-semibold">By Contribution</span>
           </div>
           <div className="space-y-4">
             {(data.topDonors || []).map((d, idx) => (
@@ -369,11 +374,11 @@ function Streamers({ apiClient, refreshKey }) {
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Streamers Management</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Drag and drop to reorder streamers on the public page.</p>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Streamers Management</h3>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Drag and drop to reorder streamers on the public page.</p>
           </div>
           <button 
             onClick={handleSaveOrder} 
@@ -688,10 +693,10 @@ function Donors({ apiClient, refreshKey, search }) {
   if (error) return <div className="text-red-600">{error}</div>;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Donors Management</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage donor information and display names</p>
+    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden animate-fade-in-stagger">
+      <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Donors Management</h3>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Manage donor information and display names</p>
       </div>
 
       {/* Mobile Card View */}
@@ -1087,10 +1092,10 @@ function Donations({ apiClient, refreshKey }) {
   if (error) return <div className="text-red-600">{error}</div>;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recent Donations</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View all donation transactions</p>
+    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden animate-fade-in-stagger">
+      <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Recent Donations</h3>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">View all donation transactions</p>
       </div>
 
       {/* Mobile Card View */}
@@ -1442,12 +1447,12 @@ function Recharges({ apiClient }) {
           </div>
         </div>
       )}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recharge Requests</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage donor wallet top-ups</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Recharge Requests</h3>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Manage donor wallet top-ups</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
@@ -1707,12 +1712,12 @@ function Withdrawals({ apiClient }) {
         confirmButtonClass={confirmModal.action === 'reject' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Withdrawal Requests</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage streamer payout requests</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Withdrawal Requests</h3>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Manage streamer payout requests</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
@@ -1951,12 +1956,12 @@ function StreamerRequests({ apiClient }) {
         confirmButtonClass={confirmModal.action === 'reject' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Streamer Requests</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Review new streamer applications</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Streamer Requests</h3>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Review new streamer applications</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
@@ -2568,42 +2573,53 @@ export default function AdminDashboard() {
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
-          <aside className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col z-50">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
+          <aside className="fixed inset-y-0 left-0 w-[280px] bg-white/95 dark:bg-gray-900/98 backdrop-blur-xl shadow-2xl shadow-black/20 transform transition-transform duration-300 ease-in-out flex flex-col z-50">
              {/* Logo */}
-             <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100 dark:border-gray-700/50">
+             <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100/80 dark:border-gray-800">
                 <div className="flex items-center gap-3">
-                   <div className="relative w-8 h-8">
-                      <div className="absolute inset-0 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-lg opacity-20 blur-sm"></div>
+                   <div className="relative w-9 h-9">
+                      <div className="absolute inset-0 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-xl opacity-20 blur-sm"></div>
                       <img src="/image/habesha-logo.png" alt="Logo" className="relative w-full h-full object-contain" />
                    </div>
-                   <span className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">HabeshaTTS</span>
+                   <div>
+                     <span className="text-base font-bold text-gray-900 dark:text-white tracking-tight">HabeshaTTS</span>
+                     <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600 -mt-0.5">Admin Console</p>
+                   </div>
                 </div>
-                <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
              </div>
              
+             {/* Section Label */}
+             <div className="px-6 pt-6 pb-2">
+               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600">Navigation</p>
+             </div>
+
              {/* Nav Items */}
-             <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
+             <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5 custom-scrollbar">
                {NAV_ITEMS.map((item) => (
                  <button
                    key={item.id}
                    onClick={() => { setTab(item.id); setIsMobileMenuOpen(false); }}
-                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
                      tab === item.id
-                       ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30'
-                       : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                       ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
+                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-white'
                    }`}
                  >
+                   {tab === item.id && (
+                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white/30 rounded-r-full"></div>
+                   )}
                    <div className="flex items-center gap-3">
                      <span className={`transition-colors ${tab === item.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
                        {item.icon}
                      </span>
-                     <span className="font-medium text-sm">{item.label}</span>
+                     <span className="font-medium text-[13px]">{item.label}</span>
                    </div>
                    {item.count > 0 && (
-                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                     <span className={`text-[10px] font-bold min-w-[20px] text-center px-1.5 py-0.5 rounded-md ${
                        tab === item.id ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                      }`}>
                        {item.count}
@@ -2614,15 +2630,16 @@ export default function AdminDashboard() {
              </nav>
 
              {/* User Profile */}
-             <div className="p-4 border-t border-gray-100 dark:border-gray-700/50">
-               <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
-                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white font-bold shadow-md">
+             <div className="p-3 border-t border-gray-100/80 dark:border-gray-800">
+               <div className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-800/50 border border-gray-100/80 dark:border-gray-700/50">
+                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-md shadow-primary-500/20">
                    A
                  </div>
                  <div className="flex-1 min-w-0">
-                   <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">Admin User</p>
-                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">admin@habeshatts.com</p>
+                   <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">Admin</p>
+                   <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate font-medium">Super Administrator</p>
                  </div>
+                 <div className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20 flex-shrink-0"></div>
                </div>
              </div>
           </aside>
@@ -2630,36 +2647,47 @@ export default function AdminDashboard() {
       )}
 
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-20">
+      <aside className="hidden md:flex flex-col w-[260px] bg-white/80 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/60 dark:border-gray-800 z-20">
         {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-gray-100 dark:border-gray-700/50">
-          <div className="relative w-8 h-8">
-             <div className="absolute inset-0 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-lg opacity-20 blur-sm"></div>
+        <div className="h-16 flex items-center gap-3 px-6 border-b border-gray-100/80 dark:border-gray-800">
+          <div className="relative w-9 h-9">
+             <div className="absolute inset-0 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-xl opacity-20 blur-sm"></div>
              <img src="/image/habesha-logo.png" alt="Logo" className="relative w-full h-full object-contain" />
           </div>
-          <span className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">HabeshaTTS</span>
+          <div>
+            <span className="text-base font-bold text-gray-900 dark:text-white tracking-tight">HabeshaTTS</span>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600 -mt-0.5">Admin Console</p>
+          </div>
+        </div>
+
+        {/* Section Label */}
+        <div className="px-6 pt-6 pb-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600">Navigation</p>
         </div>
 
         {/* Nav Items */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
+        <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5 custom-scrollbar">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
               onClick={() => setTab(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
                 tab === item.id
-                  ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
+              {tab === item.id && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white/30 rounded-r-full"></div>
+              )}
               <div className="flex items-center gap-3">
                 <span className={`transition-colors ${tab === item.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
                   {item.icon}
                 </span>
-                <span className="font-medium text-sm">{item.label}</span>
+                <span className="font-medium text-[13px]">{item.label}</span>
               </div>
               {item.count > 0 && (
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                <span className={`text-[10px] font-bold min-w-[20px] text-center px-1.5 py-0.5 rounded-md ${
                   tab === item.id ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                 }`}>
                   {item.count}
@@ -2670,62 +2698,66 @@ export default function AdminDashboard() {
         </nav>
 
         {/* User Profile (Bottom Sidebar) */}
-        <div className="p-4 border-t border-gray-100 dark:border-gray-700/50">
-          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white font-bold shadow-md">
+        <div className="p-3 border-t border-gray-100/80 dark:border-gray-800">
+          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-800/50 border border-gray-100/80 dark:border-gray-700/50">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-md shadow-primary-500/20">
               A
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">Admin User</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">admin@habeshatts.com</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">Admin</p>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate font-medium">Super Administrator</p>
             </div>
+            <div className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20 flex-shrink-0"></div>
           </div>
         </div>
       </aside>
 
       {/* Main Content Wrapper */}
-      <div className="flex-1 flex flex-col min-w-0 bg-gray-50 dark:bg-gray-900">
+      <div className="flex-1 flex flex-col min-w-0 bg-gray-50/50 dark:bg-gray-950">
         {/* Header */}
-        <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-10">
+        <header className="h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-gray-800 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-10">
           {/* Mobile Menu Button */}
           <button 
             onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden p-2 -ml-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            className="md:hidden p-2 -ml-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 rounded-xl transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
 
           {/* Search Bar */}
-          <div className="flex-1 max-w-xl px-4 hidden md:block">
+          <div className="flex-1 max-w-md px-4 hidden md:block">
             <div className="relative group">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400 group-focus-within:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <svg className="h-4 w-4 text-gray-400 group-focus-within:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
               </span>
               <input
                 type="text"
-                placeholder="Global Search..."
+                placeholder="Search donors, streamers..."
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl leading-5 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all sm:text-sm"
+                className="block w-full pl-10 pr-4 py-2 border border-gray-200/60 dark:border-gray-700/60 rounded-xl leading-5 bg-gray-50/80 dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white dark:focus:bg-gray-800 transition-all text-[13px]"
               />
             </div>
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={toggleNotificationMute}
-              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative"
+              className="p-2.5 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors relative"
               title={notificationsMuted ? 'Unmute notifications' : 'Mute notifications'}
             >
               {notificationsMuted ? (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
               ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+              )}
+              {!notificationsMuted && (
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
               )}
             </button>
             
-            <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+            <div className="h-6 w-px bg-gray-200/60 dark:bg-gray-700/60 mx-1"></div>
             
             <ThemeToggle isDarkMode={darkMode} toggleDarkMode={toggleDarkMode} />
           </div>
@@ -2734,12 +2766,14 @@ export default function AdminDashboard() {
         {/* Scrollable Content */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scroll-smooth">
           <div className="max-w-7xl mx-auto space-y-6">
-            {/* Page Title (Optional, based on tab) */}
+            {/* Page Title */}
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {NAV_ITEMS.find(i => i.id === tab)?.label}
-              </h2>
-              {/* Breadcrumbs or Actions could go here */}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+                  {NAV_ITEMS.find(i => i.id === tab)?.label}
+                </h2>
+                <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">Manage and monitor your platform</p>
+              </div>
             </div>
 
             {/* Content */}
@@ -2771,31 +2805,37 @@ export default function AdminDashboard() {
           {toasts.map((toast) => (
             <div
               key={toast.id}
-              className="bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 rounded-xl p-4 w-72 sm:w-80 animate-fade-in"
-              style={{ boxShadow: '0 12px 25px -12px rgba(15, 23, 42, 0.35)' }}
+              className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-4 w-72 sm:w-80 animate-slide-in-right overflow-hidden relative"
             >
-              <div className="flex items-start gap-3">
-                <div className="text-2xl leading-none">
+              {/* Accent color bar */}
+              <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                toast.type === 'error' ? 'bg-red-500' :
+                toast.type === 'warning' ? 'bg-amber-500' :
+                toast.type === 'success' ? 'bg-emerald-500' :
+                'bg-primary-500'
+              }`}></div>
+              <div className="flex items-start gap-3 pl-2">
+                <div className="text-xl leading-none mt-0.5 flex-shrink-0">
                   {toast.icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                  <p className="text-[13px] font-bold text-gray-900 dark:text-white truncate tracking-tight">
                     {toast.title}
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-snug">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
                     {toast.description}
                   </p>
-                  <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mt-3">
+                  <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-300 dark:text-gray-600 mt-2.5">
                     {toast.timestamp ? 'Updated just now' : 'Live update'}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => removeToast(toast.id)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                  className="text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
                   aria-label="Dismiss notification"
                 >
-                  ✕
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
             </div>
