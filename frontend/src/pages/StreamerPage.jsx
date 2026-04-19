@@ -1874,20 +1874,7 @@ export default function StreamerPage() {
       )}
 
       {/* Stats Section */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div className="streamer-card p-4 sm:p-5 group hover:shadow-lg transition-all duration-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:shadow-lg group-hover:shadow-emerald-500/25 transition-shadow">
-              <span className="text-white text-lg">💰</span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Total Earned</p>
-              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight truncate">
-                Br {Number(streamerInfo?.total_earned || streamerInfo?.balance || 0).toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div className="streamer-card p-4 sm:p-5 group hover:shadow-lg transition-all duration-200">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:shadow-lg group-hover:shadow-blue-500/25 transition-shadow">
@@ -1899,7 +1886,7 @@ export default function StreamerPage() {
             </div>
           </div>
         </div>
-        <div className="streamer-card p-4 sm:p-5 group hover:shadow-lg transition-all duration-200 col-span-2 sm:col-span-1">
+        <div className="streamer-card p-4 sm:p-5 group hover:shadow-lg transition-all duration-200">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-md shadow-purple-500/20 group-hover:shadow-lg group-hover:shadow-purple-500/25 transition-shadow">
               <span className="text-white text-lg">🎵</span>
