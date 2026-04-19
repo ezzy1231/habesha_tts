@@ -3,8 +3,11 @@ import axios from 'axios';
 import fs from 'fs/promises';
 import path from 'path';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
+import { Storage } from '@google-cloud/storage';
 
 const ttsClient = new TextToSpeechClient();
+const storage = new Storage();
+const GCS_BUCKET = process.env.GCS_AUDIO_BUCKET || 'habeshatts-audio';
 let voiceCache = null;
 
 // Custom error for content moderation failures
@@ -74,13 +77,33 @@ export async function getAvailableVoices() {
 
 
 // --------------------
+// GCS Upload Helper
+// --------------------
+async function uploadToGCS(localPath, fileName) {
+  const bucket = storage.bucket(GCS_BUCKET);
+  await bucket.upload(localPath, {
+    destination: `audios/${fileName}`,
+    metadata: { contentType: 'audio/mpeg', cacheControl: 'public, max-age=86400' },
+  });
+  // Clean up local file
+  await fs.unlink(localPath).catch(() => {});
+  return `https://storage.googleapis.com/${GCS_BUCKET}/audios/${fileName}`;
+}
+
+
+// --------------------
 // Cloud TTS (Standard)
 // --------------------
 async function getCloudClient() {
-  const auth = new GoogleAuth({
-    keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  const authOptions = {
     scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-  });
+  };
+
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    authOptions.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  }
+
+  const auth = new GoogleAuth(authOptions);
   return await auth.getClient();
 }
 
@@ -108,7 +131,7 @@ async function generateCloudTTS(donationId, text, voice = 'am-ET-Wavenet-A') {
   const fileName = `donation_${donationId}_cloud.mp3`;
   const filePath = path.join(outputDir, fileName);
   await fs.writeFile(filePath, response.data.audioContent, 'base64');
-  return fileName;
+  return await uploadToGCS(filePath, fileName);
 }
 
 // --------------------
@@ -139,7 +162,7 @@ async function generateGeminiTTS(donationId, text, prompt, voice) {
     const [response] = await ttsClient.synthesizeSpeech(request);
     await fs.writeFile(filePath, response.audioContent, 'binary');
     console.log(`✅ Audio content written to file: ${fileName}`);
-    return fileName;
+    return await uploadToGCS(filePath, fileName);
   } catch (error) {
     console.error('ERROR during Gemini speech synthesis:', error);
     if (error.code === 3) { // 3 = INVALID_ARGUMENT

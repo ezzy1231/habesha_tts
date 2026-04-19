@@ -149,8 +149,14 @@ export default function StreamerPage() {
     }
     return audioContextRef.current;
   }, []);
-  // Helper to build donation audio URL
+  // Helper to build donation audio URL (supports both GCS URLs and legacy filenames)
   const getDonationUrl = useCallback((filename) => {
+    if (!filename) return '';
+    // If it's already a full URL (GCS), use it directly
+    if (filename.startsWith('http://') || filename.startsWith('https://')) {
+      return filename;
+    }
+    // Legacy: prepend backend base URL for old local-file entries
     const baseUrl = SOCKET_URL;
     return `${baseUrl}/public/audios/${encodeURIComponent(filename)}`;
   }, []);
