@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+﻿import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import io from "socket.io-client";
@@ -231,7 +231,7 @@ export default function StreamerPage() {
           audioBufferCacheRef.current.delete(firstKey);
         }
       } catch (e) {
-        console.warn('[preload] Failed to preload audio:', e?.message || e);
+        // console.warn('[preload] Failed to preload audio:', e?.message || e);
       }
     };
     preloadNext();
@@ -248,10 +248,10 @@ export default function StreamerPage() {
       });
     }
     if (!apiKey) {
-      console.log("[apiClient] API Key is null, apiClient not created.");
+      // console.log("[apiClient] API Key is null, apiClient not created.");
       return null;
     }
-    console.log("[apiClient] Creating apiClient with API Key (first 5 chars):", apiKey.substring(0, 5));
+    // console.log("[apiClient] Creating apiClient with API Key (first 5 chars):", apiKey.substring(0, 5));
     return axios.create({
       baseURL: import.meta.env.VITE_API_URL,
       headers: {
@@ -268,10 +268,10 @@ export default function StreamerPage() {
     }
     const key = localStorage.getItem(`apiKey_${uuid}`);
     if (key) {
-      console.log("[API Key Load] Found API Key in local storage (first 5 chars):", key.substring(0, 5));
+      // console.log("[API Key Load] Found API Key in local storage (first 5 chars):", key.substring(0, 5));
       setApiKey(key);
     } else {
-      console.log("[API Key Load] No API Key found in local storage, opening modal.");
+      // console.log("[API Key Load] No API Key found in local storage, opening modal.");
       setIsModalOpen(true);
     }
   }, [uuid, usingSession]);
@@ -342,17 +342,17 @@ export default function StreamerPage() {
               source.start(0);
               source.stop(ctx.currentTime + 0.001);
             } catch (silentErr) {
-              console.warn('Audio unlock pulse failed:', silentErr?.message || silentErr);
+              // console.warn('Audio unlock pulse failed:', silentErr?.message || silentErr);
             }
             finalize();
           })
           .catch((err) => {
             audioUnlockedRef.current = false;
-            console.warn('Audio context resume blocked:', err?.message || err);
+            // console.warn('Audio context resume blocked:', err?.message || err);
           });
       } catch (err) {
         audioUnlockedRef.current = false;
-        console.warn('Audio context unlock error:', err?.message || err);
+        // console.warn('Audio context unlock error:', err?.message || err);
       }
     };
 
@@ -585,10 +585,10 @@ export default function StreamerPage() {
     });
   }, []);
 
-  // ✅ Fetch streamer info + donation history
+  // âœ… Fetch streamer info + donation history
   const fetchInitialData = useCallback(async (page = 1, { silent = false } = {}) => {
     if (!apiClient) return; // Don't fetch if the client isn't ready
-    console.log(`Fetching data for streamer ${uuid} page ${page}`);
+    // console.log(`Fetching data for streamer ${uuid} page ${page}`);
     try {
       if (!silent) {
         setLoading(true);
@@ -609,17 +609,17 @@ export default function StreamerPage() {
             : Number(rawStreamer.balance || 0),
         } : null;
         setStreamerInfo(normalizedStreamer);
-        console.log("[StreamerPage] Fetched streamer balance from API:", normalizedStreamer?.balance);
+        // console.log("[StreamerPage] Fetched streamer balance from API:", normalizedStreamer?.balance);
         newDonations = res.data.donations || [];
         newPagination = res.data.pagination;
-        console.log(`[fetchInitialData] Fetched donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
+        // console.log(`[fetchInitialData] Fetched donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
 
         const audioReady = newDonations.filter(
           (d) => d.status === "paid" && d.audio_url && !d.played
         );
         const orderedQueue = sortDonationsOldestFirst(audioReady);
         setQueue(orderedQueue);
-        console.log(`[StreamerPage] 📥 Loaded ${audioReady.length} unplayed donations to queue`);
+        // console.log(`[StreamerPage] ðŸ“¥ Loaded ${audioReady.length} unplayed donations to queue`);
 
       } else {
         // Pagination: Use protected endpoint appropriate for auth method
@@ -627,7 +627,7 @@ export default function StreamerPage() {
         const res = await apiClient.get(path);
         newDonations = res.data.donations || [];
         newPagination = res.data.pagination;
-        console.log(`[fetchInitialData] Fetched paginated donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
+        // console.log(`[fetchInitialData] Fetched paginated donations (page ${page}):`, newDonations.map(d => ({ id: d.id, played: d.played })));
       }
 
       if (page === 1) {
@@ -703,7 +703,7 @@ export default function StreamerPage() {
     };
   }, [apiClient, streamerInfo, usingSession, uuid, getFallbackSoundBySlug, localNotificationSoundSlug]);
 
-  // ✅ Mark a donation as played and persist it
+  // âœ… Mark a donation as played and persist it
   const markAsPlayed = useCallback(async (id) => {
     if (!apiClient) return;
     const cacheKey = getDonationCacheKey(id);
@@ -716,9 +716,9 @@ export default function StreamerPage() {
     try {
       const path = usingSession ? `/v1/streamer/${uuid}/donations/${id}/played` : `/streamer/${uuid}/donations/${id}/played`;
       await apiClient.post(path);
-      console.log("✅ Donation marked as played in DB:", id);
+      // console.log("âœ… Donation marked as played in DB:", id);
     } catch (error) {
-      console.error("❌ Error marking donation as played:", error.response?.status, error.response?.data, error);
+      console.error("âŒ Error marking donation as played:", error.response?.status, error.response?.data, error);
       // If API fails, revert the UI update
       setDonations(prev => prev.map(d => d.id === id ? { ...d, played: false } : d));
       playedDonationsRef.current.delete(cacheKey);
@@ -824,12 +824,12 @@ export default function StreamerPage() {
       const sentinel = await wakeLockApi.request('screen');
       wakeLockRef.current = sentinel;
       sentinel.addEventListener('release', () => {
-        console.log('[WakeLock] Screen lock released');
+        // console.log('[WakeLock] Screen lock released');
         wakeLockRef.current = null;
       }, { once: true });
-      console.log('[WakeLock] Screen lock acquired');
+      // console.log('[WakeLock] Screen lock acquired');
     } catch (err) {
-      console.warn('[WakeLock] Unable to acquire screen lock:', err?.message || err);
+      // console.warn('[WakeLock] Unable to acquire screen lock:', err?.message || err);
     }
   }, []);
 
@@ -838,7 +838,7 @@ export default function StreamerPage() {
     try {
       await wakeLockRef.current.release();
     } catch (err) {
-      console.warn('[WakeLock] Failed to release screen lock:', err?.message || err);
+      // console.warn('[WakeLock] Failed to release screen lock:', err?.message || err);
     } finally {
       wakeLockRef.current = null;
     }
@@ -890,11 +890,11 @@ export default function StreamerPage() {
     }, PLAYBACK_RETRY_DELAY_MS);
   }, [getDonationCacheKey, markAsPlayed]);
 
-  // ✅ Play next queued donation
+  // âœ… Play next queued donation
   const playNext = useCallback(() => {
-    console.log(`[playNext] Called. enabled: ${enabled}, playingRef.current: ${playingRef.current}, queue.length: ${queue.length}`);
+    // console.log(`[playNext] Called. enabled: ${enabled}, playingRef.current: ${playingRef.current}, queue.length: ${queue.length}`);
     if (!enabled || playingRef.current || queue.length === 0) {
-      console.log("[playNext] Conditions not met for playback.");
+      // console.log("[playNext] Conditions not met for playback.");
       return;
     }
 
@@ -918,9 +918,9 @@ export default function StreamerPage() {
     };
 
     const playDonation = async () => {
-      console.log(`[playDonation] Attempting to play donation ${nextDonation.id}. AudioContext state: ${audioContextRef.current?.state}`);
+      // console.log(`[playDonation] Attempting to play donation ${nextDonation.id}. AudioContext state: ${audioContextRef.current?.state}`);
       if (!audioContextRef.current) {
-        console.error("❌ [playDonation] AudioContext not initialized.");
+        console.error("âŒ [playDonation] AudioContext not initialized.");
         failAndRetry('audio_context_missing');
         return;
       }
@@ -928,12 +928,12 @@ export default function StreamerPage() {
       try {
         // Ensure context is running
         if (audioContextRef.current.state === 'suspended') {
-          console.log("[playDonation] AudioContext is suspended, attempting to resume...");
+          // console.log("[playDonation] AudioContext is suspended, attempting to resume...");
           try {
             await audioContextRef.current.resume();
-            console.log("[playDonation] AudioContext resumed successfully. State:", audioContextRef.current.state);
+            // console.log("[playDonation] AudioContext resumed successfully. State:", audioContextRef.current.state);
           } catch (e) {
-            console.error("❌ [playDonation] Failed to resume AudioContext for donation:", e.name, e.message, e);
+            console.error("âŒ [playDonation] Failed to resume AudioContext for donation:", e.name, e.message, e);
             failAndRetry('resume_failed');
             return;
           }
@@ -941,26 +941,26 @@ export default function StreamerPage() {
 
         let audioBuffer = audioBufferCacheRef.current.get(audioFilename);
         if (!audioBuffer) {
-          console.log(`[playDonation] Fetching donation audio from: ${donationUrl}`);
+          // console.log(`[playDonation] Fetching donation audio from: ${donationUrl}`);
           const response = await fetch(donationUrl);
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          console.log("[playDonation] Audio fetched, decoding...");
+          // console.log("[playDonation] Audio fetched, decoding...");
           const arrayBuffer = await response.arrayBuffer();
           audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
           audioBufferCacheRef.current.set(audioFilename, audioBuffer);
         } else {
-          console.log('[playDonation] Using preloaded audio buffer');
+          // console.log('[playDonation] Using preloaded audio buffer');
         }
-        console.log("[playDonation] Audio decoded.");
+        // console.log("[playDonation] Audio decoded.");
 
         const source = audioContextRef.current.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(gainNodeRef.current);
 
         source.onended = () => {
-          console.log("✅ [playDonation] Finished donation (Web Audio):", nextDonation.id);
+          // console.log("âœ… [playDonation] Finished donation (Web Audio):", nextDonation.id);
           playingRef.current = false;
           setCurrentPlaying(null);
           markAsPlayed(nextDonation.id);
@@ -974,13 +974,13 @@ export default function StreamerPage() {
           clearPlaybackFailure(nextDonation.id);
         };
 
-        console.log("🔊 [playDonation] Playing donation (Web Audio):", donationUrl);
+        // console.log("ðŸ”Š [playDonation] Playing donation (Web Audio):", donationUrl);
         source.start(0);
         audioRef.current = source; // Store the source node for potential stopping
 
         // Fallback: mark as played after audio duration + 1 second in case onended doesn't fire
         currentTimeoutRef.current = setTimeout(() => {
-          console.log("[playDonation] Fallback: Marking as played after timeout.");
+          // console.log("[playDonation] Fallback: Marking as played after timeout.");
           playingRef.current = false;
           setCurrentPlaying(null);
           markAsPlayed(nextDonation.id);
@@ -989,9 +989,9 @@ export default function StreamerPage() {
           clearPlaybackFailure(nextDonation.id);
         }, (audioBuffer.duration * 1000) + 1000);
       } catch (err) {
-        console.error("❌ [playDonation] Donation audio error (Web Audio):", err.name, err.message, err);
+        console.error("âŒ [playDonation] Donation audio error (Web Audio):", err.name, err.message, err);
         if (err.name === 'NotAllowedError') {
-          console.log("🔇 [playDonation] Autoplay blocked. User needs to interact with page first.");
+          // console.log("ðŸ”‡ [playDonation] Autoplay blocked. User needs to interact with page first.");
           failAndRetry('autoplay_blocked');
           return;
         }
@@ -1000,9 +1000,9 @@ export default function StreamerPage() {
     };
 
     const playNotificationThenDonation = async () => {
-      console.log(`[playNotificationThenDonation] Attempting to play notification. AudioContext state: ${audioContextRef.current?.state}`);
+      // console.log(`[playNotificationThenDonation] Attempting to play notification. AudioContext state: ${audioContextRef.current?.state}`);
       if (!audioContextRef.current) {
-        console.error("❌ [playNotificationThenDonation] AudioContext not initialized for notification.");
+        console.error("âŒ [playNotificationThenDonation] AudioContext not initialized for notification.");
         playDonation(); // Skip notification, try to play donation directly
         return;
       }
@@ -1010,12 +1010,12 @@ export default function StreamerPage() {
       try {
         // Ensure context is running
         if (audioContextRef.current.state === 'suspended') {
-          console.log("[playNotificationThenDonation] AudioContext is suspended, attempting to resume...");
+          // console.log("[playNotificationThenDonation] AudioContext is suspended, attempting to resume...");
           try {
             await audioContextRef.current.resume();
-            console.log("[playNotificationThenDonation] AudioContext resumed successfully. State:", audioContextRef.current.state);
+            // console.log("[playNotificationThenDonation] AudioContext resumed successfully. State:", audioContextRef.current.state);
           } catch (e) {
-            console.error("❌ [playNotificationThenDonation] Failed to resume AudioContext for notification:", e.name, e.message, e);
+            console.error("âŒ [playNotificationThenDonation] Failed to resume AudioContext for notification:", e.name, e.message, e);
             playDonation(); // Skip notification, try to play donation directly
             return;
           }
@@ -1023,23 +1023,23 @@ export default function StreamerPage() {
 
         let notificationAudioBuffer;
         try {
-          console.log(`[playNotificationThenDonation] Fetching primary notification from: ${notificationUrlPrimary}`);
+          // console.log(`[playNotificationThenDonation] Fetching primary notification from: ${notificationUrlPrimary}`);
           const response = await fetch(notificationUrlPrimary);
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
           const arrayBuffer = await response.arrayBuffer();
           notificationAudioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-          console.log("🔔 [playNotificationThenDonation] Playing primary notification (Web Audio):", notificationUrlPrimary);
+          // console.log("ðŸ”” [playNotificationThenDonation] Playing primary notification (Web Audio):", notificationUrlPrimary);
         } catch (e) {
-          console.warn("⚠️ [playNotificationThenDonation] Primary notification not found or failed, trying fallback:", e.name, e.message, notificationUrlFallback);
+          console.warn("âš ï¸ [playNotificationThenDonation] Primary notification not found or failed, trying fallback:", e.name, e.message, notificationUrlFallback);
           const response = await fetch(notificationUrlFallback);
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
           const arrayBuffer = await response.arrayBuffer();
           notificationAudioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-          console.log("🔔 [playNotificationThenDonation] Playing fallback notification (Web Audio):", notificationUrlFallback);
+          // console.log("ðŸ”” [playNotificationThenDonation] Playing fallback notification (Web Audio):", notificationUrlFallback);
         }
 
         const source = audioContextRef.current.createBufferSource();
@@ -1047,14 +1047,14 @@ export default function StreamerPage() {
         source.connect(gainNodeRef.current);
 
         source.onended = () => {
-          console.log("[playNotificationThenDonation] Notification ended, starting donation.");
+          // console.log("[playNotificationThenDonation] Notification ended, starting donation.");
           playDonation();
         };
 
         source.start(0);
         audioRef.current = source; // allow skip during notification too
       } catch (e) {
-        console.error("⚠️ [playNotificationThenDonation] Notification play failed (Web Audio), skipping to donation:", e.name, e.message, e);
+        console.error("âš ï¸ [playNotificationThenDonation] Notification play failed (Web Audio), skipping to donation:", e.name, e.message, e);
         playDonation();
       }
     };
@@ -1070,10 +1070,10 @@ export default function StreamerPage() {
 
 
 
-  // ✅ Real-time listener with connection monitoring
+  // âœ… Real-time listener with connection monitoring
   useEffect(() => {
     const handleConnect = () => {
-      console.log("🔗 Socket connected");
+      // console.log("ðŸ”— Socket connected");
       setConnectionStatus('connected');
       resetReconnectState();
       socket.emit("join_streamer_room", uuid);
@@ -1087,7 +1087,7 @@ export default function StreamerPage() {
     };
 
     const handleDisconnect = (reason) => {
-      console.log("🔌 Socket disconnected:", reason);
+      // console.log("ðŸ”Œ Socket disconnected:", reason);
       stopHeartbeat();
       if (reason === 'io client disconnect' && !isPageVisibleRef.current) {
         setConnectionStatus('sleeping');
@@ -1196,7 +1196,7 @@ export default function StreamerPage() {
     socket.off("donation_history_reset");
     socket.off("withdrawal_approved"); // Ensure previous listener is removed
     socket.on("withdrawal_approved", (data) => {
-      console.log("💸 Withdrawal approved received:", data);
+      // console.log("ðŸ’¸ Withdrawal approved received:", data);
       setStreamerInfo(prev => {
         if (!prev) return prev;
         const parsed = Number(data?.newBalance);
@@ -1212,7 +1212,7 @@ export default function StreamerPage() {
       // Optionally, clear donations or show a message
     });
     socket.on("donation_history_reset", (data) => {
-      console.log("🔄 Donation history reset received:", data);
+      // console.log("ðŸ”„ Donation history reset received:", data);
       // Clear all donations and reset totals
       setDonations([]);
       setQueue([]);
@@ -1227,7 +1227,7 @@ export default function StreamerPage() {
       }
       playingRef.current = false;
       setCurrentPlaying(null);
-      console.log("✅ Donation history reset complete");
+      // console.log("âœ… Donation history reset complete");
     });
 
     return () => {
@@ -1248,10 +1248,10 @@ export default function StreamerPage() {
     };
   }, [uuid, enabled, currentPage, fetchInitialData, getDonationCacheKey, apiClient, scheduleReconnect, startHeartbeat, stopHeartbeat, resetReconnectState, clearReconnectTimeout, sortDonationsOldestFirst]);
 
-  // ✅ Watch for queue changes
+  // âœ… Watch for queue changes
   useEffect(() => {
     if (enabled && !playingRef.current && queue.length > 0) {
-      console.log("🎵 Starting next queued donation...");
+      // console.log("ðŸŽµ Starting next queued donation...");
       playNext();
     }
   }, [queue, enabled, playNext]);
@@ -1260,10 +1260,10 @@ export default function StreamerPage() {
     playNextRef.current = playNext;
   }, [playNext]);
 
-  // ✅ Stop playback when disabled
+  // âœ… Stop playback when disabled
   useEffect(() => {
     if (!enabled && audioRef.current) {
-      console.log("🔇 Audio disabled, stopping playback");
+      // console.log("ðŸ”‡ Audio disabled, stopping playback");
       // For Web Audio API, stop the source node
       if (audioRef.current.stop) {
         audioRef.current.stop();
@@ -1277,7 +1277,7 @@ export default function StreamerPage() {
     }
   }, [enabled]);
 
-  // ✅ Periodic AudioContext health check - resume if suspended while audio is enabled
+  // âœ… Periodic AudioContext health check - resume if suspended while audio is enabled
   useEffect(() => {
     if (!enabled) return;
 
@@ -1285,10 +1285,10 @@ export default function StreamerPage() {
       if (!audioContextRef.current) return;
 
       if (audioContextRef.current.state === 'suspended' && document.visibilityState === 'visible') {
-        console.log("🔄 AudioContext suspended, attempting to resume...");
+        // console.log("ðŸ”„ AudioContext suspended, attempting to resume...");
         try {
           await audioContextRef.current.resume();
-          console.log("✅ AudioContext resumed by health check");
+          // console.log("âœ… AudioContext resumed by health check");
 
           // If there are queued donations and nothing is playing, start playback
           if (!playingRef.current && queue.length > 0) {
@@ -1299,7 +1299,7 @@ export default function StreamerPage() {
             }, 100);
           }
         } catch (e) {
-          console.warn("Failed to resume AudioContext:", e?.message);
+          // console.warn("Failed to resume AudioContext:", e?.message);
         }
       }
     };
@@ -1347,7 +1347,7 @@ export default function StreamerPage() {
     };
   }, [enabled, requestWakeLock, releaseWakeLock]);
 
-  // ✅ Load audio enabled state from localStorage
+  // âœ… Load audio enabled state from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("tts_enabled");
     if (saved === "true") setEnabled(true);
@@ -1355,7 +1355,7 @@ export default function StreamerPage() {
 
 
 
-  // ✅ Apply theme on load and when darkMode changes
+  // âœ… Apply theme on load and when darkMode changes
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -1364,12 +1364,12 @@ export default function StreamerPage() {
     }
   }, [darkMode]);
 
-  // ✅ Save enabled state persistently
+  // âœ… Save enabled state persistently
   useEffect(() => {
     localStorage.setItem("tts_enabled", enabled);
   }, [enabled]);
 
-  // ✅ Keyboard shortcuts for volume control and skip
+  // âœ… Keyboard shortcuts for volume control and skip
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Only handle shortcuts when not typing in input fields
@@ -1427,7 +1427,7 @@ export default function StreamerPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [volume, currentPlaying, markAsPlayed]);
 
-  // ✅ Initial fetch when API client becomes available
+  // âœ… Initial fetch when API client becomes available
   useEffect(() => {
     if (!apiClient) {
       setLoading(false);
@@ -1437,27 +1437,27 @@ export default function StreamerPage() {
     fetchInitialData(1);
   }, [apiClient, fetchInitialData]);
 
-  // ✅ Refetch on visibility change
+  // âœ… Refetch on visibility change
   useEffect(() => {
     const handleVisibilityChange = async () => {
       const isVisible = document.visibilityState === 'visible';
       isPageVisibleRef.current = isVisible;
 
       if (isVisible) {
-        console.log("Page is visible again, restoring connections...");
+        // console.log("Page is visible again, restoring connections...");
         setConnectionStatus(socket.connected ? 'connected' : 'connecting');
 
         if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
           try {
             await audioContextRef.current.resume();
-            console.log("✅ AudioContext resumed after visibility change");
+            // console.log("âœ… AudioContext resumed after visibility change");
           } catch (e) {
-            console.warn("Failed to resume AudioContext:", e?.message);
+            // console.warn("Failed to resume AudioContext:", e?.message);
           }
         }
 
         if (!socket.connected) {
-          console.log("Socket disconnected, reconnecting...");
+          // console.log("Socket disconnected, reconnecting...");
           scheduleReconnect('page_visible');
         } else {
           socket.emit("join_streamer_room", uuid);
@@ -1470,7 +1470,7 @@ export default function StreamerPage() {
         }
 
         if (enabled && !playingRef.current && queue.length > 0) {
-          console.log("🎵 Resuming playback after tab visibility restored");
+          // console.log("ðŸŽµ Resuming playback after tab visibility restored");
           setTimeout(() => {
             if (!playingRef.current && queue.length > 0) {
               playNext();
@@ -1478,7 +1478,7 @@ export default function StreamerPage() {
           }, 100);
         }
       } else {
-        console.log("Page hidden, keeping heartbeat alive");
+        // console.log("Page hidden, keeping heartbeat alive");
       }
     };
 
@@ -1523,10 +1523,10 @@ export default function StreamerPage() {
 
   // Get volume icon based on level
   const getVolumeIcon = (vol) => {
-    if (vol === 0) return '🔇';
-    if (vol <= 0.33) return '🔈';
-    if (vol <= 0.66) return '🔉';
-    return '🔊';
+    if (vol === 0) return 'ðŸ”‡';
+    if (vol <= 0.33) return 'ðŸ”ˆ';
+    if (vol <= 0.66) return 'ðŸ”‰';
+    return 'ðŸ”Š';
   };
 
   // Get volume color based on level
@@ -1543,10 +1543,10 @@ export default function StreamerPage() {
   const cardBg = darkMode ? "card-dark" : "card-light";
   const connectionStatusLabelMap = {
     connected: 'Live Connection',
-    connecting: 'Connecting…',
-    reconnecting: 'Reconnecting…',
+    connecting: 'Connectingâ€¦',
+    reconnecting: 'Reconnectingâ€¦',
     disconnected: 'Offline',
-    degraded: 'Checking Signal…',
+    degraded: 'Checking Signalâ€¦',
     error: 'Connection Error',
     sleeping: 'Paused',
   };
@@ -1566,9 +1566,9 @@ export default function StreamerPage() {
       ? '<1m'
       : `${offlineDurationMinutes}m`;
   const connectionStatusLabel = connectionStatus === 'disconnected' && offlineDurationLabel
-    ? `${connectionStatusLabelMap.disconnected} · ${offlineDurationLabel}`
-    : connectionStatusLabelMap[connectionStatus] || 'Checking…';
-  const lastHeartbeatLabel = lastHeartbeatAt ? new Date(lastHeartbeatAt).toLocaleTimeString() : '—';
+    ? `${connectionStatusLabelMap.disconnected} Â· ${offlineDurationLabel}`
+    : connectionStatusLabelMap[connectionStatus] || 'Checkingâ€¦';
+  const lastHeartbeatLabel = lastHeartbeatAt ? new Date(lastHeartbeatAt).toLocaleTimeString() : 'â€”';
   const isLive = Boolean(streamerInfo?.live_status);
   const liveSinceLabel = streamerInfo?.live_since ? new Date(streamerInfo.live_since).toLocaleTimeString() : null;
   const liveBadgeClass = isLive
@@ -1641,7 +1641,7 @@ export default function StreamerPage() {
           {/* Zone 1.5: Connection Status Strip */}
           <div className={`px-4 py-2 flex items-center gap-3 text-xs border-b ${darkMode ? 'border-white/[0.06] bg-black/10' : 'border-gray-100 bg-white/40'}`}>
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-[11px] ${connectionBadgeClass}`}>
-              <span className="text-[10px]">🛰️</span>
+              <span className="text-[10px]">ðŸ›°ï¸</span>
               {connectionStatusLabel}
               {connectionAttempts > 0 && connectionStatus !== 'connected' ? (
                 <span className="text-[11px] font-normal opacity-80">(attempt {connectionAttempts})</span>
@@ -1682,14 +1682,14 @@ export default function StreamerPage() {
                     
                     <div className="flex items-center gap-3 mt-2">
                       <div className="flex items-baseline gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40">
-                        <span className="text-sm">💰</span>
+                        <span className="text-sm">ðŸ’°</span>
                         <span className="text-emerald-700 dark:text-emerald-400 font-bold text-lg"><Balance value={streamerInfo.balance} showLabel={false} /></span>
                       </div>
                       <button
                         onClick={() => navigate(`/withdraw/${uuid}`)}
                         className="text-xs bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-3.5 py-2 rounded-xl shadow-md shadow-emerald-500/20 transition-all hover:shadow-lg hover:shadow-emerald-500/25 flex items-center gap-1.5 font-semibold"
                       >
-                        <span>💸</span> Withdraw
+                        <span>ðŸ’¸</span> Withdraw
                       </button>
                     </div>
                   </div>
@@ -1719,7 +1719,7 @@ export default function StreamerPage() {
                       </>
                     ) : (
                       <>
-                        <span className="text-xl">{isLive ? '⏹️' : '📡'}</span>
+                        <span className="text-xl">{isLive ? 'â¹ï¸' : 'ðŸ“¡'}</span>
                         <span>{isLive ? 'End Live Session' : 'Go Live Now'}</span>
                       </>
                     )}
@@ -1765,7 +1765,7 @@ export default function StreamerPage() {
                       silent.pause();
                     }
 
-                    console.log("Audio permission granted; enabling autoplay.");
+                    // console.log("Audio permission granted; enabling autoplay.");
                     setEnabled(true);
                     playbackFailuresRef.current.clear();
                     setPlaybackWarning(null);
@@ -1789,7 +1789,7 @@ export default function StreamerPage() {
                   : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
               }`}
             >
-              <span>{enabled ? "🔊" : "🔇"}</span>
+              <span>{enabled ? "ðŸ”Š" : "ðŸ”‡"}</span>
               <span>{enabled ? "Audio On" : "Audio Off"}</span>
             </button>
 
@@ -1847,7 +1847,7 @@ export default function StreamerPage() {
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
               }`}
             >
-              <span>⏭️</span>
+              <span>â­ï¸</span>
               <span>Skip</span>
             </button>
 
@@ -1879,7 +1879,7 @@ export default function StreamerPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/20">
-                <span className="text-white text-lg sm:text-xl">🎵</span>
+                <span className="text-white text-lg sm:text-xl">ðŸŽµ</span>
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1 tracking-tight">
@@ -1897,12 +1897,12 @@ export default function StreamerPage() {
             <div className="flex items-center gap-3">
               {/* Mini stats */}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200/60 dark:border-blue-500/10">
-                <span className="text-sm">🎁</span>
+                <span className="text-sm">ðŸŽ</span>
                 <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{pagination?.totalCount || 0}</span>
                 <span className="text-[10px] text-blue-500 dark:text-blue-400 hidden sm:inline">donations</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200/60 dark:border-purple-500/10">
-                <span className="text-sm">🎵</span>
+                <span className="text-sm">ðŸŽµ</span>
                 <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">{queue.length}</span>
                 <span className="text-[10px] text-purple-500 dark:text-purple-400 hidden sm:inline">queued</span>
               </div>
@@ -1927,7 +1927,7 @@ export default function StreamerPage() {
           {playbackWarning && (
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-lg border border-amber-300 bg-amber-50/90 dark:bg-amber-900/30 p-3 text-sm text-amber-900 dark:text-amber-100">
               <div className="flex items-center gap-2">
-                <span className="text-base">⚠️</span>
+                <span className="text-base">âš ï¸</span>
                 <span>{playbackWarning}</span>
               </div>
               <div className="flex items-center gap-2 sm:ml-auto">
@@ -1966,16 +1966,16 @@ export default function StreamerPage() {
           <div className="streamer-card p-6 sm:p-8 lg:p-12 text-center col-span-full">
             <div className="mb-4 sm:mb-6">
               <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20">
-                <span className="text-2xl sm:text-4xl">💰</span>
+                <span className="text-2xl sm:text-4xl">ðŸ’°</span>
               </div>
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 tracking-tight">እስካሁን ምንም ልገሳ የለም።</h3>
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 tracking-tight">áŠ¥áˆµáŠ«áˆáŠ• áˆáŠ•áˆ áˆáŒˆáˆ³ á‹¨áˆˆáˆá¢</h3>
             <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 max-w-md mx-auto">
-              ተመልካቾችዎ የቴሌግራም bot Link በማጋራት ልገሳ እንዲያደርጉ ያበረታቷቸው።
+              á‰°áˆ˜áˆáŠ«á‰¾á‰½á‹Ž á‹¨á‰´áˆŒáŒáˆ«áˆ bot Link á‰ áˆ›áŒ‹áˆ«á‰µ áˆáŒˆáˆ³ áŠ¥áŠ•á‹²á‹«á‹°áˆ­áŒ‰ á‹«á‰ áˆ¨á‰³á‰·á‰¸á‹á¢
             </p>
             <div className="flex justify-center">
               <button className="btn btn-primary shadow-lg hover:shadow-xl text-sm sm:text-base">
-                <span>🔗</span>
+                <span>ðŸ”—</span>
                 <span className="ml-1 sm:ml-2">@Habeshatts_bot</span>
               </button>
             </div>
@@ -2000,7 +2000,7 @@ export default function StreamerPage() {
 
       {pagination && (
         <div className="text-center mt-3 sm:mt-4 text-xs sm:text-sm opacity-60">
-          Page {pagination.currentPage} of {pagination.totalPages} • {pagination.totalCount} total donations
+          Page {pagination.currentPage} of {pagination.totalPages} â€¢ {pagination.totalCount} total donations
         </div>
       )}
 
@@ -2014,7 +2014,7 @@ export default function StreamerPage() {
             <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 text-sm sm:text-base">Powered by Habesha TTS</span>
           </div>
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            "ፈጣን ልገሳ በሀገረኛ መንገድ"
+            "áˆáŒ£áŠ• áˆáŒˆáˆ³ á‰ áˆ€áŒˆáˆ¨áŠ› áˆ˜áŠ•áŒˆá‹µ"
           </p>
         </div>
       </footer>
@@ -2037,7 +2037,7 @@ export default function StreamerPage() {
                 toast.type === "success" ? "bg-emerald-500" : "bg-red-500"
               }`}></div>
               <div className="text-lg leading-none pl-1">
-                {toast.type === "success" ? "✅" : "⚠️"}
+                {toast.type === "success" ? "âœ…" : "âš ï¸"}
               </div>
               <div className="flex-1">
                 <p className="leading-tight text-gray-900 dark:text-white">{toast.message}</p>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import io from 'socket.io-client';
@@ -30,7 +30,7 @@ function StatCard({ title, value, subtitle, icon, iconClassName, chartData, char
       <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent dark:from-gray-700/20 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
       <div className="flex items-center justify-between mb-4 relative z-10">
         <div className={`p-3 rounded-2xl bg-opacity-10 dark:bg-opacity-20 ring-1 ring-inset ring-black/5 dark:ring-white/10 ${iconClassName || 'bg-primary-500 text-primary-500'}`}>
-          <span className="text-xl">{icon || '📊'}</span>
+          <span className="text-xl">{icon || 'ðŸ“Š'}</span>
         </div>
         {chartData && chartData.length > 0 && (
            <div className="h-12 w-24 min-w-[6rem] opacity-60 group-hover:opacity-100 transition-opacity">
@@ -97,7 +97,7 @@ function Overview({ apiClient, refreshKey }) {
           title="Total Revenue" 
           value={<Currency value={t.total_amount} />} 
           subtitle={`${t.total_count || 0} donations`} 
-          icon="💰" 
+          icon="ðŸ’°" 
           iconClassName="bg-green-500 text-green-500"
           chartData={chartData}
           chartColor="#22c55e"
@@ -106,7 +106,7 @@ function Overview({ apiClient, refreshKey }) {
           title="Active Streamers" 
           value={t.unique_streamers || 0} 
           subtitle="Unique creators" 
-          icon="🎥" 
+          icon="ðŸŽ¥" 
           iconClassName="bg-purple-500 text-purple-500"
           chartData={chartData.map(d => ({ ...d, amount: Math.random() * 10 }))} // Mock data for now as backend only sends revenue chart
           chartColor="#a855f7"
@@ -115,7 +115,7 @@ function Overview({ apiClient, refreshKey }) {
           title="Active Donors" 
           value={t.unique_donors || 0} 
           subtitle="Unique supporters" 
-          icon="💎" 
+          icon="ðŸ’Ž" 
           iconClassName="bg-blue-500 text-blue-500"
           chartData={chartData.map(d => ({ ...d, amount: Math.random() * 20 }))} // Mock data
           chartColor="#3b82f6"
@@ -124,7 +124,7 @@ function Overview({ apiClient, refreshKey }) {
           title="Avg. Donation" 
           value={<Currency value={(t.total_amount || 0) / Math.max(1, t.total_count || 1)} />} 
           subtitle="Per transaction" 
-          icon="📊" 
+          icon="ðŸ“Š" 
           iconClassName="bg-orange-500 text-orange-500"
           chartData={chartData.map(d => ({ ...d, amount: (d.amount / Math.max(1, Math.random() * 10)) }))} // Mock data
           chartColor="#f97316"
@@ -290,7 +290,7 @@ function Streamers({ apiClient, refreshKey }) {
     fetchStreamers();
 
     socket.on('admin_update', (data) => {
-      console.log('[Streamers] Admin update received via socket:', data);
+      // console.log('[Streamers] Admin update received via socket:', data);
       fetchStreamers(); // Re-fetch streamers on any admin-related update
     });
 
@@ -582,7 +582,7 @@ function Donors({ apiClient, refreshKey, search }) {
     }).catch((e) => setError(e?.message || 'Failed')).finally(() => setLoading(false));
 
     socket.on('admin_update', (data) => {
-      console.log('[Donors] Admin update received via socket:', data);
+      // console.log('[Donors] Admin update received via socket:', data);
       setRefresh((x) => x + 1); // Trigger a refresh of donors
     });
 
@@ -732,7 +732,7 @@ function Donors({ apiClient, refreshKey, search }) {
                             value={displayName}
                             onChange={(e) => setDisplayName(e.target.value)}
                             className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                            placeholder="e.g. አበበ መኮንን"
+                            placeholder="e.g. áŠ á‰ á‰  áˆ˜áŠ®áŠ•áŠ•"
                           />
                           <div className="flex gap-2">
                             <button
@@ -1168,12 +1168,12 @@ function Donations({ apiClient, refreshKey }) {
                 </td>
                 <td className="py-4 px-6">
                   <div className="font-medium text-gray-900 dark:text-white text-sm">
-                    {d.streamer?.username || '—'}
+                    {d.streamer?.username || 'â€”'}
                   </div>
                 </td>
                 <td className="py-4 px-6">
                   <div className="font-medium text-gray-900 dark:text-white text-sm">
-                    {d.donor?.username || '—'}
+                    {d.donor?.username || 'â€”'}
                   </div>
                 </td>
                 <td className="py-4 px-6 text-right">
@@ -1246,7 +1246,7 @@ function Recharges({ apiClient }) {
     apiClient.get(`/recharges`).then(r => setRows(r.data.recharges || [])).catch(e => setError(e?.message || 'Failed')).finally(() => setLoading(false));
 
     socket.on('admin_update', (data) => {
-      console.log('[Recharges] Admin update received via socket:', data);
+      // console.log('[Recharges] Admin update received via socket:', data);
       setRefresh(x => x + 1); // Trigger a refresh of recharges
     });
 
@@ -1520,7 +1520,7 @@ function Recharges({ apiClient }) {
                   <div>
                     <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Requested</span>
                     <div className="font-bold text-gray-900 dark:text-white mt-0.5">
-                      {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">—</span>}
+                      {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">â€”</span>}
                     </div>
                   </div>
                   {r.amount > 0 && (
@@ -1577,7 +1577,7 @@ function Recharges({ apiClient }) {
                   </td>
                   <td className="py-4 px-6">
                     <div className="font-medium text-gray-900 dark:text-white text-sm">
-                      {r.donor_username || '—'}
+                      {r.donor_username || 'â€”'}
                     </div>
                   </td>
                   <td className="py-4 px-6">
@@ -1594,17 +1594,17 @@ function Recharges({ apiClient }) {
                         onClick={() => openImageModal(r.screenshot_url)}
                       />
                     ) : (
-                      <span className="text-gray-400 dark:text-gray-500 text-xs">—</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-xs">â€”</span>
                     )}
                   </td>
                   <td className="py-4 px-6 text-right">
                     <div className="font-bold text-gray-900 dark:text-white text-sm">
-                      {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">—</span>}
+                      {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">â€”</span>}
                     </div>
                   </td>
                   <td className="py-4 px-6 text-right">
                     <div className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                      {r.amount > 0 ? <Currency value={r.amount} /> : <span className="text-gray-400">—</span>}
+                      {r.amount > 0 ? <Currency value={r.amount} /> : <span className="text-gray-400">â€”</span>}
                     </div>
                   </td>
                   <td className="py-4 px-6 text-center">
@@ -1662,7 +1662,7 @@ function Withdrawals({ apiClient }) {
     apiClient.get(`/withdrawals`).then(r => setRows(r.data.withdrawals || [])).catch(e => setError(e?.message || 'Failed')).finally(() => setLoading(false));
 
     socket.on('admin_update', (data) => {
-      console.log('[Withdrawals] Admin update received via socket:', data);
+      // console.log('[Withdrawals] Admin update received via socket:', data);
       setRefresh(x => x + 1); // Trigger a refresh of withdrawals
     });
 
@@ -1825,7 +1825,7 @@ function Withdrawals({ apiClient }) {
                   </td>
                   <td className="py-4 px-6">
                     <div className="font-medium text-gray-900 dark:text-white text-sm">
-                      {w.streamer_username || '—'}
+                      {w.streamer_username || 'â€”'}
                     </div>
                   </td>
                   <td className="py-4 px-6">
@@ -1903,7 +1903,7 @@ function StreamerRequests({ apiClient }) {
       .finally(() => setLoading(false));
 
     socket.on('admin_update', (data) => {
-      console.log('[StreamerRequests] Admin update received via socket:', data);
+      // console.log('[StreamerRequests] Admin update received via socket:', data);
       setRefresh(x => x + 1); // Trigger a refresh of streamer requests
     });
 
@@ -2282,78 +2282,78 @@ export default function AdminDashboard() {
     const payload = event.payload || {};
     let title = 'Admin Update';
     let description = 'Check the admin dashboard for details.';
-    let icon = 'ℹ️';
+    let icon = 'â„¹ï¸';
 
     switch (event.type) {
       case 'donation_paid': {
-        icon = '💰';
+        icon = 'ðŸ’°';
         title = 'Donation Paid';
         const donor = payload.donorName || 'New donor';
         description = `${donor} sent ${formatAmount(payload.amount)}.`;
         break;
       }
       case 'withdrawal_created': {
-        icon = '💸';
+        icon = 'ðŸ’¸';
         title = 'New Withdrawal Request';
         description = `${formatAmount(payload.amount)} awaiting approval.`;
         break;
       }
       case 'withdrawal_updated': {
-        icon = '💸';
+        icon = 'ðŸ’¸';
         title = `Withdrawal ${capitalize(payload.status)}`;
-        description = `${formatAmount(payload.amount)} for streamer #${payload.streamerId || '—'}.`;
+        description = `${formatAmount(payload.amount)} for streamer #${payload.streamerId || 'â€”'}.`;
         break;
       }
       case 'recharge_created': {
-        icon = '🔄';
+        icon = 'ðŸ”„';
         title = 'Recharge Submitted';
-        description = `Donor #${payload.donorId || '—'} uploaded proof.`;
+        description = `Donor #${payload.donorId || 'â€”'} uploaded proof.`;
         break;
       }
       case 'recharge_updated': {
-        icon = '🔄';
+        icon = 'ðŸ”„';
         title = `Recharge ${capitalize(payload.status)}`;
-        description = `Donation balance updated for donor #${payload.donorId || '—'}.`;
+        description = `Donation balance updated for donor #${payload.donorId || 'â€”'}.`;
         break;
       }
       case 'streamer_request_created': {
-        icon = '👥';
+        icon = 'ðŸ‘¥';
         title = 'Streamer Request Received';
         description = `${payload.fullName || 'New applicant'} is waiting for review.`;
         break;
       }
       case 'streamer_request_updated': {
-        icon = '👥';
+        icon = 'ðŸ‘¥';
         title = `Streamer Request ${capitalize(payload.status)}`;
-        description = `Telegram ID ${payload.telegramId || '—'} ${payload.status || 'updated'}.`;
+        description = `Telegram ID ${payload.telegramId || 'â€”'} ${payload.status || 'updated'}.`;
         break;
       }
       case 'complaint_created': {
-        icon = '📝';
+        icon = 'ðŸ“';
         title = 'New Complaint';
         description = 'Check the complaints tab for the latest submission.';
         break;
       }
       case 'complaint_updated': {
-        icon = '📝';
+        icon = 'ðŸ“';
         title = 'Complaint Responded';
         description = 'Marked as responded successfully.';
         break;
       }
       case 'donor_flag_created': {
-        icon = '🚩';
+        icon = 'ðŸš©';
         title = 'Streamer Flag Raised';
-        description = `Streamer #${payload.streamerId || '—'} escalated a donor.`;
+        description = `Streamer #${payload.streamerId || 'â€”'} escalated a donor.`;
         break;
       }
       case 'donor_flag_updated': {
-        icon = '🚩';
+        icon = 'ðŸš©';
         title = `Flag ${capitalize(payload.status)}`;
-        description = `Donor #${payload.donorId || '—'} update posted.`;
+        description = `Donor #${payload.donorId || 'â€”'} update posted.`;
         break;
       }
       default: {
-        icon = 'ℹ️';
+        icon = 'â„¹ï¸';
         title = 'Admin Update';
         description = 'Dashboard data changed.';
       }
@@ -2431,12 +2431,12 @@ export default function AdminDashboard() {
   useEffect(() => {
     socket.emit('join_admin_room');
     socket.on('connect', () => {
-      console.log('Admin socket connected');
+      // console.log('Admin socket connected');
       socket.emit('join_admin_room');
     });
     socket.on('disconnect', () => console.log('Admin socket disconnected'));
     socket.on('new_donation', (data) => {
-      console.log('[AdminDashboard] New donation received via socket:', data);
+      // console.log('[AdminDashboard] New donation received via socket:', data);
       refreshData();
     });
     return () => {
@@ -2454,7 +2454,7 @@ export default function AdminDashboard() {
     if (!apiClient) return;
 
     const handleAdminUpdate = (data) => {
-      console.log('[AdminDashboard] Admin update received via socket:', data);
+      // console.log('[AdminDashboard] Admin update received via socket:', data);
       fetchCounts();
       addToast(data);
 
@@ -2470,13 +2470,13 @@ export default function AdminDashboard() {
           audio.currentTime = 0;
           notificationAudioRef.current = audio;
           audio.play().catch(err => {
-            console.log('Audio play failed:', err);
+            // console.log('Audio play failed:', err);
             if (!notificationAudioReady) {
-              console.log('Waiting for user interaction to unlock notification audio.');
+              // console.log('Waiting for user interaction to unlock notification audio.');
             }
           });
         } catch (err) {
-          console.log('Audio notification failed:', err);
+          // console.log('Audio notification failed:', err);
         }
       }
     };
