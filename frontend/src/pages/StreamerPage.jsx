@@ -1706,7 +1706,7 @@ export default function StreamerPage() {
                     className={`w-full md:w-auto flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-2xl font-bold shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] ${
                       isLive
                         ? 'bg-white text-rose-600 border-2 border-rose-100 hover:border-rose-200 hover:bg-rose-50 dark:bg-gray-800/80 dark:text-rose-400 dark:border-rose-900/50 dark:hover:bg-rose-900/20 streamer-glow-live'
-                        : 'bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-600 text-white hover:shadow-xl hover:shadow-purple-500/25'
+                        : 'bg-gradient-to-r from-[#00730b] via-[#d1bc00] to-[#820000] text-white hover:shadow-xl hover:shadow-yellow-500/25'
                     } ${(!apiClient || liveToggleLoading) ? 'opacity-60 cursor-not-allowed' : ''}`}
                   >
                     {liveToggleLoading ? (
@@ -2008,10 +2008,10 @@ export default function StreamerPage() {
         <div className="streamer-card p-4 sm:p-5 max-w-md mx-auto">
           <div className="flex items-center justify-center gap-2.5 mb-2">
             <div className="relative w-8 h-8 sm:w-9 sm:h-9">
-              <div className="absolute inset-0 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-lg opacity-15 blur-sm"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#00730b] via-[#d1bc00] to-[#820000] rounded-lg opacity-15 blur-sm"></div>
               <img src="/image/habesha-logo.png" alt="Habesha TTS" className="relative w-full h-full object-contain" />
             </div>
-            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 text-sm sm:text-base">Powered by Habesha TTS</span>
+            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00730b] via-[#d1bc00] to-[#820000] text-sm sm:text-base">Powered by Habesha TTS</span>
           </div>
           <p className="text-xs text-gray-400 dark:text-gray-500">
             "áˆáŒ£áŠ• áˆáŒˆáˆ³ á‰ áˆ€áŒˆáˆ¨áŠ› áˆ˜áŠ•áŒˆá‹µ"
