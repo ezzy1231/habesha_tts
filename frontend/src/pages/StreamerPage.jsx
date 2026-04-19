@@ -1873,32 +1873,6 @@ export default function StreamerPage() {
         </div>
       )}
 
-      {/* Stats Section */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div className="streamer-card p-4 sm:p-5 group hover:shadow-lg transition-all duration-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:shadow-lg group-hover:shadow-blue-500/25 transition-shadow">
-              <span className="text-white text-lg">🎁</span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Total Donations</p>
-              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight">{pagination?.totalCount || 0}</p>
-            </div>
-          </div>
-        </div>
-        <div className="streamer-card p-4 sm:p-5 group hover:shadow-lg transition-all duration-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-md shadow-purple-500/20 group-hover:shadow-lg group-hover:shadow-purple-500/25 transition-shadow">
-              <span className="text-white text-lg">🎵</span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Queue</p>
-              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight">{queue.length} <span className="text-sm font-normal text-gray-400 dark:text-gray-500">pending</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className={`streamer-card p-4 sm:p-5 mb-4 sm:mb-6 ${currentPlaying ? 'ring-1 ring-emerald-500/30 dark:ring-emerald-400/20' : ''} transition-all duration-300`}>
         <div className="flex flex-col gap-3 sm:gap-4">
           {/* Queue Info and Playing Indicator - Horizontal Layout */}
@@ -1911,37 +1885,45 @@ export default function StreamerPage() {
                 <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1 tracking-tight">
                   Audio Queue
                 </h3>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="badge badge-primary">{queue.length}</span>
-                    <span className="text-gray-500 dark:text-gray-400">
-                      pending donation{queue.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="badge badge-gray">{pagination?.totalCount || 0}</span>
-                    <span className="text-gray-500 dark:text-gray-400">total</span>
-                  </div>
+                <div className="flex items-center gap-2 text-xs sm:text-sm">
+                  <span className="badge badge-primary">{queue.length}</span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    pending
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Now Playing Indicator */}
-            {currentPlaying && (
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/25">
-                <div className="flex items-end gap-[3px] h-5">
-                  <span className="waveform-bar" style={{height: '4px'}}></span>
-                  <span className="waveform-bar" style={{height: '12px'}}></span>
-                  <span className="waveform-bar" style={{height: '8px'}}></span>
-                  <span className="waveform-bar" style={{height: '16px'}}></span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-xs sm:text-sm">Now Playing</p>
-                  <p className="text-[11px] opacity-80 truncate">Donation #{currentPlaying}</p>
-                </div>
+            <div className="flex items-center gap-3">
+              {/* Mini stats */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200/60 dark:border-blue-500/10">
+                <span className="text-sm">🎁</span>
+                <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{pagination?.totalCount || 0}</span>
+                <span className="text-[10px] text-blue-500 dark:text-blue-400 hidden sm:inline">donations</span>
               </div>
-            )}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200/60 dark:border-purple-500/10">
+                <span className="text-sm">🎵</span>
+                <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">{queue.length}</span>
+                <span className="text-[10px] text-purple-500 dark:text-purple-400 hidden sm:inline">queued</span>
+              </div>
+            </div>
           </div>
+
+          {/* Now Playing Indicator */}
+          {currentPlaying && (
+            <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/25">
+              <div className="flex items-end gap-[3px] h-5">
+                <span className="waveform-bar" style={{height: '4px'}}></span>
+                <span className="waveform-bar" style={{height: '12px'}}></span>
+                <span className="waveform-bar" style={{height: '8px'}}></span>
+                <span className="waveform-bar" style={{height: '16px'}}></span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-xs sm:text-sm">Now Playing</p>
+                <p className="text-[11px] opacity-80 truncate">Donation #{currentPlaying}</p>
+              </div>
+            </div>
+          )}
           {playbackWarning && (
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-lg border border-amber-300 bg-amber-50/90 dark:bg-amber-900/30 p-3 text-sm text-amber-900 dark:text-amber-100">
               <div className="flex items-center gap-2">
