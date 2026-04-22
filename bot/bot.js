@@ -17,11 +17,10 @@ const bot = (() => {
     console.warn("[Telegram] TELEGRAM_BOT_TOKEN not set. Bot will not start.");
     return null;
   }
-  // Only the process that holds the Redis lock should run getUpdates polling.
-  // Other processes may still send messages via the Bot API without polling.
-  const shouldPoll = process.env.BOT_INSTANCE_LOCK === 'true';
-  const botInstance = new TelegramBot(token, shouldPoll ? { polling: true } : { polling: false });
-  console.log(`[Telegram] Bot polling mode: ${shouldPoll ? 'enabled (lock owner)' : 'disabled (non-lock process)'}`);
+  // Always create the bot with polling disabled first.
+  // Polling is started explicitly by the lock owner via startBotPolling().
+  const botInstance = new TelegramBot(token, { polling: false });
+  console.log('[Telegram] Bot initialized with polling disabled (awaiting lock-owner start).');
   botInstance.on("polling_error", (err) => console.error("[Telegram] Polling Error:", err?.response?.body || err.message));
   botInstance.on("webhook_error", (err) => console.error("[Telegram] Webhook Error:", err?.response?.body || err.message));
   
@@ -29,6 +28,20 @@ const bot = (() => {
   console.log('📱 Telegram Bot singleton initialized.');
   return botInstance;
 })();
+
+let pollingStarted = false;
+const startBotPolling = async () => {
+  if (!bot) return;
+  if (pollingStarted) return;
+  try {
+    await bot.startPolling();
+    pollingStarted = true;
+    console.log('[Telegram] Polling started by lock-owner process.');
+  } catch (error) {
+    console.error('[Telegram] Failed to start polling:', error?.response?.body || error?.message || error);
+    throw error;
+  }
+};
 
 // --- Settings Management ---
 let settingsCache = null;
@@ -165,4 +178,4 @@ if (bot) {
 
 }
 
-export { bot, reloadSettings };
+export { bot, reloadSettings, startBotPolling };
