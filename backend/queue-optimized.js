@@ -8,6 +8,13 @@ import { generateTTS } from '../bot/utils/tts.js';
 
 dotenv.config();
 
+const shouldUseTls = (url) => {
+  if (!url) return false;
+  const lowered = String(url).toLowerCase();
+  if (lowered.startsWith('rediss://')) return true;
+  return lowered.includes('.upstash.io');
+};
+
 // Optimized Redis connection with connection pooling
 const connection = new Redis(process.env.REDIS_URL, {
   maxRetriesPerRequest: null,
@@ -18,6 +25,7 @@ const connection = new Redis(process.env.REDIS_URL, {
   connectTimeout: 10000,
   // Allow blocking commands (e.g., BRPOP, XREADGROUP) without false timeouts in BullMQ
   commandTimeout: null,
+  ...(shouldUseTls(process.env.REDIS_URL) ? { tls: {} } : {}),
 });
 
 if (!process.env.REDIS_URL) {
@@ -164,7 +172,11 @@ const worker = new Worker('tts-generation', async (job) => {
   limiter: {
     max: 10, // Max 10 jobs per 10 seconds
     duration: 10000,
-  }
+  },
+  // Reduce Redis polling to save Upstash request quota
+  stalledInterval: 60000,   // Check stalled jobs every 60s (default: 30s)
+  maxStalledCount: 2,
+  drainDelay: 20,            // Wait 20ms between polls when queue empty (default: 5ms)
 });
 
 // Optimized success handler

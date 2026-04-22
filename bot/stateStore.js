@@ -26,13 +26,29 @@ const redisEnabled = isTruthy(process.env.BOT_STATE_ENABLE_REDIS, Boolean(redisU
 const dualWriteEnabled = isTruthy(process.env.BOT_STATE_DUAL_WRITE, true);
 const preferRedisReads = isTruthy(process.env.BOT_STATE_PREFER_REDIS, true);
 
+const shouldUseTls = (url) => {
+  if (!url) return false;
+  const lowered = String(url).toLowerCase();
+  if (lowered.startsWith('rediss://')) return true;
+  return lowered.includes('.upstash.io');
+};
+
 let redisClient = null;
 if (redisEnabled && redisUrl) {
-  redisClient = new Redis(redisUrl, {
+  const redisOptions = {
     enableAutoPipelining: true,
     lazyConnect: true,
-    maxRetriesPerRequest: 2,
-  });
+    maxRetriesPerRequest: null,
+    connectTimeout: 10000,
+    retryStrategy: (times) => Math.min(times * 250, 5000),
+    reconnectOnError: () => true,
+  };
+
+  if (shouldUseTls(redisUrl)) {
+    redisOptions.tls = {};
+  }
+
+  redisClient = new Redis(redisUrl, redisOptions);
 
   redisClient.on('error', (err) => {
     console.error('[Bot][StateStore] Redis error:', err.message);

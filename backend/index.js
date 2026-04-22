@@ -24,11 +24,14 @@ const lockKey = 'bot_instance_lock';
 const instanceId = Math.random().toString(36).substring(2);
 let lockAcquired = false;
 
+const LOCK_TTL_SECONDS = 60;
+const LOCK_REFRESH_MS = 30000;
+
 console.log(`[Redis Lock] Instance ID generated: ${instanceId}`);
 
 async function acquireLock() {
   console.log(`[Redis Lock] Attempting to acquire lock with instance ID: ${instanceId}`);
-  const result = await redis.set(lockKey, instanceId, 'EX', 10, 'NX');
+  const result = await redis.set(lockKey, instanceId, 'EX', LOCK_TTL_SECONDS, 'NX');
   console.log(`[Redis Lock] acquireLock result: ${result}`);
   if (result === 'OK') {
     lockAcquired = true;
@@ -37,6 +40,35 @@ async function acquireLock() {
     return true;
   }
   return false;
+}
+
+async function refreshLockIfOwner() {
+  // Atomically refresh TTL only if this instance still owns the lock.
+  const script = `
+    if redis.call('GET', KEYS[1]) == ARGV[1] then
+      return redis.call('EXPIRE', KEYS[1], ARGV[2])
+    else
+      return 0
+    end
+  `;
+
+  return redis.eval(script, 1, lockKey, instanceId, String(LOCK_TTL_SECONDS));
+}
+
+async function handleLockLoss() {
+  if (!lockAcquired) return;
+  lockAcquired = false;
+  process.env.BOT_INSTANCE_LOCK = 'false';
+  console.warn('[Redis Lock] Lock ownership lost. Stopping Telegram polling to avoid duplicate getUpdates workers.');
+
+  if (bot) {
+    try {
+      await bot.stopPolling();
+      console.log('[Redis Lock] Telegram polling stopped after lock loss.');
+    } catch (error) {
+      console.error('[Redis Lock] Failed to stop polling after lock loss:', error?.message || error);
+    }
+  }
 }
 
 async function releaseLock() {
@@ -58,17 +90,17 @@ async function releaseLock() {
 const lockInterval = setInterval(async () => {
   if (lockAcquired) {
     console.log(`[Redis Lock] Refreshing lock for instance ID: ${instanceId}`);
-    const expireResult = await redis.expire(lockKey, 10);
-    console.log(`[Redis Lock] Lock refresh result (EXPIRE): ${expireResult}`);
+    try {
+      const expireResult = await refreshLockIfOwner();
+      console.log(`[Redis Lock] Lock refresh result (owner-checked EXPIRE): ${expireResult}`);
+      if (Number(expireResult) !== 1) {
+        await handleLockLoss();
+      }
+    } catch (error) {
+      console.error('[Redis Lock] Lock refresh failed:', error?.message || error);
+    }
   }
-}, 8000); // Refresh every 8 seconds, before the 10-second expiry
-
-// Attempt to acquire the lock at startup
-(async () => {
-  if (!(await acquireLock())) {
-    console.log('Another bot instance is already running. This instance will not process Telegram messages.');
-  }
-})();
+}, LOCK_REFRESH_MS); // Refresh before TTL expiry
 
 // Import routes
 import adminRoutes from './routes/admin.js';
@@ -279,6 +311,7 @@ server.listen(PORT, '0.0.0.0', () => {
       bot = mod.bot;
     } catch (e) {
       console.error('❌ Failed to initialize Telegram bot:', e?.message || e);
+      await handleLockLoss();
     }
   } else {
     console.log('🔒 Did not acquire lock. This instance will run as an API/worker server only.');
