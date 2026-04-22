@@ -302,23 +302,40 @@ server.listen(PORT, '0.0.0.0', () => {
 });
 
 // --- Bot Initialization (Lock-Protected) ---
+async function initBotWithLock() {
+  if (!await acquireLock()) return false;
+  try {
+    console.log('🔑 Lock acquired. Initializing Telegram bot...');
+    const mod = await import('../bot/bot.js');
+    bot = mod.bot;
+    if (typeof mod.startBotPolling === 'function') {
+      await mod.startBotPolling();
+    }
+    return true;
+  } catch (e) {
+    console.error('❌ Failed to initialize Telegram bot:', e?.message || e);
+    await handleLockLoss();
+    return false;
+  }
+}
+
 (async () => {
-  if (await acquireLock()) {
-    // Only the instance that acquires the lock will initialize the bot
+  if (await initBotWithLock()) return;
+
+  // Lock held by another instance (e.g., previous revision still alive).
+  // Retry every 30 s so this instance takes over once the lock expires.
+  console.log('🔒 Did not acquire lock. Will retry every 30 s until lock is available...');
+  const retryInterval = setInterval(async () => {
+    if (lockAcquired) { clearInterval(retryInterval); return; }
     try {
-      console.log('🔑 Lock acquired. Initializing Telegram bot...');
-      const mod = await import('../bot/bot.js');
-      bot = mod.bot;
-      if (typeof mod.startBotPolling === 'function') {
-        await mod.startBotPolling();
+      if (await initBotWithLock()) {
+        clearInterval(retryInterval);
+        console.log('🔑 Lock acquired on retry — bot polling now active on this instance.');
       }
     } catch (e) {
-      console.error('❌ Failed to initialize Telegram bot:', e?.message || e);
-      await handleLockLoss();
+      console.error('[Redis Lock] Retry attempt failed:', e?.message || e);
     }
-  } else {
-    console.log('🔒 Did not acquire lock. This instance will run as an API/worker server only.');
-  }
+  }, 30000);
 })();
 
 // --- Graceful Shutdown ---
