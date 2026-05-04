@@ -772,7 +772,17 @@ router.post("/streamer-requests/:id/reject", async (req, res) => {
 
 router.get("/recharges", async (req, res) => {
   try {
-    const rechargesRes = await db.query("SELECT id, donor_id, name_on_payment, amount, requested_amount, status, created_at, screenshot_file_id FROM recharges ORDER BY created_at DESC");
+    let rechargesRes;
+    try {
+      rechargesRes = await db.query("SELECT id, donor_id, name_on_payment, amount, requested_amount, status, created_at, screenshot_file_id FROM recharges ORDER BY created_at DESC");
+    } catch (queryError) {
+      // Backward compatibility for older schemas that don't have requested_amount yet.
+      if (queryError?.message?.includes('requested_amount')) {
+        rechargesRes = await db.query("SELECT id, donor_id, name_on_payment, amount, status, created_at, screenshot_file_id FROM recharges ORDER BY created_at DESC");
+      } else {
+        throw queryError;
+      }
+    }
     const recharges = rechargesRes.rows;
 
     const usersRes = await db.query("SELECT telegram_id, username, display_name FROM users");
@@ -786,7 +796,7 @@ router.get("/recharges", async (req, res) => {
         donor_username: user?.username,
         name_on_payment: r.name_on_payment,
         amount: r.amount || 0,
-        requested_amount: r.requested_amount || null,
+        requested_amount: r.requested_amount ?? null,
         status: r.status,
         created_at: r.created_at,
         screenshot_file_id: r.screenshot_file_id

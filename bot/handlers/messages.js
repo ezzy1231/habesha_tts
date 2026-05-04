@@ -34,6 +34,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
       from: { id: fromId },
       text,
       photo,
+      document,
     } = msg;
 
     const tgId = String(fromId);
@@ -302,8 +303,17 @@ export const registerMessageFlows = (bot, deps = {}) => {
       return;
     }
 
-    if (state.step === 'recharge_photo' && photo) {
-      const fileId = photo[photo.length - 1].file_id;
+    if (state.step === 'recharge_photo') {
+      const isImageDocument = Boolean(document?.mime_type?.startsWith('image/'));
+      const fileId = photo?.length
+        ? photo[photo.length - 1].file_id
+        : (isImageDocument ? document.file_id : null);
+
+      if (!fileId) {
+        await bot.sendMessage(chatId, '📸 እባክዎ የክፍያውን screenshot እንደ ፎቶ ወይም እንደ image file ይላኩ።');
+        return;
+      }
+
       const requestedAmount = state.recharge_amount || null;
       try {
         const user = await getUserByTelegramId(tgId);
