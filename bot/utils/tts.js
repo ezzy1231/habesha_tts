@@ -1,7 +1,3 @@
-import { GoogleAuth } from 'google-auth-library';
-import axios from 'axios';
-import fs from 'fs/promises';
-import path from 'path';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { Storage } from '@google-cloud/storage';
 
@@ -77,71 +73,37 @@ export async function getAvailableVoices() {
 
 
 // --------------------
-// GCS Upload Helper
+// GCS Upload Helper (buffer — no local file needed)
 // --------------------
-async function uploadToGCS(localPath, fileName) {
-  const bucket = storage.bucket(GCS_BUCKET);
-  await bucket.upload(localPath, {
-    destination: `audios/${fileName}`,
+async function uploadToGCS(audioBuffer, fileName) {
+  const file = storage.bucket(GCS_BUCKET).file(`audios/${fileName}`);
+  await file.save(audioBuffer, {
     metadata: { contentType: 'audio/mpeg', cacheControl: 'public, max-age=86400' },
+    resumable: false, // Fast path for small files (<5 MB)
   });
-  // Clean up local file
-  await fs.unlink(localPath).catch(() => {});
   return `https://storage.googleapis.com/${GCS_BUCKET}/audios/${fileName}`;
 }
 
 
 // --------------------
-// Cloud TTS (Standard)
+// Cloud TTS (Standard) — uses SDK client directly (auth is cached internally)
 // --------------------
-async function getCloudClient() {
-  const authOptions = {
-    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-  };
-
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    authOptions.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  }
-
-  const auth = new GoogleAuth(authOptions);
-  return await auth.getClient();
-}
-
 async function generateCloudTTS(donationId, text, voice = 'am-ET-Wavenet-A') {
-  const client = await getCloudClient();
-  const accessToken = (await client.getAccessToken()).token;
+  const [response] = await ttsClient.synthesizeSpeech({
+    input: { ssml: text },
+    voice: { languageCode: 'am-ET', name: voice },
+    audioConfig: { audioEncoding: 'MP3' },
+  });
 
-  const response = await axios.post(
-    'https://texttospeech.googleapis.com/v1/text:synthesize',
-    {
-      input: { ssml: text },
-      voice: { languageCode: 'am-ET', name: voice },
-      audioConfig: { audioEncoding: 'MP3' },
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-
-  const outputDir = process.env.TTS_OUTPUT_PATH || './public/audios';
-  await fs.mkdir(outputDir, { recursive: true });
   const fileName = `donation_${donationId}_cloud.mp3`;
-  const filePath = path.join(outputDir, fileName);
-  await fs.writeFile(filePath, response.data.audioContent, 'base64');
-  return await uploadToGCS(filePath, fileName);
+  return await uploadToGCS(response.audioContent, fileName);
 }
 
 // --------------------
 // Gemini TTS (Experimental)
 // --------------------
 async function generateGeminiTTS(donationId, text, prompt, voice) {
-  const outputDir = process.env.TTS_OUTPUT_PATH || './public/audios';
-  await fs.mkdir(outputDir, { recursive: true });
   const fileName = `donation_${donationId}_gemini.mp3`;
-  const filePath = path.join(outputDir, fileName);
 
   const request = {
     input: {
@@ -160,9 +122,8 @@ async function generateGeminiTTS(donationId, text, prompt, voice) {
 
   try {
     const [response] = await ttsClient.synthesizeSpeech(request);
-    await fs.writeFile(filePath, response.audioContent, 'binary');
-    console.log(`✅ Audio content written to file: ${fileName}`);
-    return await uploadToGCS(filePath, fileName);
+    console.log(`✅ Gemini TTS synthesized: ${fileName}`);
+    return await uploadToGCS(response.audioContent, fileName);
   } catch (error) {
     console.error('ERROR during Gemini speech synthesis:', error);
     if (error.code === 3) { // 3 = INVALID_ARGUMENT

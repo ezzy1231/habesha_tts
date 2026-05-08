@@ -1,7 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 import db from "../backend/db-postgres.js";
-import { ttsQueue } from '../backend/queue-optimized.js';
+import { enqueueTTSJob } from '../backend/queue-optimized.js';
 import { emitAdminEvent } from "../backend/utils/adminNotifications.js";
 import { registerCommands } from "./handlers/commands.js";
 import { registerCallbacks } from "./handlers/callbacks.js";
@@ -173,7 +173,7 @@ if (bot) {
     userStates,
     pendingDonations,
     safeAnswerCallback,
-    ttsQueue,
+    enqueueTTSJob,
   });
 
 }

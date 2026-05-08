@@ -7,7 +7,8 @@
     "start": "node backend/index.js",
     "dev": "nodemon backend/index.js",
     "worker": "echo \"Worker is now started by the main application. This script is deprecated.\"",
-    "test:bot-state": "node bot/tests/stateStore.test.js"
+    "test:bot-state": "node bot/tests/stateStore.test.js",
+    "bench:tts": "node scripts/test-tts-performance.js"
   },
   "dependencies": {
     "@google-ai/generativelanguage": "^3.5.0",

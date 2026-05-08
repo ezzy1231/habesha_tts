@@ -9,10 +9,10 @@ export const registerCallbacks = (bot, deps = {}) => {
     userStates,
     pendingDonations,
     safeAnswerCallback,
-    ttsQueue,
+    enqueueTTSJob,
   } = deps;
 
-  if (!db || !getUserByTelegramId || !userStates || !pendingDonations || !safeAnswerCallback || !ttsQueue) {
+  if (!db || !getUserByTelegramId || !userStates || !pendingDonations || !safeAnswerCallback || !enqueueTTSJob) {
     console.warn('[Bot] Missing dependencies for callback handlers; skipping registration.');
     return;
   }
@@ -238,7 +238,7 @@ export const registerCallbacks = (bot, deps = {}) => {
           else if (pending.voice === 'Iapetus') stylePrompt = 'A lighthearted, warm, and amused tone, with a casual, approachable quality.';
         }
 
-        await ttsQueue.add('generate-tts', {
+        await enqueueTTSJob('generate-tts', {
           donationId,
           spokenText,
           originalText: donation.message,
@@ -251,6 +251,9 @@ export const registerCallbacks = (bot, deps = {}) => {
           link_uuid: donation.link_uuid,
           streamer_id: donation.streamer_id,
           donorName,
+        }, {
+          // Prevent duplicate processing if the same callback is tapped multiple times.
+          jobId: `donation:${donationId}`,
         });
 
         userPendingDonations.splice(pendingIndex, 1);
