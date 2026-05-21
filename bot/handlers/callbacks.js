@@ -253,7 +253,7 @@ export const registerCallbacks = (bot, deps = {}) => {
           donorName,
         }, {
           // Prevent duplicate processing if the same callback is tapped multiple times.
-          jobId: `donation:${donationId}`,
+          jobId: `donation_${donationId}`,
         });
 
         userPendingDonations.splice(pendingIndex, 1);
