@@ -30,9 +30,24 @@ const bot = (() => {
 })();
 
 let pollingStarted = false;
+const isPollingActive = () => {
+  if (!bot) return false;
+  try {
+    if (typeof bot.isPolling === 'function') {
+      return Boolean(bot.isPolling());
+    }
+  } catch {
+    // Fall back to local state flag if runtime polling state is unavailable.
+  }
+  return pollingStarted;
+};
+
 const startBotPolling = async () => {
   if (!bot) return;
-  if (pollingStarted) return;
+  if (isPollingActive()) {
+    pollingStarted = true;
+    return;
+  }
   try {
     await bot.startPolling();
     pollingStarted = true;
@@ -40,6 +55,23 @@ const startBotPolling = async () => {
   } catch (error) {
     console.error('[Telegram] Failed to start polling:', error?.response?.body || error?.message || error);
     throw error;
+  }
+};
+
+const stopBotPolling = async () => {
+  if (!bot) return;
+  if (!isPollingActive()) {
+    pollingStarted = false;
+    return;
+  }
+  try {
+    await bot.stopPolling();
+    console.log('[Telegram] Polling stopped.');
+  } catch (error) {
+    console.error('[Telegram] Failed to stop polling:', error?.response?.body || error?.message || error);
+    throw error;
+  } finally {
+    pollingStarted = false;
   }
 };
 
@@ -178,4 +210,4 @@ if (bot) {
 
 }
 
-export { bot, reloadSettings, startBotPolling };
+export { bot, reloadSettings, startBotPolling, stopBotPolling };

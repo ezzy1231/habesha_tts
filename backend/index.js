@@ -16,6 +16,9 @@ import ip from 'ip';
 import db from './db-postgres.js';
 // Bot will be imported dynamically after acquiring single-instance lock
 let bot = null;
+let startBotPolling = null;
+let stopBotPolling = null;
+let lockRetryInProgress = false;
 
 import { connection as redis } from './queue-optimized.js';
 import { recordStreamerHeartbeat } from './utils/liveStatus.js';
@@ -26,6 +29,7 @@ let lockAcquired = false;
 
 const LOCK_TTL_SECONDS = 60;
 const LOCK_REFRESH_MS = 30000;
+const LOCK_RETRY_MS = 30000;
 
 console.log(`[Redis Lock] Instance ID generated: ${instanceId}`);
 
@@ -63,7 +67,11 @@ async function handleLockLoss() {
 
   if (bot) {
     try {
-      await bot.stopPolling();
+      if (typeof stopBotPolling === 'function') {
+        await stopBotPolling();
+      } else {
+        await bot.stopPolling();
+      }
       console.log('[Redis Lock] Telegram polling stopped after lock loss.');
     } catch (error) {
       console.error('[Redis Lock] Failed to stop polling after lock loss:', error?.message || error);
@@ -303,13 +311,24 @@ server.listen(PORT, '0.0.0.0', () => {
 
 // --- Bot Initialization (Lock-Protected) ---
 async function initBotWithLock() {
-  if (!await acquireLock()) return false;
+  let acquired = false;
+  try {
+    acquired = await acquireLock();
+  } catch (error) {
+    console.error('[Redis Lock] Failed to acquire lock:', error?.message || error);
+    return false;
+  }
+
+  if (!acquired) return false;
+
   try {
     console.log('🔑 Lock acquired. Initializing Telegram bot...');
     const mod = await import('../bot/bot.js');
     bot = mod.bot;
-    if (typeof mod.startBotPolling === 'function') {
-      await mod.startBotPolling();
+    startBotPolling = mod.startBotPolling;
+    stopBotPolling = mod.stopBotPolling;
+    if (typeof startBotPolling === 'function') {
+      await startBotPolling();
     }
     return true;
   } catch (e) {
@@ -319,24 +338,31 @@ async function initBotWithLock() {
   }
 }
 
-(async () => {
-  if (await initBotWithLock()) return;
+async function retryBotLockIfNeeded() {
+  if (lockAcquired || lockRetryInProgress) return;
 
-  // Lock held by another instance (e.g., previous revision still alive).
-  // Retry every 30 s so this instance takes over once the lock expires.
-  console.log('🔒 Did not acquire lock. Will retry every 30 s until lock is available...');
-  const retryInterval = setInterval(async () => {
-    if (lockAcquired) { clearInterval(retryInterval); return; }
-    try {
-      if (await initBotWithLock()) {
-        clearInterval(retryInterval);
-        console.log('🔑 Lock acquired on retry — bot polling now active on this instance.');
-      }
-    } catch (e) {
-      console.error('[Redis Lock] Retry attempt failed:', e?.message || e);
+  lockRetryInProgress = true;
+  try {
+    if (await initBotWithLock()) {
+      console.log('🔑 Lock acquired on retry — bot polling now active on this instance.');
     }
-  }, 30000);
+  } catch (e) {
+    console.error('[Redis Lock] Retry attempt failed:', e?.message || e);
+  } finally {
+    lockRetryInProgress = false;
+  }
+}
+
+(async () => {
+  await retryBotLockIfNeeded();
+  if (!lockAcquired) {
+    console.log('🔒 Bot lock not acquired yet. Retrying every 30 s until lock becomes available...');
+  }
 })();
+
+const lockRetryInterval = setInterval(() => {
+  retryBotLockIfNeeded();
+}, LOCK_RETRY_MS);
 
 // --- Graceful Shutdown ---
 const gracefulShutdown = async (signal) => {
@@ -358,7 +384,11 @@ const gracefulShutdown = async (signal) => {
   if (bot) {
     try {
       console.log('[Shutdown] Stopping Telegram bot polling...');
-      await bot.stopPolling();
+      if (typeof stopBotPolling === 'function') {
+        await stopBotPolling();
+      } else {
+        await bot.stopPolling();
+      }
       console.log('[Shutdown] Telegram bot polling stopped.');
     } catch (error) {
       console.error('[Shutdown] Error stopping bot polling:', error);
@@ -374,6 +404,7 @@ const gracefulShutdown = async (signal) => {
     // Release bot instance lock
     await releaseLock();
     clearInterval(lockInterval);
+    clearInterval(lockRetryInterval);
     process.env.BOT_INSTANCE_LOCK = 'false';
     process.exit(0);
   });
