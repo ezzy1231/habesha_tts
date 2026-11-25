@@ -1,21 +1,51 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import StreamerPage from "./pages/StreamerPage";
-import AdminDashboard from "./pages/AdminDashboard";
-import WithdrawPage from "./pages/WithdrawPage";
-import LandingPage from "./pages/LandingPage";
+import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
+import { lazy, Suspense, useEffect } from 'react';
 import { StreamerBalanceProvider } from "./contexts/StreamerBalanceContext";
 import { AdminBalanceProvider } from "./contexts/AdminBalanceContext";
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import StreamerLogin from './pages/StreamerLogin';
-import OverlayPage from './pages/OverlayPage';
-
-import { lazy, Suspense, useEffect } from 'react';
+import LandingPage from "./pages/LandingPage";
 import { initTheme } from './ui/theme';
+import { Spinner } from './ui/Spinner';
+
+// Each page is its own chunk; the landing page stays in the main bundle.
+const StreamerPage = lazy(() => import("./pages/StreamerPage"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const WithdrawPage = lazy(() => import("./pages/WithdrawPage"));
+const StreamerLogin = lazy(() => import('./pages/StreamerLogin'));
+const OverlayPage = lazy(() => import('./pages/OverlayPage'));
+const StreamersPage = lazy(() => import('./pages/StreamersPage'));
+const DonatePage = lazy(() => import('./pages/DonatePage'));
+const DonateReturnPage = lazy(() => import('./pages/DonateReturnPage'));
 
 // Dev-only design-system gallery (src/ui). Set VITE_ENABLE_UI_KIT=true to include it in a build.
 const SHOW_UI_KIT = import.meta.env.DEV || import.meta.env.VITE_ENABLE_UI_KIT === 'true';
 const UiKitPage = SHOW_UI_KIT ? lazy(() => import('./ui/UiKitPage')) : null;
+
+function PageFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-canvas text-muted">
+      <Spinner size={28} label="Loading" />
+    </div>
+  );
+}
+
+function NotFound() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-4 text-center">
+      <div>
+        <h2 className="mb-2 text-2xl font-bold text-fg">Page not found</h2>
+        <p className="text-muted">Check the link, or go to the <a className="text-brand-600 underline dark:text-brand-400" href="/streamers">streamer list</a>.</p>
+      </div>
+    </div>
+  );
+}
+
+/** react-router can't match "/@:slug" directly, so single-segment paths starting with @ go to the donate page. */
+function HandleRoute() {
+  const { handle = '' } = useParams();
+  return handle.startsWith('@') && handle.length > 1 ? <DonatePage /> : <NotFound />;
+}
 
 function App() {
   // Dark-first: apply the saved theme, or dark when none is saved (see src/ui/theme.js).
@@ -27,37 +57,34 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <StreamerBalanceProvider>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            {UiKitPage ? (
-              <Route path="/ui-kit/*" element={<Suspense fallback={null}><UiKitPage /></Suspense>} />
-            ) : null}
-            <Route path="/admin" element={
-              <AdminBalanceProvider>
-                <AdminDashboard />
-              </AdminBalanceProvider>
-            } />
-            <Route path="/overlay/:token" element={<OverlayPage />} />
-            <Route path="/streamer/:uuid/login" element={<StreamerLogin />} />
-            <Route path="/streamer/:uuid" element={
-              <ProtectedRoute>
-                <StreamerPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/withdraw/:uuid" element={
-              <ProtectedRoute>
-                <WithdrawPage />
-              </ProtectedRoute>
-            } />
-            <Route path="*" element={
-              <div className="min-h-screen bg-gray-100 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">🎙️ Habesha TTS Dashboard</h2>
-                  <p className="text-gray-600 dark:text-gray-400">Please use a valid streamer link to access the dashboard.</p>
-                </div>
-              </div>
-            } />
-          </Routes>
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/streamers" element={<StreamersPage />} />
+              <Route path="/s/:slug" element={<DonatePage />} />
+              <Route path="/donate/return" element={<DonateReturnPage />} />
+              <Route path="/:handle" element={<HandleRoute />} />
+              {UiKitPage ? <Route path="/ui-kit/*" element={<UiKitPage />} /> : null}
+              <Route path="/admin" element={
+                <AdminBalanceProvider>
+                  <AdminDashboard />
+                </AdminBalanceProvider>
+              } />
+              <Route path="/overlay/:token" element={<OverlayPage />} />
+              <Route path="/streamer/:uuid/login" element={<StreamerLogin />} />
+              <Route path="/streamer/:uuid/*" element={
+                <ProtectedRoute>
+                  <StreamerPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/withdraw/:uuid" element={
+                <ProtectedRoute>
+                  <WithdrawPage />
+                </ProtectedRoute>
+              } />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </StreamerBalanceProvider>
       </AuthProvider>
     </BrowserRouter>
