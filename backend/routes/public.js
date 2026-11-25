@@ -12,6 +12,7 @@ import { moderateMessage, containsBlocked, maskBlocked } from '../utils/moderati
 import { getStreamerSettings, getGlobalBlockedWords } from '../utils/streamerSettings.js';
 import { findVoice, availableVoices } from '../utils/voices.js';
 import { getTelegramFile, sendTelegramFile } from '../utils/telegramFiles.js';
+import { listStreamerSounds, cooldownRemaining } from '../services/sounds.js';
 
 const router = express.Router();
 
@@ -103,7 +104,19 @@ function safeSocialLink(link) {
 }
 
 /** Public profile + everything the donate page needs. Extended by the soundboard/media steps. */
-export const profileExtenders = [];
+export const profileExtenders = [
+  async (profile, { streamer, settings }) => {
+    if (!settings.soundboard_enabled) return;
+    const sounds = await listStreamerSounds(streamer.telegram_id, { onlyEnabled: true });
+    profile.soundboard.sounds = [];
+    for (const s of sounds) {
+      profile.soundboard.sounds.push({
+        id: s.id, label: s.label, price: s.price, previewUrl: s.fileUrl,
+        cooldownSeconds: s.cooldownSeconds, availableIn: await cooldownRemaining(streamer.telegram_id, s),
+      });
+    }
+  },
+];
 
 router.get('/streamers/:slug', readLimiter, async (req, res) => {
   try {
@@ -197,6 +210,23 @@ export const purposeBuilders = {
       engine: voice.engine,
       voice: voice.voice,
       price: priceForTts(text, pricing, settings.min_tts_amount),
+    };
+  },
+
+  async sound({ body, streamer, settings, donorName }) {
+    if (!settings.soundboard_enabled) throw new CheckoutError('This streamer has the soundboard turned off');
+    const sound = (await listStreamerSounds(streamer.telegram_id, { onlyEnabled: true })).find((s) => s.id === body.soundId);
+    if (!sound) throw new CheckoutError('That sound is not available');
+    const wait = await cooldownRemaining(streamer.telegram_id, sound);
+    if (wait > 0) throw new CheckoutError(`"${sound.label}" was just played. Try again in ${wait} s.`, 409);
+    return {
+      kind: 'sound',
+      streamerId: streamer.telegram_id,
+      donorName,
+      soundId: sound.id,
+      soundLabel: sound.label,
+      soundUrl: sound.fileUrl,
+      price: sound.price,
     };
   },
 };

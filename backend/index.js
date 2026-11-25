@@ -117,6 +117,7 @@ import paymentRoutes from './routes/payment.js';
 import streamerAuthRoutes from './routes/streamerAuth.js';
 import overlayRoutes from './routes/overlay.js';
 import publicRoutes from './routes/public.js';
+import streamerFeatureRoutes from './routes/streamerFeatures.js';
 import { webhookRouter as paymentWebhookRoutes, demoPayRouter } from './routes/payments.js';
 import { sweepPendingPayments } from './services/payments.js';
 import { isConfigured as isDemoGatewayEnabled } from './payments/demo.js';
@@ -209,6 +210,7 @@ app.use('/public', express.static('public'));
 
 // --- API Routes ---
 app.use('/api/v1/streamer', streamerAuthRoutes);
+app.use('/api/v1/streamer', streamerFeatureRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/streamer', streamerRoutes);
 // Demo/mock payment routes create PAID donations without any payment.

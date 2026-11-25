@@ -1,4 +1,5 @@
 import express from "express";
+import { inspectSound, uploadSoundFile, deleteSoundFile, parseSoundFields, MAX_SOUND_BYTES } from '../services/sounds.js';
 import { signedTelegramFileUrl } from '../utils/telegramFiles.js';
 import { isValidAdminToken } from '../utils/safeCompare.js';
 import db from "../db-postgres.js";
@@ -1340,6 +1341,54 @@ router.post("/complaints/:id/respond", express.json(), async (req, res) => {
     console.error("Error sending complaint response:", error);
     res.status(500).json({ error: "Failed to send response." });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Global soundboard library (streamer_id NULL)
+// ---------------------------------------------------------------------------
+router.get('/sounds', async (_req, res) => {
+  const { rows } = await db.query(`
+    SELECT s.id, s.label, s.file_url, s.price, s.cooldown_s, s.enabled, s.created_at,
+           (SELECT COUNT(*)::int FROM donations d WHERE d.sound_id = s.id AND d.status = 'paid') AS plays
+      FROM sounds s WHERE s.streamer_id IS NULL ORDER BY lower(s.label)`);
+  res.json({ sounds: rows });
+});
+
+router.post('/sounds', express.raw({ type: ['audio/*', 'application/octet-stream'], limit: MAX_SOUND_BYTES + 1024 }), async (req, res) => {
+  const { fields, error } = parseSoundFields({ label: req.query.label, price: req.query.price ?? 20, cooldown: req.query.cooldown ?? 30 });
+  if (error || !fields.label) return res.status(400).json({ error: error || 'Label is required' });
+  const check = inspectSound(req.body);
+  if (!check.ok) return res.status(400).json({ error: check.error });
+  try {
+    const fileUrl = await uploadSoundFile(req.body, { ext: check.ext, contentType: check.contentType, owner: 'global' });
+    const { rows: [sound] } = await db.query(
+      'INSERT INTO sounds (streamer_id, label, file_url, price, cooldown_s) VALUES (NULL, $1, $2, $3, $4) RETURNING *',
+      [fields.label, fileUrl, fields.price, fields.cooldown_s]);
+    res.status(201).json({ sound });
+  } catch (err) {
+    console.error('[admin] sound upload failed:', err.message);
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
+router.put('/sounds/:id', express.json({ limit: '4kb' }), async (req, res) => {
+  const { fields, error } = parseSoundFields(req.body || {});
+  if (error) return res.status(400).json({ error });
+  const { rows: [sound] } = await db.query(`
+    UPDATE sounds SET label = COALESCE($2, label), price = COALESCE($3, price),
+                      cooldown_s = COALESCE($4, cooldown_s), enabled = COALESCE($5, enabled)
+     WHERE id = $1 AND streamer_id IS NULL RETURNING *`,
+  [Number(req.params.id), fields.label ?? null, fields.price ?? null, fields.cooldown_s ?? null, fields.enabled ?? null]);
+  if (!sound) return res.status(404).json({ error: 'Sound not found' });
+  res.json({ sound });
+});
+
+router.delete('/sounds/:id', async (req, res) => {
+  const { rows: [sound] } = await db.query(
+    'DELETE FROM sounds WHERE id = $1 AND streamer_id IS NULL RETURNING file_url', [Number(req.params.id)]);
+  if (!sound) return res.status(404).json({ error: 'Sound not found' });
+  deleteSoundFile(sound.file_url);
+  res.json({ success: true });
 });
 
 export default router;

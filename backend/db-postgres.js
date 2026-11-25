@@ -8,6 +8,7 @@ const { Pool } = pg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  max: Number(process.env.PG_POOL_MAX || 10),
 });
 
 pool.on('connect', client => {
