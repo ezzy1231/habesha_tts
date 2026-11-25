@@ -224,6 +224,17 @@ test('HTTP: donate page → demo pay page → return status', opts, async () => 
     assert.deepEqual(opt.providers.map((p) => p.name).sort(), ['arifpay', 'chapa', 'demo']);
     assert.equal(opt.platformFeePercent, 10);
 
+    const dir = await (await realFetch(`${base}/api/public/streamers`)).json();
+    const listed = dir.streamers.find((s) => s.slug === 'paystreamer');
+    assert.ok(listed && listed.live === true && listed.name === 'Pay Streamer');
+    assert.ok(!/telegram_id|link_uuid|balance|room-pay|api_key|phone/.test(JSON.stringify(dir)), 'directory leaks nothing private');
+    const prof = await (await realFetch(`${base}/api/public/streamers/PayStreamer`)).json();
+    assert.equal(prof.streamer.tts.basePrice, 20);
+    assert.ok(prof.streamer.tts.voices.some((v) => v.voice === 'am-ET-Wavenet-A'));
+    assert.ok(!/telegram_id|link_uuid|balance|room-pay|blocked/.test(JSON.stringify(prof)));
+    assert.equal((await realFetch(`${base}/api/public/streamers/no_such_one`)).status, 404);
+    assert.equal((await realFetch(`${base}/api/public/streamers/..%2F..`)).status, 404);
+
     const base1 = { slug: 'paystreamer', kind: 'tts', donorName: 'Abel', provider: 'demo', message: 'selam meh friend' };
     // global word rejects
     let res = await post('/api/public/checkout', { ...base1, message: 'you badword' });
@@ -286,6 +297,34 @@ test('HTTP: donate page → demo pay page → return status', opts, async () => 
   } finally {
     server.close();
   }
+});
+
+test('streamer identity: API key or session token, only for their own room', opts, async () => {
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
+  const { authorizeStreamer } = await import('../utils/streamerIdentity.js');
+  const { default: jwt } = await import('jsonwebtoken');
+  await q("UPDATE users SET api_key = 'key-123', link_uuid = '11111111-2222-3333-4444-555555555555' WHERE telegram_id = $1", [STREAMER]);
+  const uuid = '11111111-2222-3333-4444-555555555555';
+  assert.equal(await authorizeStreamer({ uuid, apiKey: 'key-123' }), String(STREAMER));
+  assert.equal(await authorizeStreamer({ uuid, apiKey: 'nope' }), null);
+  const good = jwt.sign({ telegram_id: STREAMER, role: 'streamer' }, process.env.JWT_SECRET);
+  const other = jwt.sign({ telegram_id: DONOR, role: 'streamer' }, process.env.JWT_SECRET);
+  assert.equal(await authorizeStreamer({ uuid, token: good }), String(STREAMER));
+  assert.equal(await authorizeStreamer({ uuid, cookieHeader: `x=1; authToken=${good}` }), String(STREAMER));
+  assert.equal(await authorizeStreamer({ uuid, token: other }), null);
+  assert.equal(await authorizeStreamer({ uuid: 'not a uuid', apiKey: 'key-123' }), null);
+  await q("UPDATE users SET link_uuid = 'room-pay' WHERE telegram_id = $1", [STREAMER]);
+});
+
+test('signed Telegram file URLs', opts, async () => {
+  const { signedTelegramFileUrl, verifySignedFile } = await import('../utils/telegramFiles.js');
+  const u = new URL(signedTelegramFileUrl('AgACAgQAAxkBAAIB'));
+  assert.ok(!u.href.includes('api.telegram.org'));
+  const id = decodeURIComponent(u.pathname.split('/').pop());
+  assert.equal(verifySignedFile(id, u.searchParams.get('exp'), u.searchParams.get('sig')), true);
+  assert.equal(verifySignedFile('AgACAgQAAxkBAAIC', u.searchParams.get('exp'), u.searchParams.get('sig')), false);
+  assert.equal(verifySignedFile(id, '1000000000', u.searchParams.get('sig')), false, 'expired');
+  assert.equal(signedTelegramFileUrl('../etc/passwd'), null);
 });
 
 test('teardown', opts, async () => {

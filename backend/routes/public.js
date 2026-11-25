@@ -5,12 +5,13 @@ import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import db from '../db-postgres.js';
 import { enabledProviders } from '../payments/index.js';
-import { startCheckout, findPaymentByTxRef, confirmPayment, CheckoutError, usdRate } from '../services/payments.js';
+import { startCheckout, findPaymentByTxRef, confirmPayment, CheckoutError, usdRate, backendBase } from '../services/payments.js';
 import { getCreditBalance } from '../services/donations.js';
 import { getPricingSettings, priceForTts, messageLength } from '../utils/pricing.js';
 import { moderateMessage, containsBlocked, maskBlocked } from '../utils/moderation.js';
 import { getStreamerSettings, getGlobalBlockedWords } from '../utils/streamerSettings.js';
-import { findVoice } from '../utils/voices.js';
+import { findVoice, availableVoices } from '../utils/voices.js';
+import { getTelegramFile, sendTelegramFile } from '../utils/telegramFiles.js';
 
 const router = express.Router();
 
@@ -35,6 +36,123 @@ export async function findPublicStreamer(slug) {
 }
 
 export const displayName = (u) => u.full_name || u.display_name || u.username || 'Streamer';
+
+const avatarUrl = (u) => (u.profile_picture_file_id ? `${backendBase()}/api/public/avatars/${u.public_slug}` : null);
+
+/** Every approved streamer gets a settings row (and slug) before being listed. */
+async function ensureSettingsRows() {
+  await db.query(`
+    INSERT INTO streamer_settings (streamer_id, public_slug)
+    SELECT u.telegram_id, 'streamer-' || u.id::text
+      FROM users u
+     WHERE u.role = 'streamer' AND u.registration_status = 'approved'
+       AND NOT EXISTS (SELECT 1 FROM streamer_settings s WHERE s.streamer_id = u.telegram_id)
+    ON CONFLICT DO NOTHING`);
+}
+
+// ---------------------------------------------------------------------------
+// Directory and streamer profile
+// ---------------------------------------------------------------------------
+
+let directoryCache = { at: 0, data: null };
+
+router.get('/streamers', readLimiter, async (_req, res) => {
+  try {
+    if (!directoryCache.data || Date.now() - directoryCache.at > 15_000) {
+      await ensureSettingsRows();
+      const { rows } = await db.query(`
+        SELECT s.public_slug, u.full_name, u.username, u.display_name, u.live_status, u.live_since,
+               u.profile_picture_file_id, u.social_link,
+               s.soundboard_enabled, s.media_enabled
+          FROM users u
+          JOIN streamer_settings s ON s.streamer_id = u.telegram_id
+         WHERE u.role = 'streamer' AND u.registration_status = 'approved' AND u.link_uuid IS NOT NULL
+         ORDER BY u.live_status DESC, u.streamer_order ASC, u.id ASC
+         LIMIT 500`);
+      directoryCache = {
+        at: Date.now(),
+        data: rows.map((u) => ({
+          slug: u.public_slug,
+          name: displayName(u),
+          live: Boolean(u.live_status),
+          liveSince: u.live_status ? u.live_since : null,
+          avatarUrl: avatarUrl(u),
+          socialLink: safeSocialLink(u.social_link),
+          features: { tts: true, soundboard: Boolean(u.soundboard_enabled), media: Boolean(u.media_enabled) },
+        })),
+      };
+    }
+    res.set('Cache-Control', 'public, max-age=15');
+    return res.json({ streamers: directoryCache.data });
+  } catch (error) {
+    console.error('[public] directory failed:', error.message);
+    return res.status(500).json({ error: 'Failed to load streamers' });
+  }
+});
+
+/** Only http(s) links are ever rendered as links. */
+function safeSocialLink(link) {
+  if (!link) return null;
+  const s = String(link).trim();
+  const withScheme = /^https?:\/\//i.test(s) ? s : (/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(s) ? `https://${s}` : null);
+  if (!withScheme) return null;
+  try {
+    const u = new URL(withScheme);
+    return ['http:', 'https:'].includes(u.protocol) ? u.toString() : null;
+  } catch { return null; }
+}
+
+/** Public profile + everything the donate page needs. Extended by the soundboard/media steps. */
+export const profileExtenders = [];
+
+router.get('/streamers/:slug', readLimiter, async (req, res) => {
+  try {
+    const streamer = await findPublicStreamer(req.params.slug);
+    if (!streamer) return res.status(404).json({ error: 'Streamer not found' });
+    const [settings, pricing] = [await getStreamerSettings(streamer.telegram_id), await getPricingSettings()];
+    const profile = {
+      slug: streamer.public_slug,
+      name: displayName(streamer),
+      live: Boolean(streamer.live_status),
+      avatarUrl: avatarUrl(streamer),
+      socialLink: safeSocialLink(streamer.social_link),
+      tts: {
+        maxChars: pricing.maxChars,
+        stepChars: pricing.stepChars,
+        basePrice: pricing.basePrice,
+        incrementPrice: pricing.incrementPrice,
+        minAmount: settings.min_tts_amount,
+        voices: availableVoices().map(({ engine, voice, label, labelEn, gender }) => ({ engine, voice, label, labelEn, gender })),
+      },
+      soundboard: { enabled: Boolean(settings.soundboard_enabled), sounds: [] },
+      media: {
+        enabled: Boolean(settings.media_enabled),
+        minAmount: settings.media_min_amount,
+        maxSeconds: settings.media_max_seconds,
+      },
+      platformFeePercent: pricing.platformFeePercent,
+      providers: enabledProviders(),
+      usdRate: usdRate(),
+    };
+    for (const extend of profileExtenders) await extend(profile, { streamer, settings });
+    res.set('Cache-Control', 'no-store');
+    return res.json({ streamer: profile });
+  } catch (error) {
+    console.error('[public] profile failed:', error.message);
+    return res.status(500).json({ error: 'Failed to load streamer' });
+  }
+});
+
+router.get('/avatars/:slug', readLimiter, async (req, res) => {
+  const streamer = await findPublicStreamer(req.params.slug).catch(() => null);
+  if (!streamer?.profile_picture_file_id) return res.sendStatus(404);
+  try {
+    return sendTelegramFile(res, await getTelegramFile(streamer.profile_picture_file_id), 3600);
+  } catch (error) {
+    console.error('[public] avatar failed:', error.message);
+    return res.sendStatus(404);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Checkout

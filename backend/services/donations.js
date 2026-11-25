@@ -167,6 +167,7 @@ export async function fulfilPayment(paymentId, verified = {}, deps = {}) {
   let streamer = null;
   let donation = null;
   let after = null; // work to do once committed
+  let settled = null;
   try {
     await client.query('BEGIN');
     const res = await client.query(`
@@ -247,7 +248,7 @@ export async function fulfilPayment(paymentId, verified = {}, deps = {}) {
     donation = ins.rows[0];
 
     if (kind === 'sound') {
-      await settleDonation(client, {
+      settled = await settleDonation(client, {
         donationId: donation.id, price, audioFile: purpose.soundUrl, fundedBy: 'payment',
         streamerTelegramId: streamer.telegram_id,
       });
@@ -298,7 +299,7 @@ export async function fulfilPayment(paymentId, verified = {}, deps = {}) {
     }
   } else if (donation.kind === 'sound') {
     emitTo(io(), [room, 'admin'], 'new_donation', {
-      ...base, status: 'paid', text: purpose.soundLabel, sound_label: purpose.soundLabel, audio_url: purpose.soundUrl,
+      ...base, status: 'paid', net_amount: settled?.net ?? 0, platform_fee: settled?.fee ?? 0, text: purpose.soundLabel, sound_label: purpose.soundLabel, audio_url: purpose.soundUrl,
     });
   } else if (donation.kind === 'media') {
     emitTo(io(), [room, 'admin'], 'media_request', {

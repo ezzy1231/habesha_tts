@@ -123,6 +123,8 @@ import { isConfigured as isDemoGatewayEnabled } from './payments/demo.js';
 import { runMigrations } from './migrations/index.js';
 import { registerOverlaySocketHandlers, overlayStatusFor } from './utils/overlayPresence.js';
 import { isValidAdminToken } from './utils/safeCompare.js';
+import { authorizeStreamer } from './utils/streamerIdentity.js';
+import { telegramFileRouter } from './utils/telegramFiles.js';
 
 import { ttsQueue } from './queue-optimized.js';
 
@@ -217,6 +219,7 @@ if (process.env.NODE_ENV !== 'production' && process.env.PAYMENT_MOCK_ENABLED ==
 }
 app.use('/api/overlay', overlayRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/files', telegramFileRouter);
 
 // --- Telegram Webhook Route (Production) ---
 app.post('/webhook', async (req, res) => {
@@ -301,9 +304,28 @@ global.socketIO = io;
 
 io.on('connection', (socket) => {
   console.log('⚡ Client connected:', socket.id);
-  socket.on('join_streamer_room', (link_uuid) => {
+  // The room carries donor names, messages and media requests: only the streamer may join.
+  // Old dashboards send no credentials; they are let in until SOCKET_REQUIRE_AUTH=true.
+  socket.on('join_streamer_room', async (link_uuid, auth = {}) => {
     if (typeof link_uuid !== 'string' || link_uuid.length > 64) return;
-    console.log(`Streamer joined room: ${link_uuid}`);
+    let allowed = null;
+    try {
+      allowed = await authorizeStreamer({
+        uuid: link_uuid,
+        apiKey: typeof auth?.apiKey === 'string' ? auth.apiKey : undefined,
+        token: typeof auth?.token === 'string' ? auth.token : undefined,
+        cookieHeader: socket.handshake?.headers?.cookie,
+      });
+    } catch (error) {
+      console.error('[Socket] streamer auth failed:', error.message);
+    }
+    if (!allowed) {
+      if (String(process.env.SOCKET_REQUIRE_AUTH).toLowerCase() === 'true') {
+        socket.emit('streamer_room_denied');
+        return;
+      }
+      console.warn('[Socket] unauthenticated join_streamer_room (legacy client) allowed');
+    }
     socket.join(link_uuid);
     // Tell the dashboard whether OBS is already playing alerts
     socket.emit('overlay_status', overlayStatusFor(link_uuid));

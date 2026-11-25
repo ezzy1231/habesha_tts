@@ -140,6 +140,8 @@ async function processTTSJob(job) {
           kind: 'tts',
           source: job.data.source || 'telegram',
           is_demo: settlement.isDemo,
+          platform_fee: settlement.fee,
+          net_amount: settlement.net,
         },
         chatId,
         newDonorBalance,

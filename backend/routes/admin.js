@@ -1,4 +1,5 @@
 import express from "express";
+import { signedTelegramFileUrl } from '../utils/telegramFiles.js';
 import { isValidAdminToken } from '../utils/safeCompare.js';
 import db from "../db-postgres.js";
 import { bot, reloadSettings } from "../../bot/bot.js";
@@ -128,8 +129,8 @@ router.get("/overview", async (req, res) => {
     const resolveProfilePictureUrl = async (user) => {
       let profile_picture_url = null;
       try {
-        if (bot && user.profile_picture_file_id) {
-          profile_picture_url = await bot.getFileLink(user.profile_picture_file_id);
+        if (user.profile_picture_file_id) {
+          profile_picture_url = signedTelegramFileUrl(user.profile_picture_file_id);
         }
       } catch (e) {
         console.error(`Failed to get file link for ${user.profile_picture_file_id}:`, e.message);
@@ -230,8 +231,8 @@ router.get("/streamers", async (req, res) => {
     const streamersWithPics = await Promise.all(streamersData.map(async (s) => {
       let profile_picture_url = null;
       try {
-        if (bot && s.profile_picture_file_id) {
-          profile_picture_url = await bot.getFileLink(s.profile_picture_file_id);
+        if (s.profile_picture_file_id) {
+          profile_picture_url = signedTelegramFileUrl(s.profile_picture_file_id);
         }
       } catch (e) {
         console.error(`Failed to get file link for ${s.profile_picture_file_id}:`, e.message);
@@ -664,8 +665,8 @@ router.get("/streamer-requests", async (req, res) => {
     const requests = await Promise.all(result.rows.map(async (request) => {
       let profile_picture_url = null;
       try {
-        if (bot && request.profile_picture_file_id) {
-          profile_picture_url = await bot.getFileLink(request.profile_picture_file_id);
+        if (request.profile_picture_file_id) {
+          profile_picture_url = signedTelegramFileUrl(request.profile_picture_file_id);
         }
       } catch (e) {
         console.error(`Failed to get file link for ${request.profile_picture_file_id}:`, e.message);
@@ -808,8 +809,8 @@ router.get("/recharges", async (req, res) => {
     const list = await Promise.all(baseList.map(async (it) => {
       let screenshot_url = null;
       try {
-        if (bot && it.screenshot_file_id) {
-          screenshot_url = await bot.getFileLink(it.screenshot_file_id);
+        if (it.screenshot_file_id) {
+          screenshot_url = signedTelegramFileUrl(it.screenshot_file_id);
         }
       } catch { }
       return { ...it, screenshot_url };

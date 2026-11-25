@@ -1,4 +1,6 @@
 import fs from 'fs-extra';
+import { authorizeStreamerRequest } from '../utils/streamerIdentity.js';
+import { signedTelegramFileUrl } from '../utils/telegramFiles.js';
 import path from 'path';
 import express from "express";
 import { z } from "zod";
@@ -63,8 +65,13 @@ router.get("/:uuid/donations", protectStreamer, async (req, res) => {
     const donationsRes = await db.query(`
       SELECT
         d.id,
-        u.display_name AS donor_name,
+        COALESCE(d.donor_name, u.display_name) AS donor_name,
         d.message AS text,
+        d.kind,
+        d.source,
+        d.is_demo,
+        d.platform_fee,
+        d.net_amount,
         d.amount,
         d.status,
         d.audio_file AS audio_url,
@@ -209,8 +216,8 @@ router.get("/:uuid", async (req, res) => {
 
     let profile_picture_url = null;
     try {
-      if (bot && streamer.profile_picture_file_id) {
-        profile_picture_url = await bot.getFileLink(streamer.profile_picture_file_id);
+      if (streamer.profile_picture_file_id) {
+        profile_picture_url = signedTelegramFileUrl(streamer.profile_picture_file_id);
       }
     } catch (e) {
       console.error(`Failed to get file link for ${streamer.profile_picture_file_id}:`, e.message);
@@ -222,8 +229,13 @@ router.get("/:uuid", async (req, res) => {
     const donationsRes = await db.query(`
       SELECT
         d.id,
-        u.display_name AS donor_name,
+        COALESCE(d.donor_name, u.display_name) AS donor_name,
         d.message AS text,
+        d.kind,
+        d.source,
+        d.is_demo,
+        d.platform_fee,
+        d.net_amount,
         d.amount,
         d.status,
         d.audio_file AS audio_url,
@@ -261,7 +273,9 @@ router.get("/:uuid", async (req, res) => {
     const totalCount = parseInt(stats.count);
     const totalEarned = Number(stats.totalAmount || 0);
 
-    const balance = await getStreamerBalance(streamer.telegram_id);
+    // Balance is private: only the streamer themselves (API key or session) gets it.
+    const isOwner = Boolean(await authorizeStreamerRequest(req, uuid).catch(() => null));
+    const balance = isOwner ? await getStreamerBalance(streamer.telegram_id) : undefined;
 
     const donations = (donationsRes.rows || []).map((d) => {
       const { flag_action, flag_status, flag_reason, flag_created_at, ...rest } = d;
@@ -294,7 +308,7 @@ router.get("/:uuid", async (req, res) => {
         telegram_id: streamer.telegram_id,
         username: streamer.username,
         full_name: streamer.full_name,
-        balance: balance, // Use the freshly calculated, always-correct value
+        ...(isOwner ? { balance } : {}),
         link_uuid: streamer.link_uuid,
         profile_picture_url,
         notification_sound: notificationSoundValue,

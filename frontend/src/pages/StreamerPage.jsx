@@ -610,7 +610,8 @@ export default function StreamerPage() {
       if (page === 1) {
         // Initial load: Use the public endpoint that gets everything.
         // We still wait for apiClient to be ready to ensure the user has authenticated.
-        const res = await axios.get(`${import.meta.env.VITE_API_URL}/streamer/${uuid}?page=${page}`);
+        // Authenticated so the response includes the (private) balance.
+        const res = await apiClient.get(`/streamer/${uuid}?page=${page}`);
         const rawStreamer = res.data.streamer;
         const normalizedStreamer = rawStreamer ? {
           ...rawStreamer,
@@ -1085,7 +1086,7 @@ export default function StreamerPage() {
 // console.log("🔗 Socket connected");
       setConnectionStatus('connected');
       resetReconnectState();
-      socket.emit("join_streamer_room", uuid);
+      socket.emit("join_streamer_room", uuid, { apiKey: apiKey || undefined, token: authToken || undefined });
       startHeartbeat();
       setLastHeartbeatAt(Date.now());
 
@@ -1158,7 +1159,9 @@ export default function StreamerPage() {
         }
 
         const balanceIncrement = uniqueBatch.reduce((sum, donation) => {
-          const amount = donation?.status === 'paid' ? Number(donation.amount || 0) : 0;
+          // Streamer earns the net (after platform fee); demo donations earn nothing.
+          if (donation?.status !== 'paid' || donation?.is_demo) return sum;
+          const amount = Number(donation.net_amount ?? donation.amount ?? 0);
           return sum + (Number.isFinite(amount) ? amount : 0);
         }, 0);
 
@@ -1255,7 +1258,7 @@ export default function StreamerPage() {
       stopHeartbeat();
       clearReconnectTimeout();
     };
-  }, [uuid, enabled, currentPage, fetchInitialData, getDonationCacheKey, apiClient, scheduleReconnect, startHeartbeat, stopHeartbeat, resetReconnectState, clearReconnectTimeout, sortDonationsOldestFirst]);
+  }, [uuid, apiKey, authToken, enabled, currentPage, fetchInitialData, getDonationCacheKey, apiClient, scheduleReconnect, startHeartbeat, stopHeartbeat, resetReconnectState, clearReconnectTimeout, sortDonationsOldestFirst]);
 
   // OBS overlay presence + donations the overlay already played
   useEffect(() => {
@@ -1491,7 +1494,7 @@ export default function StreamerPage() {
 // console.log("Socket disconnected, reconnecting...");
           scheduleReconnect('page_visible');
         } else {
-          socket.emit("join_streamer_room", uuid);
+          socket.emit("join_streamer_room", uuid, { apiKey: apiKey || undefined, token: authToken || undefined });
         }
 
         startHeartbeat();
@@ -1518,7 +1521,7 @@ export default function StreamerPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [uuid, fetchInitialData, apiClient, scheduleReconnect, startHeartbeat, stopHeartbeat, enabled, queue, playNext]);
+  }, [uuid, apiKey, authToken, fetchInitialData, apiClient, scheduleReconnect, startHeartbeat, stopHeartbeat, enabled, queue, playNext]);
 
   useEffect(() => {
     if (keepAliveIntervalRef.current) {
