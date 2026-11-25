@@ -86,3 +86,13 @@ frontend/node_modules/
 
 # Stores VSCode state and config
 .vscode/
+
+# Never bake secrets or data dumps into the image
+tts-donation-demo-*.json
+google-credentials.json
+*credentials*.json
+/mydb_backup.sql
+/neon_backup.sql
+/neon_dump.sql
+*.pdf
+docs/

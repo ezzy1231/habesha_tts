@@ -116,6 +116,7 @@ import streamerRoutes from './routes/streamer.js';
 import paymentRoutes from './routes/payment.js';
 import streamerAuthRoutes from './routes/streamerAuth.js';
 import overlayRoutes from './routes/overlay.js';
+import { runMigrations } from './migrations/index.js';
 import { registerOverlaySocketHandlers, overlayStatusFor } from './utils/overlayPresence.js';
 import { isValidAdminToken } from './utils/safeCompare.js';
 
@@ -322,10 +323,19 @@ io.on('connection', (socket) => {
 
 
 // --- Server Start ---
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on http://localhost:${PORT} and http://${ip.address()}:${PORT}`);
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) console.log('🔊 TTS: Google Cloud configured');
-});
+// Apply pending database migrations before accepting traffic. If they fail, exit so the
+// new revision never serves with a half-migrated schema (Cloud Run keeps the old one).
+runMigrations()
+  .then(() => {
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on http://localhost:${PORT} and http://${ip.address()}:${PORT}`);
+      if (process.env.GOOGLE_APPLICATION_CREDENTIALS) console.log('🔊 TTS: Google Cloud configured');
+    });
+  })
+  .catch((error) => {
+    console.error('❌ Database migrations failed, not starting:', error.message);
+    process.exit(1);
+  });
 
 // --- Bot Initialization (Lock-Protected) ---
 async function initBotWithLock() {
