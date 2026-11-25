@@ -5,7 +5,7 @@ export const protectStreamer = async (req, res, next) => {
   const { uuid } = req.params;
 
   console.log(`[Auth Middleware] Received UUID: '${uuid}' (length: ${uuid?.length})`);
-  console.log(`[Auth Middleware] Received API Key: '${apiKey}' (length: ${apiKey?.length})`);
+  console.log(`[Auth Middleware] Received API Key (length: ${apiKey?.length ?? 0})`);
 
   if (!apiKey) {
     return res.status(401).json({ error: 'Unauthorized: No API key provided.' });

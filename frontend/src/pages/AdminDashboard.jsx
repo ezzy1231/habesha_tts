@@ -2424,9 +2424,10 @@ export default function AdminDashboard() {
   }, [apiClient]);
 
   useEffect(() => {
-    socket.emit('join_admin_room');
+    if (!adminToken) return undefined;
+    socket.emit('join_admin_room', adminToken);
     socket.on('connect', () => {// console.log('Admin socket connected');
-      socket.emit('join_admin_room');
+      socket.emit('join_admin_room', adminToken);
     });
     socket.on('disconnect', () => console.log('Admin socket disconnected'));
     socket.on('new_donation', (data) => {// console.log('[AdminDashboard] New donation received via socket:', data);
@@ -2437,7 +2438,7 @@ export default function AdminDashboard() {
       socket.off('disconnect');
       socket.off('new_donation');
     };
-  }, [refreshData]);
+  }, [refreshData, adminToken]);
 
   useEffect(() => {
     fetchCounts();

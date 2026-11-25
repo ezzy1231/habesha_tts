@@ -1,4 +1,5 @@
 import express from "express";
+import { isValidAdminToken } from '../utils/safeCompare.js';
 import db from "../db-postgres.js";
 import { bot, reloadSettings } from "../../bot/bot.js";
 import { generateStreamerLink } from "../utils/generateLink.js";
@@ -79,7 +80,7 @@ function adminAuth(req, res, next) {
   }
 
   // Require exact match - constant-time comparison to prevent timing attacks
-  if (!token || token !== process.env.ADMIN_TOKEN) {
+  if (!isValidAdminToken(token)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

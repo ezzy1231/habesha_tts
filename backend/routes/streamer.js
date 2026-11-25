@@ -9,6 +9,7 @@ import { getStreamerBalance } from "../utils/balance.js";
 import { emitAdminEvent } from "../utils/adminNotifications.js";
 import { validateSchema } from "../middleware/validateSchema.js";
 import { setStreamerLiveState } from "../utils/liveStatus.js";
+import { makeOverlayToken } from "../utils/overlayToken.js";
 import {
   listNotificationSounds,
   findNotificationSound,
@@ -506,6 +507,22 @@ router.delete("/:uuid/live", protectStreamer, async (req, res) => {
   } catch (error) {
     console.error('Failed to disable live mode:', error);
     res.status(500).json({ error: 'Failed to end live session' });
+  }
+});
+
+// GET /api/streamer/:uuid/overlay - secret OBS browser-source token (API-key auth)
+router.get("/:uuid/overlay", protectStreamer, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      "SELECT id FROM users WHERE telegram_id = $1 AND role = 'streamer' LIMIT 1",
+      [req.streamerId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Streamer not found" });
+    const token = makeOverlayToken(rows[0].id);
+    res.json({ token, path: `/overlay/${token}` });
+  } catch (error) {
+    console.error("Error creating overlay token:", error);
+    res.status(500).json({ error: "Failed to create overlay link" });
   }
 });
 

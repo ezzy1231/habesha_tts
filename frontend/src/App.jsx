@@ -8,6 +8,7 @@ import { AdminBalanceProvider } from "./contexts/AdminBalanceContext";
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import StreamerLogin from './pages/StreamerLogin';
+import OverlayPage from './pages/OverlayPage';
 
 import { lazy, Suspense, useEffect } from 'react';
 
@@ -38,6 +39,7 @@ function App() {
                 <AdminDashboard />
               </AdminBalanceProvider>
             } />
+            <Route path="/overlay/:token" element={<OverlayPage />} />
             <Route path="/streamer/:uuid/login" element={<StreamerLogin />} />
             <Route path="/streamer/:uuid" element={
               <ProtectedRoute>

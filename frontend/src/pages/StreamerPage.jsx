@@ -10,6 +10,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import SkeletonLoader from '../components/SkeletonLoader';
 
 import ApiKeyModal from '../components/ApiKeyModal';
+import ObsOverlayPanel from '../components/ObsOverlayPanel';
 import { useAuth } from '../contexts/AuthContext';
 
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -80,6 +81,9 @@ export default function StreamerPage() {
   const processedDonationIdsRef = useRef(new Set());
   const bufferFlushIntervalRef = useRef(null);
   const [enabled, setEnabled] = useState(false);
+  // True while an OBS browser-source overlay is connected: OBS plays alerts, dashboard stays quiet
+  const [overlayConnected, setOverlayConnected] = useState(false);
+  const overlayConnectedRef = useRef(false);
   const [queue, setQueue] = useState([]);
   const queueRef = useRef([]);
   const playNextRef = useRef(() => {});
@@ -236,7 +240,8 @@ export default function StreamerPage() {
           const firstKey = audioBufferCacheRef.current.keys().next().value;
           audioBufferCacheRef.current.delete(firstKey);
         }
-      } catch (e) {// console.warn(;
+      } catch (e) {
+// console.warn(;
       }
     };
     preloadNext();
@@ -346,15 +351,18 @@ export default function StreamerPage() {
               source.connect(gainNodeRef.current || ctx.destination);
               source.start(0);
               source.stop(ctx.currentTime + 0.001);
-            } catch (silentErr) {// console.warn(;
+            } catch (silentErr) {
+// console.warn(;
             }
             finalize();
           })
           .catch((err) => {
-            audioUnlockedRef.current = false;// console.warn(;
+            audioUnlockedRef.current = false;
+// console.warn(;
           });
       } catch (err) {
-        audioUnlockedRef.current = false;// console.warn(;
+        audioUnlockedRef.current = false;
+// console.warn(;
       }
     };
 
@@ -830,7 +838,8 @@ export default function StreamerPage() {
         wakeLockRef.current = null;
       }, { once: true });
 // console.log('[WakeLock] Screen lock acquired');
-    } catch (err) {// console.warn(;
+    } catch (err) {
+// console.warn(;
     }
   }, []);
 
@@ -838,7 +847,8 @@ export default function StreamerPage() {
     if (!wakeLockRef.current) return;
     try {
       await wakeLockRef.current.release();
-    } catch (err) {// console.warn(;
+    } catch (err) {
+// console.warn(;
     } finally {
       wakeLockRef.current = null;
     }
@@ -893,7 +903,7 @@ export default function StreamerPage() {
   // ✅ Play next queued donation
   const playNext = useCallback(() => {
 // console.log(`[playNext] Called. enabled: ${enabled}, playingRef.current: ${playingRef.current}, queue.length: ${queue.length}`);
-    if (!enabled || playingRef.current || queue.length === 0) {
+    if (!enabled || overlayConnectedRef.current || playingRef.current || queue.length === 0) {
 // console.log("[playNext] Conditions not met for playback.");
       return;
     }
@@ -1247,13 +1257,35 @@ export default function StreamerPage() {
     };
   }, [uuid, enabled, currentPage, fetchInitialData, getDonationCacheKey, apiClient, scheduleReconnect, startHeartbeat, stopHeartbeat, resetReconnectState, clearReconnectTimeout, sortDonationsOldestFirst]);
 
+  // OBS overlay presence + donations the overlay already played
+  useEffect(() => {
+    const handleOverlayStatus = (payload) => {
+      const connected = Boolean(payload?.connected);
+      overlayConnectedRef.current = connected;
+      setOverlayConnected(connected);
+    };
+    const handleDonationPlayed = (payload) => {
+      const id = payload?.id;
+      if (id == null) return;
+      playedDonationsRef.current.add(getDonationCacheKey(id));
+      setQueue((prev) => prev.filter((item) => String(item.id) !== String(id)));
+      setDonations((prev) => prev.map((d) => (String(d.id) === String(id) ? { ...d, played: true } : d)));
+    };
+    socket.on('overlay_status', handleOverlayStatus);
+    socket.on('donation_played', handleDonationPlayed);
+    return () => {
+      socket.off('overlay_status', handleOverlayStatus);
+      socket.off('donation_played', handleDonationPlayed);
+    };
+  }, [getDonationCacheKey]);
+
   // ✅ Watch for queue changes
   useEffect(() => {
-    if (enabled && !playingRef.current && queue.length > 0) {
+    if (enabled && !overlayConnected && !playingRef.current && queue.length > 0) {
 // console.log("🎵 Starting next queued donation...");
       playNext();
     }
-  }, [queue, enabled, playNext]);
+  }, [queue, enabled, overlayConnected, playNext]);
 
   useEffect(() => {
     playNextRef.current = playNext;
@@ -1297,7 +1329,8 @@ export default function StreamerPage() {
               }
             }, 100);
           }
-        } catch (e) {// console.warn(;
+        } catch (e) {
+// console.warn(;
         }
       }
     };
@@ -1449,7 +1482,8 @@ export default function StreamerPage() {
           try {
             await audioContextRef.current.resume();
 // console.log("✅ AudioContext resumed after visibility change");
-          } catch (e) {// console.warn(;
+          } catch (e) {
+// console.warn(;
           }
         }
 
@@ -1920,6 +1954,12 @@ export default function StreamerPage() {
               </div>
             </div>
           )}
+          <ObsOverlayPanel
+            apiClient={apiClient}
+            uuid={uuid}
+            usingSession={usingSession}
+            overlayConnected={overlayConnected}
+          />
           {playbackWarning && (
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-lg border border-amber-300 bg-amber-50/90 dark:bg-amber-900/30 p-3 text-sm text-amber-900 dark:text-amber-100">
               <div className="flex items-center gap-2">

@@ -115,6 +115,9 @@ import adminRoutes from './routes/admin.js';
 import streamerRoutes from './routes/streamer.js';
 import paymentRoutes from './routes/payment.js';
 import streamerAuthRoutes from './routes/streamerAuth.js';
+import overlayRoutes from './routes/overlay.js';
+import { registerOverlaySocketHandlers, overlayStatusFor } from './utils/overlayPresence.js';
+import { isValidAdminToken } from './utils/safeCompare.js';
 
 import { ttsQueue } from './queue-optimized.js';
 
@@ -190,7 +193,13 @@ app.use('/public', express.static('public'));
 app.use('/api/v1/streamer', streamerAuthRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/streamer', streamerRoutes);
-app.use('/api/payment', paymentRoutes);
+// Demo/mock payment routes create PAID donations without any payment.
+// Never expose them in production: only local dev with PAYMENT_MOCK_ENABLED=true.
+if (process.env.NODE_ENV !== 'production' && process.env.PAYMENT_MOCK_ENABLED === 'true') {
+  app.use('/api/payment', paymentRoutes);
+  console.warn('⚠️  Mock payment routes are ENABLED (/api/payment). Development only.');
+}
+app.use('/api/overlay', overlayRoutes);
 
 // --- Telegram Webhook Route (Production) ---
 app.post('/webhook', async (req, res) => {
@@ -276,13 +285,22 @@ global.socketIO = io;
 io.on('connection', (socket) => {
   console.log('⚡ Client connected:', socket.id);
   socket.on('join_streamer_room', (link_uuid) => {
+    if (typeof link_uuid !== 'string' || link_uuid.length > 64) return;
     console.log(`Streamer joined room: ${link_uuid}`);
     socket.join(link_uuid);
+    // Tell the dashboard whether OBS is already playing alerts
+    socket.emit('overlay_status', overlayStatusFor(link_uuid));
   });
-  socket.on('join_admin_room', () => {
+  socket.on('join_admin_room', (token) => {
+    // The admin room carries phone numbers, Telegram IDs and all donations
+    if (!isValidAdminToken(token)) {
+      socket.emit('admin_room_denied');
+      return;
+    }
     console.log('Admin joined room');
     socket.join('admin');
   });
+  registerOverlaySocketHandlers(io, socket);
   socket.on('streamer_heartbeat', async (payload = {}) => {
     socket.emit('streamer_heartbeat_ack', {
       ts: Date.now(),

@@ -10,6 +10,7 @@ import { getStreamerBalance } from '../utils/balance.js';
 import { emitAdminEvent } from '../utils/adminNotifications.js';
 import { validateSchema } from '../middleware/validateSchema.js';
 import { setStreamerLiveState } from '../utils/liveStatus.js';
+import { makeOverlayToken } from '../utils/overlayToken.js';
 import {
   listNotificationSounds,
   findNotificationSound,
@@ -569,5 +570,24 @@ router.delete('/:uuid/live', streamerSessionAuth, async (req, res) => {
   } catch (error) {
     console.error('[streamerAuth] Failed to disable live mode:', error);
     res.status(500).json({ error: 'Failed to end live session' });
+  }
+});
+
+// GET /api/v1/streamer/:uuid/overlay - secret OBS browser-source token
+router.get('/:uuid/overlay', streamerSessionAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      "SELECT id, telegram_id FROM users WHERE link_uuid = $1 AND role = 'streamer' LIMIT 1",
+      [req.params.uuid]
+    );
+    const streamer = rows[0];
+    if (!streamer || String(streamer.telegram_id) !== String(req.streamerId)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const token = makeOverlayToken(streamer.id);
+    res.json({ token, path: `/overlay/${token}` });
+  } catch (error) {
+    console.error('[streamerAuth] Failed to create overlay token:', error);
+    res.status(500).json({ error: 'Failed to create overlay link' });
   }
 });
