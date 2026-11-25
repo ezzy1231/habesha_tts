@@ -1,7 +1,45 @@
-@import 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap';
+@import 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700;800&display=swap';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ───────────────────────────────────────────────────────────────
+   Design-system tokens (src/ui). Surfaces are RGB channel triplets so
+   Tailwind opacity modifiers work: bg-surface/80, border-line/50 …
+   Dark is the primary theme; light mirrors it.
+   ─────────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --ui-canvas: 246 248 247;
+    --ui-surface: 255 255 255;
+    --ui-surface-2: 240 243 241;
+    --ui-surface-3: 228 232 230;
+    --ui-line: 221 226 223;
+    --ui-line-strong: 194 202 198;
+    --ui-fg: 16 22 19;
+    --ui-muted: 82 94 88;
+    --ui-subtle: 120 132 126;
+    color-scheme: light;
+  }
+
+  .dark {
+    --ui-canvas: 10 12 11;
+    --ui-surface: 18 21 20;
+    --ui-surface-2: 26 30 28;
+    --ui-surface-3: 37 42 40;
+    --ui-line: 41 47 44;
+    --ui-line-strong: 62 70 66;
+    --ui-fg: 236 240 238;
+    --ui-muted: 162 172 167;
+    --ui-subtle: 118 128 123;
+    color-scheme: dark;
+  }
+
+  /* Amharic text benefits from a little more line-height. */
+  :lang(am) {
+    line-height: 1.7;
+  }
+}
 
 /* Custom Components */
 @layer components {
@@ -299,11 +337,13 @@
   }
 
   /* Form Elements */
-  input, textarea, select {
+  /* Legacy global form styles. Design-system controls (src/ui) carry
+     data-ui and opt out; :where() keeps the original specificity. */
+  input:where(:not([data-ui])), textarea:where(:not([data-ui])), select:where(:not([data-ui])) {
     @apply w-full p-3 text-sm font-sans leading-relaxed text-gray-900 bg-white border border-gray-300 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
   }
 
-  .dark input, .dark textarea, .dark select {
+  .dark input:where(:not([data-ui])), .dark textarea:where(:not([data-ui])), .dark select:where(:not([data-ui])) {
     @apply text-gray-100 bg-gray-800 border-gray-600;
   }
 }

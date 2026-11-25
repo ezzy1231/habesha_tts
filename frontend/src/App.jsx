@@ -9,7 +9,11 @@ import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import StreamerLogin from './pages/StreamerLogin';
 
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
+
+// Dev-only design-system gallery (src/ui). Set VITE_ENABLE_UI_KIT=true to include it in a build.
+const SHOW_UI_KIT = import.meta.env.DEV || import.meta.env.VITE_ENABLE_UI_KIT === 'true';
+const UiKitPage = SHOW_UI_KIT ? lazy(() => import('./ui/UiKitPage')) : null;
 
 function App() {
   useEffect(() => {
@@ -26,6 +30,9 @@ function App() {
         <StreamerBalanceProvider>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            {UiKitPage ? (
+              <Route path="/ui-kit/*" element={<Suspense fallback={null}><UiKitPage /></Suspense>} />
+            ) : null}
             <Route path="/admin" element={
               <AdminBalanceProvider>
                 <AdminDashboard />
