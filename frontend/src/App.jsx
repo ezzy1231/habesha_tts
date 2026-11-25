@@ -10,18 +10,16 @@ import ProtectedRoute from './components/ProtectedRoute';
 import StreamerLogin from './pages/StreamerLogin';
 
 import { lazy, Suspense, useEffect } from 'react';
+import { initTheme } from './ui/theme';
 
 // Dev-only design-system gallery (src/ui). Set VITE_ENABLE_UI_KIT=true to include it in a build.
 const SHOW_UI_KIT = import.meta.env.DEV || import.meta.env.VITE_ENABLE_UI_KIT === 'true';
 const UiKitPage = SHOW_UI_KIT ? lazy(() => import('./ui/UiKitPage')) : null;
 
 function App() {
+  // Dark-first: apply the saved theme, or dark when none is saved (see src/ui/theme.js).
   useEffect(() => {
-    const saved = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initial = saved || (prefersDark ? 'dark' : 'light');
-    if (initial === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    initTheme();
   }, []);
 
   return (

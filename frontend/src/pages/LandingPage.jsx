@@ -1,629 +1,464 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
+import {
+  Badge,
+  Button,
+  Card,
+  FlagBar,
+  Icon,
+  PublicLayout,
+  Tabs,
+  cn,
+  extendDictionaries,
+  formatETB,
+  useI18n,
+} from '../ui';
 
-const logoSrc = '/image/habesha-logo.png';
+// Keep in sync with DEFAULT_PRICING in backend/utils/pricing.js (admins can override them in settings).
+const PLATFORM_FEE_PERCENT = 10;
+const MIN_MESSAGE_PRICE = 20;
 
-const localeOptions = [
-  { code: 'en', label: 'EN' },
-  { code: 'am', label: 'አማ' },
-];
+const BOT_URL = 'https://t.me/HabeshaTTS_bot';
 
-const navLinks = [
-  { href: '#features', key: 'navPlatform' },
-  { href: '#growth', key: 'navGrowth' },
-  { href: '#pricing', key: 'navRevenue' },
-  { href: '#faq', key: 'navFAQ' },
-];
-
-const translations = {
+extendDictionaries({
   en: {
-    brandSubtitle: 'Creator Commerce Suite',
-    headerPrimaryCTA: 'Talk to the Bot',
-    navPlatform: 'Platform',
-    navGrowth: 'Growth',
-    navRevenue: 'Revenue',
-    navFAQ: 'FAQ',
-    heroBadge: 'Trusted by creators from Addis to Atlanta',
-    heroHeadingStart: 'Monetize every shout-out with a',
-    heroHeadingHighlight: 'localized',
-    heroHeadingEnd: 'TTS engine.',
-    heroDescription:
-      'Habesha TTS is the fastest path from heartfelt donation to on-stream reaction—complete with queue control, concierge payouts, and safety rails built for Amharic-speaking communities.',
-    heroCTASecondary: 'Explore Platform',
-    heroStatSplit: 'Creator / Habesha split • No monthly fee',
-    heroStatSpeed: 'Payout reconciliation SLA',
-    heroCardQueueTitle: 'Live Donation Queue',
-    heroCardDonationLabel: 'Donation',
-    heroCardReady: 'Ready',
-    heroCardWeekLabel: 'This week',
-    heroCardWeekChange: '+18% vs last week',
-    heroCardWeekSubtitle: 'net volume',
-    featuresOverline: 'Platform',
-    featuresHeading: 'What creators unlock with Habesha TTS',
-    featuresDescription:
-      'Purpose-built for live Amharic shows, the dashboard merges automation with human concierge support for reliability and delight.',
-    featuresLink: 'See revenue share →',
-    growthOverline: 'Growth engine',
-    growthHeading: 'Launch-ready playbooks.',
-    growthDescription:
-      'Spin up charity streams, anniversaries, and launch parties with pacing widgets, spotlight assets, and concierge checklists tuned for new creators.',
-    growthBullet1: 'Promo kits for seasonal spotlights and social clips.',
-    growthBullet2: 'Agency dashboard for multi-streamer rollouts with consolidated reporting.',
-    growthBullet3: 'Weekly concierge syncs to iterate on pacing and audio styling.',
-    growthCTA: 'Chat on Telegram',
-    revenueOverline: 'Revenue share',
-    revenueHeading: 'Keep 60% of every donation. Fuel the platform with 40%.',
-    revenueDescription:
-      'No hidden fees. Optional seasonal boosts drop the Habesha share to 35% while you headline spotlight events. Segment-based bonuses reward agencies and top creators.',
-    revenueCardLabel: 'Average creator',
-    revenueCardSubtitle: 'net monthly take-home',
-    pricingHeaderVolume: 'Monthly Volume',
-    pricingHeaderCreator: 'Creator Take (60%)',
-    pricingHeaderPlatform: 'Habesha Platform (40%)',
-    pricingHeaderPerks: 'Perks',
-    faqHeading: 'Questions, answered.',
-    faqDescription:
-      'Need more detail? Email partnerships@habeshatts.com and a human will reply within one business day.',
-    ctaOverline: 'Get started',
-    ctaHeading: 'Ready to give your community a voice?',
-    ctaDescription:
-      'Join Habesha TTS and turn every shout-out into a memorable moment. Invite-only cohorts open monthly—apply now to reserve a slot.',
-    ctaPrimary: 'Apply via Telegram',
-    footerTagline: 'Built in Addis, streamed worldwide.',
-    footerSupport: 'Support',
-    footerPartner: 'Partner Program',
-    footerSocial: 'Instagram',
-    footerContact: 'Call Us',
+    'landing.nav.how': 'How it works',
+    'landing.nav.features': 'Features',
+    'landing.nav.pricing': 'Pricing',
+    'landing.nav.faq': 'FAQ',
+    'landing.cta.header': 'Start on Telegram',
+    'landing.hero.badge': 'Chapa · Arifpay · Telebirr',
+    'landing.hero.title1': 'Your viewers’ messages,',
+    'landing.hero.title2': 'read aloud live',
+    'landing.hero.title3': 'in Amharic.',
+    'landing.hero.subtitle':
+      'Viewers pay a few birr and their message is spoken on your stream through an OBS overlay, in natural Amharic voices. You keep {keep}%.',
+    'landing.hero.primary': 'Start on Telegram',
+    'landing.hero.secondary': 'How it works',
+    'landing.hero.point1': 'Natural Amharic voices',
+    'landing.hero.point2': 'Works in OBS and Streamlabs',
+    'landing.hero.point3': 'You keep {keep}%',
+    'landing.mock.live': 'Live',
+    'landing.mock.sent': 'sent',
+    'landing.mock.message': 'ሰላም! ከአዲስ አበባ ሰላምታ 💚💛❤️',
+    'landing.mock.queue': '2 more in queue',
+    'landing.how.title': 'How it works',
+    'landing.how.subtitle': 'Three steps from a viewer’s phone to your stream.',
+    'landing.how.1.title': 'A viewer sends a message',
+    'landing.how.1.body': 'They open your donation link or the Telegram bot, type a message, and pay with Chapa, Arifpay or Telebirr.',
+    'landing.how.2.title': 'It’s read aloud on stream',
+    'landing.how.2.body': 'Your OBS overlay shows the alert and speaks the message in Amharic, in the order it was paid.',
+    'landing.how.3.title': 'You get paid',
+    'landing.how.3.body': 'Your share goes straight to your dashboard balance. Request a payout whenever you like.',
+    'landing.features.title': 'Built for Ethiopian streamers',
+    'landing.features.subtitle': 'Everything you need to turn your community’s support into a moment on stream.',
+    'landing.features.voices.title': 'Amharic voices',
+    'landing.features.voices.body': 'Messages are spoken with Google Cloud and Gemini voices that handle Ge’ez script.',
+    'landing.features.overlay.title': 'OBS overlay',
+    'landing.features.overlay.body': 'One browser source shows animated alerts and plays the audio. No extra software.',
+    'landing.features.payments.title': 'Local payments',
+    'landing.features.payments.body': 'Viewers pay with Chapa, Arifpay or Telebirr. No foreign account needed.',
+    'landing.features.moderation.title': 'Moderation',
+    'landing.features.moderation.body': 'A profanity filter, a minimum amount and donor blocking keep your stream safe.',
+    'landing.features.soundboard.title': 'Paid soundboard',
+    'landing.features.soundboard.body': 'Viewers trigger your sound clips at a price you set.',
+    'landing.features.media.title': 'Media share',
+    'landing.features.media.body': 'Viewers request clips, and nothing plays until you approve it.',
+    'landing.soon': 'Soon',
+    'landing.pricing.title': 'Simple, transparent pricing',
+    'landing.pricing.subtitle': 'No monthly fee. The platform keeps {fee}% of each donation and the rest is yours.',
+    'landing.pricing.viewers': 'For viewers',
+    'landing.pricing.viewersFrom': 'from',
+    'landing.pricing.viewersUnit': 'per message',
+    'landing.pricing.viewersBody': 'Longer messages cost a little more. The exact price is shown before you pay.',
+    'landing.pricing.streamers': 'For streamers',
+    'landing.pricing.donation': 'Donation',
+    'landing.pricing.youGet': 'You receive',
+    'landing.pricing.fee': 'Platform fee ({fee}%)',
+    'landing.faq.title': 'Questions, answered',
+    'landing.faq.1.q': 'Which streaming apps does it work with?',
+    'landing.faq.1.a':
+      'Anything that supports a browser source: OBS Studio, Streamlabs and similar tools. Stream to YouTube, TikTok, Twitch or Facebook as usual.',
+    'landing.faq.2.q': 'How do I get paid?',
+    'landing.faq.2.a': 'Your share of every donation is added to your balance. Request a payout from the dashboard and it is sent to your Telebirr account.',
+    'landing.faq.3.q': 'Is there a monthly fee?',
+    'landing.faq.3.a': 'No. Habesha TTS only keeps {fee}% of each donation.',
+    'landing.faq.4.q': 'Can I control what gets read aloud?',
+    'landing.faq.4.a': 'Yes. Set a minimum amount, filter words and block donors. Messages that break your rules are not read.',
+    'landing.final.title': 'Ready to hear your community?',
+    'landing.final.body': 'Message the bot to set up your streamer account. It only takes a few minutes.',
+    'landing.final.button': 'Open the Telegram bot',
+    'landing.footer.call': 'Call us',
+    'landing.footer.email': 'Email',
+    'landing.footer.telegram': 'Telegram',
+    'landing.footer.instagram': 'Instagram',
   },
   am: {
-    brandSubtitle: 'የፈጣሪዎች የገቢ ማግኛ ስብስብ',
-    headerPrimaryCTA: 'ቦቱን ያናግሩ',
-    navPlatform: 'መድረክ',
-    navGrowth: 'እድገት',
-    navRevenue: 'ገቢ',
-    navFAQ: 'ጥያቄዎች',
-    heroBadge: 'ከአዲስ አበባ እስከ አትላንታ ባሉ ፈጣሪዎች የታመነ',
-    heroHeadingStart: 'እያንዳንዱን መልእክት',
-    heroHeadingHighlight: 'በሀገርኛ',
-    heroHeadingEnd: 'የTTS ሞተር ወደ ገቢ ይለውጡ።',
-    heroDescription:
-      'Habesha TTS ከልብ የመነጨ ልገሳን በቀጥታ ስርጭት ላይ ወደ ምላሽ የሚቀይር ፈጣን መንገድ ነው፤ የሰልፍ ቁጥጥር፣ ፈጣን ክፍያ እና ለአማርኛ ተናጋሪ ማህበረሰቦች የተበጁ የደህንነት መቆጣጠሪያዎችን ያካተተ ነው።',
-    heroCTASecondary: 'መድረኩን ያስሱ',
-    heroStatSplit: 'የፈጣሪ / Habesha ድርሻ • ወርሃዊ ክፍያ የለም',
-    heroStatSpeed: 'የክፍያ ማስተካከያ SLA',
-    heroCardQueueTitle: 'የቀጥታ የልገሳ ሰልፍ',
-    heroCardDonationLabel: 'ልገሳ',
-    heroCardReady: 'ዝግጁ',
-    heroCardWeekLabel: 'ይህ ሳምንት',
-    heroCardWeekChange: '+18% ከባለፈው ሳምንት',
-    heroCardWeekSubtitle: 'የተጣራ ገቢ',
-    featuresOverline: 'መድረክ',
-    featuresHeading: 'ፈጣሪዎች በHabesha TTS ምን ያገኛሉ?',
-    featuresDescription: 'ለቀጥታ የአማርኛ ስርጭቶች የተሰራ፤ ሙሉ አውቶማቲክ ሂደት ከልዩ ድጋፍ ጋር የተዋሃደ አስተማማኝ መድረክ።',
-    featuresLink: 'የገቢ ድርሻን ይመልከቱ →',
-    growthOverline: 'የእድገት ሞተር',
-    growthHeading: 'ለመነሻ ዝግጁ መመሪያዎች።',
-    growthDescription: 'የበጎ አድራጎት ስርጭቶችን፣ ክብረ በዓላትን እና የምረቃ ዝግጅቶችን በልዩ ፍጥነት መቆጣጠሪያዎች እና በኮንሲየርጅ ዝርዝሮች ይጀምሩ።',
-    growthBullet1: 'ለወቅታዊ ስፖትላይት እና ማህበራዊ ክሊፖች የተዘጋጀ የፕሮሞ ፓኬጅ።',
-    growthBullet2: 'ለብዙ ፈጣሪዎች የተዋሃደ የሪፖርት ዳሽቦርድ።',
-    growthBullet3: 'የጊዜ እና የድምጽ ቅንብርን ለማስተካከል ሳምንታዊ የኮንሲየርጅ ስብሰባ።',
-    growthCTA: 'በቴሌግራም ይወያዩ',
-    revenueOverline: 'የገቢ ድርሻ',
-    revenueHeading: 'ከእያንዳንዱ ልገሳ 60% የእርስዎ ነው፣ 40% ለመድረኩ ማስኬጃ ይሆናል።',
-    revenueDescription:
-      'ምንም ድብቅ ክፍያዎች የሉም። በወቅታዊ ስፖትላይቶች ጊዜ የHabesha ድርሻ እስከ 35% ሊወርድ ይችላል፣ ይህም ለከፍተኛ ፈጣሪዎች እና ኤጀንሲዎች ተጨማሪ ቦነስ ይሰጣል።',
-    revenueCardLabel: 'አማካይ ፈጣሪ',
-    revenueCardSubtitle: 'ወርሃዊ የተጣራ ገቢ',
-    pricingHeaderVolume: 'ወርሃዊ መጠን',
-    pricingHeaderCreator: 'የፈጣሪ ድርሻ (60%)',
-    pricingHeaderPlatform: 'Habesha መድረክ (40%)',
-    pricingHeaderPerks: 'ጥቅሞች',
-    faqHeading: 'ጥያቄዎች እና መልሶች',
-    faqDescription:
-      'ተጨማሪ መረጃ ይፈልጋሉ? partnerships@habeshatts.com ላይ ይፃፉልን፣ በአንድ የስራ ቀን ውስጥ መልስ እንሰጣለን።',
-    ctaOverline: 'ይጀምሩ',
-    ctaHeading: 'ለማህበረሰብዎ ድምጽ ለመስጠት ዝግጁ ነዎት?',
-    ctaDescription:
-      'Habesha TTSን ይቀላቀሉ እና እያንዳንዱን መልእክት የማይረሳ ተሞክሮ ያድርጉት። የግብዣ ቡድኖች በየወሩ ይከፈታሉ—ቦታዎን ለመያዝ አሁኑኑ ያመልክቱ።',
-    ctaPrimary: 'በቴሌግራም ያመልክቱ',
-    footerTagline: 'በአዲስ አበባ የተሰራ፣ ለዓለም የሚሰራጭ።',
-    footerSupport: 'ድጋፍ',
-    footerPartner: 'የአጋር ፕሮግራም',
-    footerSocial: 'ኢንስታግራም',
-    footerContact: 'ይደውሉልን',
+    'landing.nav.how': 'እንዴት ይሰራል',
+    'landing.nav.features': 'ባህሪያት',
+    'landing.nav.pricing': 'ዋጋ',
+    'landing.nav.faq': 'ጥያቄዎች',
+    'landing.cta.header': 'በቴሌግራም ይጀምሩ',
+    'landing.hero.badge': 'ቻፓ · አሪፍፔይ · ቴሌብር',
+    'landing.hero.title1': 'የተመልካቾችዎ መልዕክቶች',
+    'landing.hero.title2': 'በቀጥታ ስርጭት',
+    'landing.hero.title3': 'በአማርኛ ይነበባሉ።',
+    'landing.hero.subtitle':
+      'ተመልካቾች ጥቂት ብር ከፍለው መልዕክታቸው በOBS ኦቨርሌይ በኩል በተፈጥሯዊ የአማርኛ ድምፅ በስርጭትዎ ላይ ይነበባል። {keep}% የእርስዎ ነው።',
+    'landing.hero.primary': 'በቴሌግራም ይጀምሩ',
+    'landing.hero.secondary': 'እንዴት ይሰራል',
+    'landing.hero.point1': 'ተፈጥሯዊ የአማርኛ ድምፆች',
+    'landing.hero.point2': 'በOBS እና Streamlabs ይሰራል',
+    'landing.hero.point3': '{keep}% የእርስዎ ነው',
+    'landing.mock.live': 'ቀጥታ',
+    'landing.mock.sent': 'ላከ',
+    'landing.mock.message': 'ሰላም! ከአዲስ አበባ ሰላምታ 💚💛❤️',
+    'landing.mock.queue': 'በወረፋ 2 ተጨማሪ',
+    'landing.how.title': 'እንዴት ይሰራል',
+    'landing.how.subtitle': 'ከተመልካች ስልክ እስከ ስርጭትዎ በሶስት ደረጃዎች።',
+    'landing.how.1.title': 'ተመልካቹ መልዕክት ይልካል',
+    'landing.how.1.body': 'የስጦታ ሊንክዎን ወይም የቴሌግራም ቦቱን ከፍተው መልዕክት ይጽፋሉ፤ በቻፓ፣ በአሪፍፔይ ወይም በቴሌብር ይከፍላሉ።',
+    'landing.how.2.title': 'በስርጭቱ ላይ ይነበባል',
+    'landing.how.2.body': 'የOBS ኦቨርሌዩ ማሳወቂያውን ያሳያል፤ መልዕክቱንም በተከፈለበት ቅደም ተከተል በአማርኛ ያነባል።',
+    'landing.how.3.title': 'ክፍያዎን ያገኛሉ',
+    'landing.how.3.body': 'ድርሻዎ በቀጥታ በዳሽቦርድዎ ቀሪ ሂሳብ ላይ ይጨመራል። በፈለጉት ጊዜ ክፍያ ይጠይቁ።',
+    'landing.features.title': 'ለኢትዮጵያውያን ስትሪመሮች የተሰራ',
+    'landing.features.subtitle': 'የማህበረሰብዎን ድጋፍ በስርጭትዎ ላይ ወደ ልዩ ጊዜ ለመቀየር የሚያስፈልግዎ ሁሉ።',
+    'landing.features.voices.title': 'የአማርኛ ድምፆች',
+    'landing.features.voices.body': 'መልዕክቶች የግዕዝ ፊደልን በሚያነቡ የGoogle Cloud እና Gemini ድምፆች ይነበባሉ።',
+    'landing.features.overlay.title': 'የOBS ኦቨርሌይ',
+    'landing.features.overlay.body': 'አንድ ብራውዘር ሶርስ ማሳወቂያዎችን ያሳያል፤ ድምፁንም ያጫውታል። ተጨማሪ ሶፍትዌር አያስፈልግም።',
+    'landing.features.payments.title': 'የሀገር ውስጥ ክፍያዎች',
+    'landing.features.payments.body': 'ተመልካቾች በቻፓ፣ በአሪፍፔይ ወይም በቴሌብር ይከፍላሉ። የውጭ ሀገር አካውንት አያስፈልግም።',
+    'landing.features.moderation.title': 'ቁጥጥር',
+    'landing.features.moderation.body': 'የብልግና ቃላት ማጣሪያ፣ ዝቅተኛ የስጦታ መጠን እና ለጋሾችን ማገድ ስርጭትዎን ይጠብቃሉ።',
+    'landing.features.soundboard.title': 'የሚከፈልበት የድምፅ ሰሌዳ',
+    'landing.features.soundboard.body': 'ተመልካቾች እርስዎ ባወጡት ዋጋ የድምፅ ክሊፖችዎን ያጫውታሉ።',
+    'landing.features.media.title': 'የሚዲያ ማጋራት',
+    'landing.features.media.body': 'ተመልካቾች ክሊፕ ይጠይቃሉ፤ እርስዎ እስኪያጸድቁ ድረስ ምንም አይጫወትም።',
+    'landing.soon': 'በቅርቡ',
+    'landing.pricing.title': 'ቀላል እና ግልጽ ዋጋ',
+    'landing.pricing.subtitle': 'ወርሃዊ ክፍያ የለም። መድረኩ ከእያንዳንዱ ስጦታ {fee}% ይወስዳል፤ ቀሪው የእርስዎ ነው።',
+    'landing.pricing.viewers': 'ለተመልካቾች',
+    'landing.pricing.viewersFrom': 'ከ',
+    'landing.pricing.viewersUnit': 'በአንድ መልዕክት',
+    'landing.pricing.viewersBody': 'ረጅም መልዕክቶች ትንሽ ተጨማሪ ያስከፍላሉ። ትክክለኛው ዋጋ ከመክፈልዎ በፊት ይታያል።',
+    'landing.pricing.streamers': 'ለስትሪመሮች',
+    'landing.pricing.donation': 'ስጦታ',
+    'landing.pricing.youGet': 'እርስዎ የሚያገኙት',
+    'landing.pricing.fee': 'የመድረክ ክፍያ ({fee}%)',
+    'landing.faq.title': 'ተደጋግመው የሚጠየቁ ጥያቄዎች',
+    'landing.faq.1.q': 'በየትኞቹ የስትሪሚንግ መተግበሪያዎች ይሰራል?',
+    'landing.faq.1.a':
+      'ብራውዘር ሶርስ በሚደግፍ በማንኛውም፦ OBS Studio፣ Streamlabs እና መሰል መሣሪያዎች። እንደተለመደው ወደ YouTube፣ TikTok፣ Twitch ወይም Facebook ያስተላልፉ።',
+    'landing.faq.2.q': 'ክፍያዬን እንዴት አገኛለሁ?',
+    'landing.faq.2.a': 'ከእያንዳንዱ ስጦታ ድርሻዎ በቀሪ ሂሳብዎ ላይ ይጨመራል። ከዳሽቦርዱ ክፍያ ሲጠይቁ ወደ ቴሌብር አካውንትዎ ይላካል።',
+    'landing.faq.3.q': 'ወርሃዊ ክፍያ አለ?',
+    'landing.faq.3.a': 'የለም። ሀበሻ TTS ከእያንዳንዱ ስጦታ {fee}% ብቻ ይወስዳል።',
+    'landing.faq.4.q': 'የሚነበበውን መቆጣጠር እችላለሁ?',
+    'landing.faq.4.a': 'አዎ። ዝቅተኛ የስጦታ መጠን ያስቀምጡ፣ ቃላትን ያጣሩ እና ለጋሾችን ያግዱ። ደንብዎን የሚጥሱ መልዕክቶች አይነበቡም።',
+    'landing.final.title': 'የማህበረሰብዎን ድምፅ ለመስማት ዝግጁ ነዎት?',
+    'landing.final.body': 'የስትሪመር አካውንትዎን ለመክፈት ለቦቱ መልዕክት ይላኩ። ጥቂት ደቂቃዎች ብቻ ይወስዳል።',
+    'landing.final.button': 'የቴሌግራም ቦቱን ይክፈቱ',
+    'landing.footer.call': 'ይደውሉልን',
+    'landing.footer.email': 'ኢሜይል',
+    'landing.footer.telegram': 'ቴሌግራም',
+    'landing.footer.instagram': 'ኢንስታግራም',
   },
-};
+});
 
-const metricsByLocale = {
-  en: [
-    { label: 'Pilot Creators', value: '25+', detail: 'launch partners on day one' },
-    { label: 'Payout Speed', value: 'Same-Day', detail: 'Telebirr withdrawals before midnight' },
-    { label: 'Queue Accuracy', value: '100%', detail: 'tested with sleeping tabs and wake locks' },
-  ],
-  am: [
-    { label: 'የፓይሎት ፈጣሪዎች', value: '25+', detail: 'በመጀመሪያ ቀን የተጀመሩ አጋሮች' },
-    { label: 'የክፍያ ፍጥነት', value: 'በተመሳሳይ ቀን', detail: 'ከእኩለ ሌሊት በፊት በቴሌብር' },
-    { label: 'የሰልፍ ትክክለኛነት', value: '100%', detail: 'በቦዘነ ታብ እና ስክሪን ተፈትኖ የተረጋገጠ' },
-  ],
-};
+const NAV = [
+  { href: '#how', labelKey: 'landing.nav.how' },
+  { href: '#features', labelKey: 'landing.nav.features' },
+  { href: '#pricing', labelKey: 'landing.nav.pricing' },
+  { href: '#faq', labelKey: 'landing.nav.faq' },
+];
 
-const featuresByLocale = {
-  en: [
-    {
-      title: 'Real-time Donation Flow',
-      description: 'Instant queueing, branded notification sounds, and auto-sanitized messages keep the hype rolling without tab juggling.',
-      icon: '⚡',
-    },
-    {
-      title: 'Localized Payments',
-      description: 'Support Telebirr, cards, and diaspora-friendly wallets with transparent FX and on-demand balance snapshots.',
-      icon: '🌍',
-    },
-    {
-      title: 'Safety & Compliance',
-      description: 'AI-powered profanity guards, manual escalations, and annual KYB reviews protect both creators and communities.',
-      icon: '🛡️',
-    },
-    {
-      title: 'Concierge Support',
-      description: 'Live-chat coverage every day plus proactive alerts when audio, queue, or payouts need attention.',
-      icon: '🤝',
-    },
-  ],
-  am: [
-    {
-      title: 'የቀጥታ ልገሳ ፍሰት',
-      description: 'ፈጣን ሰልፍ፣ ብራንድ የተደረጉ የማስታወቂያ ድምጾች እና እጅግ ፈጣን የጽዳት ሂደት ስትሪሙን ሳያቋርጡ ያቆያሉ።',
-      icon: '⚡',
-    },
-    {
-      title: 'የሀገር ውስጥ ክፍያዎች',
-      description: 'ቴሌብርን፣ ካርዶችን እና ዲያስፖራ ተስማሚ የሆኑ አማራጮችን ከግልጽ ምንዛሬ እና የቀሪ ሂሳብ መግለጫ ጋር ይደግፋል።',
-      icon: '🌍',
-    },
-    {
-      title: 'ደህንነት እና ህጋዊነት',
-      description: 'በAI የሚደገፍ የብልግና ቃላት ማጣሪያ፣ የእጅ ቁጥጥር እና ዓመታዊ የKYB ግምገማዎች ፈጣሪዎችን እና ማህበረሰቡን ይጠብቃሉ።',
-      icon: '🛡️',
-    },
-    {
-      title: 'ልዩ የደንበኛ ድጋፍ',
-      description: 'በየቀኑ የሚገኝ የውይይት ድጋፍ፣ እንዲሁም በድምጽ፣ በሰልፍ ወይም በክፍያ ላይ እገዛ ሲያስፈልግ የሚደርስ ፈጣን ማሳወቂያ።',
-      icon: '🤝',
-    },
-  ],
-};
+const FOOTER_LINKS = [
+  { href: 'tel:+251939976687', labelKey: 'landing.footer.call' },
+  { href: 'mailto:support@habeshatts.com', labelKey: 'landing.footer.email' },
+  { href: BOT_URL, labelKey: 'landing.footer.telegram' },
+  { href: 'https://www.instagram.com/habeshatts/', labelKey: 'landing.footer.instagram' },
+];
 
-const stepsByLocale = {
-  en: [
-    {
-      step: '01',
-      title: 'Apply & Verify',
-      body: 'Share your stream handles, complete KYB-lite, and unlock your secure link UUID in under 24 hours.',
-    },
-    {
-      step: '02',
-      title: 'Customize Experience',
-      body: 'Pick voices, notification sounds, and safety filters while our concierge helps wire overlays and alerts.',
-    },
-    {
-      step: '03',
-      title: 'Monetize & Grow',
-      body: 'Track donations, withdrawals, and campaign results in one dashboard—plus join seasonal spotlights.',
-    },
-  ],
-  am: [
-    {
-      step: '01',
-      title: 'ይመዝገቡ እና ያረጋግጡ',
-      body: 'የስትሪም መለያዎን ያጋሩ፣ ቀላል የKYB ማረጋገጫ ያጠናቅቁ እና በ24 ሰዓት ውስጥ ደህንነቱ የተጠበቀ ሊንክ ያግኙ።',
-    },
-    {
-      step: '02',
-      title: 'ተሞክሮዎን ያብጁ',
-      body: 'ድምጾችን፣ የማስታወቂያ ድምጾችን እና የደህንነት ማጣሪያዎችን ይምረጡ፤ የኛ ቡድንም ኦቨርሌዎችን ለማስተካከል ያግዛል።',
-    },
-    {
-      step: '03',
-      title: 'ይምጡ እና ይድጉ',
-      body: 'ልገሳዎችን፣ ወጪዎችን እና የዘመቻ ውጤቶችን በአንድ ቦታ ይከታተሉ፤ እንዲሁም ወቅታዊ ስፖትላይቶችን ይቀላቀሉ።',
-    },
-  ],
-};
+const FEATURES = [
+  { key: 'voices', icon: 'mic' },
+  { key: 'overlay', icon: 'layers' },
+  { key: 'payments', icon: 'wallet' },
+  { key: 'moderation', icon: 'shield' },
+  { key: 'soundboard', icon: 'music', soon: true },
+  { key: 'media', icon: 'film', soon: true },
+];
 
-const testimonialsByLocale = {
-  en: [
-    {
-      quote: 'Habesha TTS finally gave our Amharic audience a native way to tip. The queue never misses a beat, even when the tab sleeps.',
-      name: 'Feven Kebede',
-      role: 'Variety Streamer',
-    },
-    {
-      quote: 'Payouts hitting within the same day changed how we plan charity drives. The admin team feels like an extension of ours.',
-      name: 'Studio K Promotions',
-      role: 'Creator Agency',
-    },
-  ],
-  am: [
-    {
-      quote: 'Habesha TTS ለአማርኛ ተመልካቾቻችን ተፈጥሯዊ የመለገስ መንገድ ሰጠ፤ ታብ ሲተኛ እንኳን ሰልፉ አይቆምም።',
-      name: 'Feven Kebede',
-      role: 'የተለያዩ ትርዒቶች ፈጣሪ',
-    },
-    {
-      quote: 'በተመሳሳይ ቀን የሚደርሱ ክፍያዎች የበጎ አድራጎት ዕቅዶቻችንን ቀይረውታል፤ የአስተዳደር ቡድኑ ልክ እንደ እኛ የቡድን አባል ነው።',
-      name: 'Studio K Promotions',
-      role: 'የፈጣሪዎች ኤጀንሲ',
-    },
-  ],
-};
+const KEEP_PERCENT = 100 - PLATFORM_FEE_PERCENT;
 
-const faqsByLocale = {
-  en: [
-    {
-      q: 'How does the revenue share work?',
-      a: 'Creators receive 60% of every paid donation automatically. Habesha TTS retains 40% to cover infrastructure, moderation, and concierge services.',
-    },
-    {
-      q: 'Which platforms are supported?',
-      a: 'Any platform that can open a browser source: Twitch, YouTube, TikTok Live, and custom RTMP players. Telegram dashboards stay synced everywhere.',
-    },
-    {
-      q: 'What are the payout options?',
-      a: 'Telebirr withdrawals only during the early access phase. Bank transfers and USD rails are on the roadmap, but today all payouts clear through Telebirr within 24 hours.',
-    },
-    {
-      q: 'Is there a monthly fee?',
-      a: 'No platform fee. You only share 40% of donations, with optional boosts that temporarily reduce the platform side by 5%.',
-    },
-  ],
-  am: [
-    {
-      q: 'የገቢ ክፍፍሉ እንዴት ይሰራል?',
-      a: 'ፈጣሪዎች ከእያንዳንዱ ልገሳ 60% ወዲያውኑ ያገኛሉ። Habesha TTS ለመሠረተ ልማት፣ ለቁጥጥር እና ለድጋፍ አገልግሎቶች 40% ያስቀራል።',
-    },
-    {
-      q: 'የትኞቹን መድረኮች ትደግፋላችሁ?',
-      a: 'የብራውዘር ሶርስ የሚቀበል ማንኛውም መድረክ፡ Twitch, YouTube, TikTok Live እና RTMP ፕሌየሮች። የቴሌግራም ዳሽቦርድ በሁሉም ቦታ አብሮ ይሰራል.',
-    },
-    {
-      q: 'የክፍያ አማራጮች ምንድናቸው?',
-      a: 'በቅድመ መዳረሻ ወቅት በቴሌብር ብቻ ነው። የባንክ እና የውጭ ሀገር ክፍያዎች በሂደት ላይ ናቸው፣ ነገር ግን በአሁን ሰዓት ሁሉም ክፍያዎች በቴሌብር በ24 ሰዓት ውስጥ ይፈጸማሉ።',
-    },
-    {
-      q: 'ወርሃዊ ክፍያ አለወይ?',
-      a: 'ምንም የመድረክ ክፍያ የለም። እርስዎ የሚካፈሉት ከልገሳ 40% ብቻ ነው፣ አማራጭ ማበረታቻዎች የመድረኩን ድርሻ በ5% ሊቀንሱት ይችላሉ።',
-    },
-  ],
-};
-
-const growthCardsByLocale = {
-  en: [
-    { title: 'Creator Playbooks', metric: 'Weekly launch checklist', detail: 'Review pacing, volume, and message templates' },
-    { title: 'Agency Toolkit', metric: 'Multi-streamer controls', detail: 'Centralized withdrawals & reporting' },
-    { title: 'Spotlight Calendar', metric: 'Monthly promos', detail: 'Co-marketing kits & shareable overlays' },
-  ],
-  am: [
-    { title: 'የፈጣሪ መመሪያዎች', metric: 'ሳምንታዊ የማስጀመሪያ ዝርዝር', detail: 'ፍጥነትን፣ መጠንን እና የመልዕክት ቅንብሮችን ይገምግሙ' },
-    { title: 'የኤጀንሲ መሣሪያዎች', metric: 'የባለብዙ-ፈጣሪ ቁጥጥር', detail: 'የተማከለ ክፍያ እና ሪፖርት' },
-    { title: 'የስፖትላይት የቀን መቁጠሪያ', metric: 'ወርሃዊ ፕሮሞዎች', detail: 'የጋራ ማስታወቂያ ፓኬጆች እና የሚጋሩ ኦቨርሌይዎች' },
-  ],
-};
-
-const pricingRowsByLocale = {
-  en: [
-    { volume: 'Br 10,000', creator: 'Br 6,000', platform: 'Br 4,000', perk: 'Baseline tier • concierge onboarding' },
-    { volume: 'Br 25,000', creator: 'Br 15,000', platform: 'Br 10,000', perk: 'Priority payout lane • analytics coaching' },
-    { volume: 'Br 50,000', creator: 'Br 30,000', platform: 'Br 20,000', perk: 'Performance bonus • co-marketing spotlight' },
-  ],
-  am: [
-    { volume: 'Br 10,000', creator: 'Br 6,000', platform: 'Br 4,000', perk: 'መነሻ ደረጃ • የኮንሲየርጅ ማስጀመሪያ ድጋፍ' },
-    { volume: 'Br 25,000', creator: 'Br 15,000', platform: 'Br 10,000', perk: 'የቅድሚያ ክፍያ መስመር • የትንታኔ ምክር' },
-    { volume: 'Br 50,000', creator: 'Br 30,000', platform: 'Br 20,000', perk: 'የአፈጻጸም ቦነስ • የጋራ ማስታወቂያ ስፖትላይት' },
-  ],
-};
-
-function LandingPage() {
-  const [locale, setLocale] = useState('en');
-  const t = translations[locale];
-  const metrics = metricsByLocale[locale];
-  const features = featuresByLocale[locale];
-  const steps = stepsByLocale[locale];
-  const testimonials = testimonialsByLocale[locale];
-  const faqs = faqsByLocale[locale];
-  const growthCards = growthCardsByLocale[locale];
-  const pricingRows = pricingRowsByLocale[locale];
-  const payoutSpeedValue = locale === 'en' ? '4h Avg.' : '4 ሰዓት አማካይ';
-
+function SectionHeading({ id, title, subtitle, center = false }) {
   return (
-    <div className="bg-gradient-to-b from-white via-blue-50/40 to-white min-h-screen text-gray-900">
-      <div className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute -top-24 -right-10 w-80 h-80 bg-secondary-200 opacity-40 blur-3xl" />
-          <div className="absolute top-32 -left-20 w-72 h-72 bg-primary-200 opacity-30 blur-3xl" />
-          <div className="absolute bottom-0 right-12 w-64 h-64 bg-success-200 opacity-30 blur-3xl" />
+    <div className={cn('max-w-2xl', center && 'mx-auto text-center')}>
+      <h2 id={id} className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+        {title}
+      </h2>
+      {subtitle ? <p className="mt-3 text-base text-muted sm:text-lg">{subtitle}</p> : null}
+    </div>
+  );
+}
+
+SectionHeading.propTypes = {
+  id: PropTypes.string.isRequired,
+  title: PropTypes.node.isRequired,
+  subtitle: PropTypes.node,
+  center: PropTypes.bool,
+};
+
+/** A static mock of the OBS alert, styled like OverlayPage. Decorative. */
+function OverlayPreview() {
+  const { t } = useI18n();
+  return (
+    <div className="relative" aria-hidden="true">
+      <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-brand-500/10 blur-2xl dark:bg-brand-500/15" />
+      <div className="overflow-hidden rounded-2xl border border-line bg-[#0b0f0d] shadow-overlay">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+            <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+            <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-flag-red/90 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+            {t('landing.mock.live')}
+          </span>
         </div>
-
-        <header className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-lg border border-gray-100 overflow-hidden">
-                <img src={logoSrc} alt="Habesha TTS logo" className="w-full h-full object-cover transform scale-110" />
-              </div>
-            <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-gray-500">Habesha TTS</p>
-              <p className="text-lg font-semibold text-gray-900">{t.brandSubtitle}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
-              {navLinks.map((link) => (
-                <a key={link.key} href={link.href} className="hover:text-gray-900">
-                  {t[link.key]}
-                </a>
-              ))}
-            </nav>
-            <div className="flex items-center gap-2">
-              {localeOptions.map((option) => (
-                <button
-                  key={option.code}
-                  type="button"
-                  onClick={() => setLocale(option.code)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
-                    locale === option.code ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'
-                  }`}
-                  aria-pressed={locale === option.code}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <a href="https://t.me/HabeshaTTS_bot" target="_blank" rel="noreferrer" className="btn btn-primary">
-              {t.headerPrimaryCTA}
-            </a>
-          </div>
-        </header>
-
-        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <section className="py-16 sm:py-20 lg:py-24" id="hero">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div>
-                <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-semibold">
-                  {t.heroBadge}
+        <div className="relative aspect-[16/11] bg-[radial-gradient(ellipse_at_top,rgba(23,162,79,0.18),transparent_60%),linear-gradient(180deg,#121815,#0b0f0d)] p-5 sm:p-7">
+          <div className="absolute inset-x-5 bottom-5 sm:inset-x-7 sm:bottom-7">
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/70 text-white shadow-overlay backdrop-blur">
+              <FlagBar height={4} />
+              <div className="p-4 font-ethiopic sm:p-5">
+                <p className="text-lg font-extrabold text-flag-yellow sm:text-xl">
+                  Selam <span className="text-sm font-medium text-white/70">{t('landing.mock.sent')}</span>
                 </p>
-                <h1 className="mt-6 text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight">
-                  {t.heroHeadingStart}{' '}
-                  <span className="text-primary-600">{t.heroHeadingHighlight}</span>{' '}
-                  {t.heroHeadingEnd}
-                </h1>
-                <p className="mt-6 text-lg text-gray-600">{t.heroDescription}</p>
-                <div className="mt-8 flex flex-wrap gap-4">
-                  <a href="#features" className="btn btn-secondary">
-                    {t.heroCTASecondary}
-                  </a>
-                </div>
-                <div className="mt-10 flex flex-wrap gap-6 text-sm text-gray-500">
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">60% / 40%</p>
-                    <p>{t.heroStatSplit}</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">{payoutSpeedValue}</p>
-                    <p>{t.heroStatSpeed}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="relative">
-                <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-secondary-200 opacity-50 blur-xl" />
-                <div className="absolute bottom-0 left-6 w-32 h-32 rounded-full bg-primary-200 opacity-60 blur-2xl" />
-                <div className="relative bg-white rounded-3xl shadow-2xl border border-gray-100 p-6 space-y-6">
-                  <div>
-                    <p className="text-sm text-gray-500">{t.heroCardQueueTitle}</p>
-                    <div className="mt-3 space-y-3">
-                      {[1, 2, 3].map((item) => (
-                        <div
-                          key={item}
-                          className="p-4 rounded-2xl border border-gray-100 bg-gradient-to-r from-white to-blue-50/40 flex items-center justify-between"
-                        >
-                          <div>
-                            <p className="font-semibold text-gray-900">{t.heroCardDonationLabel} #{item * 37}</p>
-                            <p className="text-xs text-gray-500">Br {item * 150} — "መልካም ስራ!"</p>
-                          </div>
-                          <span className="text-sm text-primary-600 font-semibold">{t.heroCardReady}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-gray-100 p-4 bg-gradient-to-br from-primary-500/10 to-secondary-500/10">
-                    <p className="text-xs text-gray-500">{t.heroCardWeekLabel}</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">Br 42,560</p>
-                    <p className="text-sm text-gray-500">{t.heroCardWeekChange}</p>
-                    <p className="text-xs text-gray-500">{t.heroCardWeekSubtitle}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="mt-16 grid sm:grid-cols-3 gap-6">
-              {metrics.map((metric) => (
-                <div key={metric.label} className="p-6 rounded-2xl border border-gray-100 bg-white/80 backdrop-blur">
-                  <p className="text-sm text-gray-500 uppercase tracking-wide">{metric.label}</p>
-                  <p className="mt-2 text-3xl font-bold text-gray-900">{metric.value}</p>
-                  <p className="text-sm text-gray-500">{metric.detail}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section id="features" className="py-16">
-            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary-600">{t.featuresOverline}</p>
-                <h2 className="mt-3 text-3xl font-bold text-gray-900">{t.featuresHeading}</h2>
-                <p className="mt-3 text-gray-600 max-w-2xl">{t.featuresDescription}</p>
-              </div>
-              <a href="#pricing" className="text-primary-600 font-semibold text-sm">
-                {t.featuresLink}
-              </a>
-            </div>
-            <div className="mt-10 grid md:grid-cols-2 gap-6">
-              {features.map((feature) => (
-                <div key={feature.title} className="p-6 rounded-2xl border border-gray-100 bg-white hover:shadow-lg transition-all duration-200">
-                  <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center text-2xl">{feature.icon}</div>
-                  <h3 className="mt-4 text-xl font-semibold text-gray-900">{feature.title}</h3>
-                  <p className="mt-2 text-gray-600">{feature.description}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="py-16" id="growth">
-            <div className="rounded-3xl border border-gray-100 bg-gradient-to-br from-white via-indigo-50 to-blue-50 p-8 lg:p-12">
-              <div className="grid lg:grid-cols-2 gap-10 items-center">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-secondary-600">{t.growthOverline}</p>
-                  <h2 className="mt-4 text-3xl font-bold text-gray-900">{t.growthHeading}</h2>
-                  <p className="mt-4 text-gray-700">{t.growthDescription}</p>
-                  <ul className="mt-6 space-y-3 text-gray-700">
-                    {[t.growthBullet1, t.growthBullet2, t.growthBullet3].map((item) => (
-                      <li key={item} className="flex items-start gap-3">
-                        <span className="mt-1 text-primary-600">•</span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-8 flex flex-wrap gap-4">
-                    <a href="https://t.me/HabeshaTTS_bot" target="_blank" rel="noreferrer" className="btn btn-primary">
-                      {t.growthCTA}
-                    </a>
-                  </div>
-                </div>
-                <div className="space-y-6">
-                  {growthCards.map((card) => (
-                    <div key={card.title} className="rounded-2xl border border-white/60 bg-white/80 backdrop-blur p-6 shadow-lg">
-                      <p className="text-sm text-gray-500">{card.title}</p>
-                      <p className="mt-3 text-2xl font-bold text-gray-900">{card.metric}</p>
-                      <p className="text-sm text-gray-500">{card.detail}</p>
-                    </div>
+                <p className="mt-0.5 text-3xl font-extrabold leading-tight sm:text-4xl">
+                  <span className="bg-gradient-to-r from-emerald-400 via-flag-yellow to-red-400 bg-clip-text text-transparent">100</span>{' '}
+                  <span className="text-lg text-white/80">ETB</span>
+                </p>
+                <p className="mt-2 text-base font-medium leading-snug sm:text-lg">{t('landing.mock.message')}</p>
+                <div className="mt-3 flex items-end gap-0.5" style={{ height: 18 }}>
+                  {[6, 12, 9, 16, 7, 13, 18, 10, 6, 14, 8, 12, 5, 15, 9, 11].map((h, i) => (
+                    <span key={i} className="w-1 rounded-full bg-brand-400/80" style={{ height: h }} />
                   ))}
                 </div>
               </div>
             </div>
-          </section>
-
-          <section className="py-16">
-            <div className="grid lg:grid-cols-3 gap-6">
-              {steps.map((item) => (
-                <div key={item.step} className="p-6 rounded-2xl border border-gray-100 bg-white">
-                  <p className="text-sm font-semibold text-primary-600">{item.step}</p>
-                  <h3 className="mt-3 text-xl font-bold text-gray-900">{item.title}</h3>
-                  <p className="mt-2 text-gray-600">{item.body}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="py-16">
-            <div className="grid md:grid-cols-2 gap-6">
-              {testimonials.map((item) => (
-                <div key={item.name} className="p-8 rounded-3xl border border-gray-100 bg-white shadow-sm">
-                  <p className="text-4xl text-gray-300">“</p>
-                  <p className="mt-4 text-lg text-gray-800">{item.quote}</p>
-                  <div className="mt-6">
-                    <p className="font-semibold text-gray-900">{item.name}</p>
-                    <p className="text-sm text-gray-500">{item.role}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section id="pricing" className="py-16">
-            <div className="rounded-3xl border border-gray-100 bg-white p-8 lg:p-12 shadow-xl">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary-600">{t.revenueOverline}</p>
-                  <h2 className="mt-3 text-3xl font-bold text-gray-900">{t.revenueHeading}</h2>
-                  <p className="mt-3 text-gray-600 max-w-2xl">{t.revenueDescription}</p>
-                </div>
-                <div className="text-center p-6 rounded-2xl bg-gradient-to-br from-primary-500 to-secondary-500 text-white">
-                  <p className="text-sm uppercase tracking-wider">{t.revenueCardLabel}</p>
-                  <p className="mt-2 text-4xl font-extrabold">Br 18,400</p>
-                  <p className="text-sm">{t.revenueCardSubtitle}</p>
-                </div>
-              </div>
-              <div className="mt-10 overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="text-gray-500">
-                      <th className="py-3 pr-6">{t.pricingHeaderVolume}</th>
-                      <th className="py-3 pr-6">{t.pricingHeaderCreator}</th>
-                      <th className="py-3 pr-6">{t.pricingHeaderPlatform}</th>
-                      <th className="py-3">{t.pricingHeaderPerks}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {pricingRows.map((row) => (
-                      <tr key={row.volume}>
-                        <td className="py-4 pr-6 font-semibold text-gray-900">{row.volume}</td>
-                        <td className="py-4 pr-6">{row.creator}</td>
-                        <td className="py-4 pr-6">{row.platform}</td>
-                        <td className="py-4">{row.perk}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <section id="faq" className="py-16">
-            <div className="max-w-3xl mx-auto">
-              <h2 className="text-3xl font-bold text-center text-gray-900">{t.faqHeading}</h2>
-              <p className="mt-3 text-center text-gray-600">{t.faqDescription}</p>
-              <div className="mt-10 space-y-4">
-                {faqs.map((item) => (
-                  <div key={item.q} className="p-6 rounded-2xl border border-gray-100 bg-white">
-                    <p className="font-semibold text-gray-900">{item.q}</p>
-                    <p className="mt-2 text-gray-600">{item.a}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section className="py-16">
-            <div className="rounded-3xl border border-gray-100 bg-gradient-to-br from-primary-500 to-secondary-500 text-white p-10 text-center shadow-2xl">
-              <p className="text-sm uppercase tracking-[0.3em] text-white/80">{t.ctaOverline}</p>
-              <h2 className="mt-4 text-4xl font-extrabold">{t.ctaHeading}</h2>
-              <p className="mt-4 text-lg text-white/90 max-w-3xl mx-auto">{t.ctaDescription}</p>
-              <div className="mt-8 flex flex-wrap justify-center gap-4">
-                <a href="https://t.me/HabeshaTTS_bot" target="_blank" rel="noreferrer" className="btn bg-white text-primary-600 border-white">
-                  {t.ctaPrimary}
-                </a>
-              </div>
-            </div>
-          </section>
-        </main>
-
-        <footer className="py-10 border-t border-gray-100 px-4 sm:px-6 lg:px-8 text-sm text-gray-500">
-          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <p>© {new Date().getFullYear()} Habesha TTS. {t.footerTagline}</p>
-            <div className="flex gap-4">
-              <a href="tel:+251939976687" className="hover:text-gray-900">
-                {t.footerContact}
-              </a>
-              <a href="mailto:support@habeshatts.com" className="hover:text-gray-900">
-                {t.footerSupport}
-              </a>
-              <a href="https://t.me/HabeshaTTS_bot" target="_blank" rel="noreferrer" className="hover:text-gray-900">
-                {t.footerPartner}
-              </a>
-              <a href="https://www.instagram.com/habeshatts/" target="_blank" rel="noreferrer" className="hover:text-gray-900">
-                {t.footerSocial}
-              </a>
-            </div>
+            <p className="mt-2 text-right text-xs text-white/50">{t('landing.mock.queue')}</p>
           </div>
-        </footer>
+        </div>
       </div>
     </div>
+  );
+}
+
+function FeeCalculator() {
+  const { t } = useI18n();
+  const [amount, setAmount] = useState('100');
+  const value = Number(amount);
+  const fee = Math.round(value * PLATFORM_FEE_PERCENT) / 100;
+  const net = value - fee;
+
+  return (
+    <div>
+      <Tabs
+        variant="pill"
+        size="sm"
+        fitted
+        label={`${t('landing.pricing.donation')} (ETB)`}
+        value={amount}
+        onChange={setAmount}
+        items={['50', '100', '500', '1000'].map((v) => ({ value: v, label: Number(v).toLocaleString('en-US') }))}
+      />
+      <dl className="mt-5 flex flex-col gap-3 text-sm">
+        <div className="flex items-center justify-between">
+          <dt className="text-muted">{t('landing.pricing.donation')}</dt>
+          <dd className="font-semibold tabular-nums text-fg">{formatETB(value)}</dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-muted">{t('landing.pricing.fee', { fee: PLATFORM_FEE_PERCENT })}</dt>
+          <dd className="tabular-nums text-muted">− {formatETB(fee)}</dd>
+        </div>
+        <div className="flex items-center justify-between border-t border-line pt-3">
+          <dt className="font-semibold text-fg">{t('landing.pricing.youGet')}</dt>
+          <dd className="text-xl font-bold tabular-nums text-brand-600 dark:text-brand-400" aria-live="polite">
+            {formatETB(net)}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function LandingPage() {
+  const { t } = useI18n();
+
+  const startButton = (size = 'sm') => (
+    <Button as="a" href={BOT_URL} target="_blank" rel="noreferrer" size={size} rightIcon={size === 'lg' ? <Icon name="chevronRight" size={18} /> : undefined}>
+      {t(size === 'lg' ? 'landing.hero.primary' : 'landing.cta.header')}
+    </Button>
+  );
+
+  return (
+    <PublicLayout nav={NAV} cta={startButton()} footerLinks={FOOTER_LINKS}>
+      {/* Hero */}
+      <section className="relative overflow-hidden">
+        <div
+          className="pointer-events-none absolute inset-0 -z-0 bg-[radial-gradient(ellipse_60%_50%_at_70%_0%,rgba(7,137,48,0.12),transparent)] dark:bg-[radial-gradient(ellipse_60%_50%_at_70%_0%,rgba(23,162,79,0.16),transparent)]"
+          aria-hidden="true"
+        />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-2 lg:py-24">
+          <div>
+            <Badge variant="brand" dot>
+              {t('landing.hero.badge')}
+            </Badge>
+            <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] tracking-tight text-fg sm:text-5xl lg:text-[3.5rem]">
+              {t('landing.hero.title1')} <span className="text-brand-600 dark:text-brand-400">{t('landing.hero.title2')}</span>{' '}
+              {t('landing.hero.title3')}
+            </h1>
+            <p className="mt-5 max-w-xl text-lg text-muted">{t('landing.hero.subtitle', { keep: KEEP_PERCENT })}</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              {startButton('lg')}
+              <Button as="a" href="#how" variant="secondary" size="lg">
+                {t('landing.hero.secondary')}
+              </Button>
+            </div>
+            <ul className="mt-8 flex flex-col gap-2.5 text-sm text-muted sm:flex-row sm:flex-wrap sm:gap-x-6">
+              {['landing.hero.point1', 'landing.hero.point2', 'landing.hero.point3'].map((key) => (
+                <li key={key} className="flex items-center gap-2">
+                  <Icon name="checkCircle" size={16} className="shrink-0 text-brand-600 dark:text-brand-400" />
+                  {t(key, { keep: KEEP_PERCENT })}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <OverlayPreview />
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section aria-labelledby="how-title" className="border-t border-line bg-surface/50">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+          <span id="how" className="block scroll-mt-24" />
+          <SectionHeading id="how-title" title={t('landing.how.title')} subtitle={t('landing.how.subtitle')} />
+          <ol className="mt-10 grid gap-4 md:grid-cols-3">
+            {[1, 2, 3].map((n) => (
+              <li key={n}>
+                <Card className="h-full">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white">{n}</span>
+                  <h3 className="mt-4 text-lg font-semibold text-fg">{t(`landing.how.${n}.title`)}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted">{t(`landing.how.${n}.body`)}</p>
+                </Card>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section aria-labelledby="features-title" className="border-t border-line">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+          <span id="features" className="block scroll-mt-24" />
+          <SectionHeading id="features-title" title={t('landing.features.title')} subtitle={t('landing.features.subtitle')} />
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((f) => (
+              <Card key={f.key} interactive className="h-full">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                    <Icon name={f.icon} size={20} />
+                  </span>
+                  {f.soon ? (
+                    <Badge variant="warning" size="sm">
+                      {t('landing.soon')}
+                    </Badge>
+                  ) : null}
+                </div>
+                <h3 className="mt-4 text-base font-semibold text-fg">{t(`landing.features.${f.key}.title`)}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted">{t(`landing.features.${f.key}.body`)}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section aria-labelledby="pricing-title" className="border-t border-line bg-surface/50">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+          <span id="pricing" className="block scroll-mt-24" />
+          <SectionHeading
+            id="pricing-title"
+            title={t('landing.pricing.title')}
+            subtitle={t('landing.pricing.subtitle', { fee: PLATFORM_FEE_PERCENT })}
+          />
+          <div className="mt-10 grid gap-4 lg:grid-cols-2">
+            <Card className="flex flex-col">
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted">{t('landing.pricing.viewers')}</p>
+              <p className="mt-4 flex items-baseline gap-2">
+                <span className="text-sm text-muted">{t('landing.pricing.viewersFrom')}</span>
+                <span className="text-4xl font-extrabold tracking-tight text-fg">{formatETB(MIN_MESSAGE_PRICE, { decimals: 0 })}</span>
+                <span className="text-sm text-muted">{t('landing.pricing.viewersUnit')}</span>
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-muted">{t('landing.pricing.viewersBody')}</p>
+              <div className="mt-auto flex flex-wrap gap-2 pt-6">
+                {['Chapa', 'Arifpay', 'Telebirr'].map((m) => (
+                  <Badge key={m}>{m}</Badge>
+                ))}
+              </div>
+            </Card>
+            <Card accent>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted">{t('landing.pricing.streamers')}</p>
+                <p className="text-sm font-semibold text-brand-600 dark:text-brand-400">{t('landing.hero.point3', { keep: KEEP_PERCENT })}</p>
+              </div>
+              <div className="mt-5">
+                <FeeCalculator />
+              </div>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section aria-labelledby="faq-title" className="border-t border-line">
+        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
+          <span id="faq" className="block scroll-mt-24" />
+          <SectionHeading id="faq-title" title={t('landing.faq.title')} center />
+          <div className="mt-10 flex flex-col gap-3">
+            {[1, 2, 3, 4].map((n) => (
+              <details key={n} className="group rounded-xl border border-line bg-surface shadow-card open:shadow-raised">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl px-5 py-4 text-left font-semibold text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
+                  {t(`landing.faq.${n}.q`)}
+                  <Icon name="chevronDown" size={18} className="shrink-0 text-subtle transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="px-5 pb-5 text-sm leading-relaxed text-muted">{t(`landing.faq.${n}.a`, { fee: PLATFORM_FEE_PERCENT })}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="px-4 pb-16 sm:px-6 sm:pb-20">
+        <div className="relative mx-auto max-w-6xl overflow-hidden rounded-2xl border border-brand-700/40 bg-brand-700 px-6 py-12 text-center text-white shadow-raised sm:px-12 sm:py-16 dark:bg-brand-800">
+          <FlagBar className="absolute inset-x-0 top-0" height={4} />
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('landing.final.title')}</h2>
+          <p className="mx-auto mt-3 max-w-xl text-base text-white/85 sm:text-lg">{t('landing.final.body')}</p>
+          <a
+            href={BOT_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-white px-6 text-base font-semibold text-brand-800 shadow-card transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand-700"
+          >
+            {t('landing.final.button')}
+            <Icon name="chevronRight" size={18} />
+          </a>
+        </div>
+      </section>
+    </PublicLayout>
   );
 }
 

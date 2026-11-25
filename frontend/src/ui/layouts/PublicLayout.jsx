@@ -10,12 +10,59 @@ import { ThemeToggle, LanguageToggle } from '../Toggles';
 import { useI18n } from '../i18n';
 import { PUBLIC_NAV } from './navConfig';
 
+/** Renders a nav/footer item: `to` → router NavLink/Link, `href` → plain anchor (in-page #hash or external). */
+function NavItemLink({ item, className, onClick, children }) {
+  if (item.href) {
+    const external = /^https?:/.test(item.href);
+    return (
+      <a
+        href={item.href}
+        onClick={onClick}
+        className={typeof className === 'function' ? className({ isActive: false }) : className}
+        {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}
+      >
+        {children}
+      </a>
+    );
+  }
+  return (
+    <NavLink to={item.to} end={item.end} onClick={onClick} className={className}>
+      {children}
+    </NavLink>
+  );
+}
+
+NavItemLink.propTypes = {
+  item: PropTypes.object.isRequired,
+  className: PropTypes.oneOfType([PropTypes.string, PropTypes.func]),
+  onClick: PropTypes.func,
+  children: PropTypes.node,
+};
+
+const linkItemShape = PropTypes.shape({
+  to: PropTypes.string,
+  href: PropTypes.string,
+  label: PropTypes.node,
+  labelKey: PropTypes.string,
+  end: PropTypes.bool,
+});
+
 /**
  * Marketing / viewer-facing shell: sticky top nav, mobile menu, footer.
  *   <PublicLayout>…</PublicLayout>  or as a parent route with <Outlet/>.
+ * Nav and footer items take `to` (router path) or `href` (#anchor / external URL).
  * `cta` replaces the default right-hand buttons (login / sign up).
  */
-export function PublicLayout({ nav = PUBLIC_NAV, cta, homeHref = '/', loginHref = '/login', signupHref = '/signup', supportHref = '/support', children }) {
+export function PublicLayout({
+  nav = PUBLIC_NAV,
+  cta,
+  homeHref = '/',
+  loginHref = '/login',
+  signupHref = '/signup',
+  supportHref = '/support',
+  footerLinks,
+  children,
+}) {
   const { t } = useI18n();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -35,6 +82,11 @@ export function PublicLayout({ nav = PUBLIC_NAV, cta, homeHref = '/', loginHref 
       </Button>
     </>
   );
+  const footerItems = footerLinks || [
+    { to: '/terms', labelKey: 'footer.terms' },
+    { to: '/privacy', labelKey: 'footer.privacy' },
+    { href: supportHref, labelKey: 'footer.support' },
+  ];
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas font-sans text-fg">
@@ -53,10 +105,9 @@ export function PublicLayout({ nav = PUBLIC_NAV, cta, homeHref = '/', loginHref 
           <nav aria-label={t('nav.mainNav')} className="ml-4 hidden md:block">
             <ul className="flex items-center gap-1">
               {nav.map((item) => (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    end={item.end}
+                <li key={item.to || item.href}>
+                  <NavItemLink
+                    item={item}
                     className={({ isActive }) =>
                       cn(
                         'rounded-md px-3 py-2 text-sm font-medium transition-colors',
@@ -66,7 +117,7 @@ export function PublicLayout({ nav = PUBLIC_NAV, cta, homeHref = '/', loginHref 
                     }
                   >
                     {label(item)}
-                  </NavLink>
+                  </NavItemLink>
                 </li>
               ))}
             </ul>
@@ -94,10 +145,20 @@ export function PublicLayout({ nav = PUBLIC_NAV, cta, homeHref = '/', loginHref 
             <nav aria-label={t('nav.mainNav')} className="mx-auto max-w-6xl px-4 py-3">
               <ul className="flex flex-col gap-1">
                 {nav.map((item) => (
-                  <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      end={item.end}
+                  <li key={item.to || item.href}>
+                    <NavItemLink
+                      item={item}
+                      onClick={(e) => {
+                        setMenuOpen(false);
+                        // Collapsing the menu shifts the page, so scroll to in-page anchors after it closes.
+                        if (item.href?.startsWith('#')) {
+                          e.preventDefault();
+                          setTimeout(() => {
+                            document.getElementById(item.href.slice(1))?.scrollIntoView({ behavior: 'smooth' });
+                            window.history.replaceState(null, '', item.href);
+                          }, 0);
+                        }
+                      }}
                       className={({ isActive }) =>
                         cn(
                           'block rounded-lg px-3 py-2.5 text-sm font-medium',
@@ -107,7 +168,7 @@ export function PublicLayout({ nav = PUBLIC_NAV, cta, homeHref = '/', loginHref 
                       }
                     >
                       {label(item)}
-                    </NavLink>
+                    </NavItemLink>
                   </li>
                 ))}
               </ul>
@@ -132,21 +193,13 @@ export function PublicLayout({ nav = PUBLIC_NAV, cta, homeHref = '/', loginHref 
           </div>
           <nav aria-label="Footer">
             <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted">
-              <li>
-                <Link to="/terms" className={cn('rounded hover:text-fg', focusRing)}>
-                  {t('footer.terms')}
-                </Link>
-              </li>
-              <li>
-                <Link to="/privacy" className={cn('rounded hover:text-fg', focusRing)}>
-                  {t('footer.privacy')}
-                </Link>
-              </li>
-              <li>
-                <a href={supportHref} className={cn('rounded hover:text-fg', focusRing)}>
-                  {t('footer.support')}
-                </a>
-              </li>
+              {footerItems.map((item) => (
+                <li key={item.to || item.href}>
+                  <NavItemLink item={item} className={cn('rounded hover:text-fg', focusRing)}>
+                    {label(item)}
+                  </NavItemLink>
+                </li>
+              ))}
             </ul>
           </nav>
         </div>
@@ -167,18 +220,12 @@ export function PublicLayout({ nav = PUBLIC_NAV, cta, homeHref = '/', loginHref 
 }
 
 PublicLayout.propTypes = {
-  nav: PropTypes.arrayOf(
-    PropTypes.shape({
-      to: PropTypes.string.isRequired,
-      label: PropTypes.node,
-      labelKey: PropTypes.string,
-      end: PropTypes.bool,
-    }),
-  ),
+  nav: PropTypes.arrayOf(linkItemShape),
   cta: PropTypes.node,
   homeHref: PropTypes.string,
   loginHref: PropTypes.string,
   signupHref: PropTypes.string,
   supportHref: PropTypes.string,
+  footerLinks: PropTypes.arrayOf(linkItemShape),
   children: PropTypes.node,
 };

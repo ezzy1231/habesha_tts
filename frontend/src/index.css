@@ -355,11 +355,11 @@
   }
 
   body {
-    @apply font-sans text-base leading-relaxed text-gray-900 antialiased;
+    @apply font-sans text-base leading-relaxed text-gray-900 antialiased bg-canvas;
   }
 
   .dark body {
-    @apply text-gray-100 bg-gray-900;
+    @apply text-gray-100 bg-canvas;
   }
 }
 

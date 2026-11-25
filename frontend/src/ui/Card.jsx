@@ -58,7 +58,8 @@ CardHeader.propTypes = {
 /** Three-colour Ethiopian flag stripe. */
 export function FlagBar({ className, height = 3 }) {
   return (
-    <div className={cn('flex w-full', className)} style={{ height }} aria-hidden="true">
+    // Full width unless the caller sets its own width class (w-6, w-1/2, …).
+    <div className={cn('flex', !/(^|\s)w-/.test(className || '') && 'w-full', className)} style={{ height }} aria-hidden="true">
       <span className="flex-1 bg-flag-green" />
       <span className="flex-1 bg-flag-yellow" />
       <span className="flex-1 bg-flag-red" />
