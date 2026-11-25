@@ -1,4 +1,5 @@
 import { isDonorBanned, buildBanMessage } from '../utils/ban.js';
+import { offerRechargeMethods, MAX_TOPUP } from '../utils/rechargeGateway.js';
 import { containsBlocked, maskBlocked } from '../../backend/utils/moderation.js';
 import { priceForTts } from '../../backend/utils/pricing.js';
 import { getStreamerSettings } from '../../backend/utils/streamerSettings.js';
@@ -297,6 +298,10 @@ export const registerMessageFlows = (bot, deps = {}) => {
       const amount = parseInt(text, 10);
       if (isNaN(amount) || amount <= 0) {
         await bot.sendMessage(chatId, '❌ ትክክለኛ መጠን አይደለም። እባክዎ ቁጥር ያስገቡ።');
+        return;
+      }
+      if (amount <= MAX_TOPUP && await offerRechargeMethods(bot, chatId, amount)) {
+        await userStates.delete(tgId);
         return;
       }
       await userStates.set(tgId, { step: 'recharge_name', recharge_amount: amount });

@@ -116,6 +116,10 @@ import streamerRoutes from './routes/streamer.js';
 import paymentRoutes from './routes/payment.js';
 import streamerAuthRoutes from './routes/streamerAuth.js';
 import overlayRoutes from './routes/overlay.js';
+import publicRoutes from './routes/public.js';
+import { webhookRouter as paymentWebhookRoutes, demoPayRouter } from './routes/payments.js';
+import { sweepPendingPayments } from './services/payments.js';
+import { isConfigured as isDemoGatewayEnabled } from './payments/demo.js';
 import { runMigrations } from './migrations/index.js';
 import { registerOverlaySocketHandlers, overlayStatusFor } from './utils/overlayPresence.js';
 import { isValidAdminToken } from './utils/safeCompare.js';
@@ -171,6 +175,17 @@ const isDevEnv = (process.env.NODE_ENV || 'development') !== 'production';
 console.log('🚀 Using centralized queue manager with built-in worker and event listeners.');
 
 // --- Middleware ---
+// Cloud Run sits behind one Google front end: trust it so req.ip (and rate limits) see the real client.
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
+
+// Payment provider webhooks need the raw body (signatures) and come from the provider, not a browser,
+// so they are mounted before CORS and the JSON parser.
+app.use('/api/payments/webhook', paymentWebhookRoutes);
+if (isDemoGatewayEnabled()) {
+  app.use('/pay/demo', express.urlencoded({ extended: false, limit: '2kb' }), demoPayRouter);
+  console.warn('⚠️  Demo payment gateway is ENABLED (/pay/demo). Demo donations never pay out.');
+}
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow same-origin (no Origin header) and explicit allowed origins
@@ -201,6 +216,7 @@ if (process.env.NODE_ENV !== 'production' && process.env.PAYMENT_MOCK_ENABLED ==
   console.warn('⚠️  Mock payment routes are ENABLED (/api/payment). Development only.');
 }
 app.use('/api/overlay', overlayRoutes);
+app.use('/api/public', publicRoutes);
 
 // --- Telegram Webhook Route (Production) ---
 app.post('/webhook', async (req, res) => {
@@ -327,6 +343,14 @@ io.on('connection', (socket) => {
 // new revision never serves with a half-migrated schema (Cloud Run keeps the old one).
 runMigrations()
   .then(() => {
+    // Catch payments whose webhook never arrived (verify with the provider, expire stale ones).
+    const sweepTimer = setInterval(() => {
+      sweepPendingPayments()
+        .then((r) => { if (r.paid || r.expired) console.log('[payments] sweep', r); })
+        .catch((e) => console.error('[payments] sweep failed:', e.message));
+    }, Number(process.env.PAYMENT_SWEEP_MS || 5 * 60_000));
+    sweepTimer.unref();
+
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on http://localhost:${PORT} and http://${ip.address()}:${PORT}`);
       if (process.env.GOOGLE_APPLICATION_CREDENTIALS) console.log('🔊 TTS: Google Cloud configured');

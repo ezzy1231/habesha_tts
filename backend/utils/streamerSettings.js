@@ -43,3 +43,18 @@ export function withDefaults(row) {
     overlay: { ...DEFAULT_OVERLAY, ...overlay },
   };
 }
+
+let globalWordsCache = { at: 0, words: [] };
+/** Admin's global blocked-word list (settings.filteredWords), cached for 30 s. */
+export async function getGlobalBlockedWords({ client } = {}) {
+  if (Date.now() - globalWordsCache.at < 30_000) return globalWordsCache.words;
+  try {
+    const { rows } = await runQuery(client, "SELECT value FROM settings WHERE key = 'filteredWords'", []);
+    let parsed = [];
+    try { parsed = JSON.parse(rows[0]?.value || '[]'); } catch { parsed = []; }
+    globalWordsCache = { at: Date.now(), words: normalizeWordList(parsed) };
+  } catch (error) {
+    console.error('[moderation] Failed to load global words:', error.message);
+  }
+  return globalWordsCache.words;
+}

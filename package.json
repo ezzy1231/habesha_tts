@@ -7,7 +7,7 @@
     "start": "node backend/index.js",
     "dev": "nodemon backend/index.js",
     "worker": "echo \"Worker is now started by the main application. This script is deprecated.\"",
-    "test": "node --test --test-concurrency=1 backend/tests/unit.test.js backend/tests/db.test.js",
+    "test": "node --test --test-concurrency=1 backend/tests/unit.test.js backend/tests/db.test.js backend/tests/payments.test.js",
     "test:bot-state": "node bot/tests/stateStore.test.js",
     "bench:tts": "node scripts/test-tts-performance.js"
   },

@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS payments (
   id UUID PRIMARY KEY,
   provider TEXT NOT NULL CHECK (provider IN ('chapa','arifpay','demo','credit')),
   tx_ref TEXT NOT NULL UNIQUE,
+  provider_ref TEXT,          -- provider's own id (Arifpay sessionId)
   amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
   currency CHAR(3) NOT NULL DEFAULT 'ETB',
   amount_etb NUMERIC(12,2),
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS payments (
   credit_code_id INTEGER,
   credit_applied NUMERIC(12,2) NOT NULL DEFAULT 0,
   checkout_url TEXT,
+  return_url TEXT,
   claim_code TEXT,           -- shown to the web donor when their payment becomes wallet credit
   raw JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

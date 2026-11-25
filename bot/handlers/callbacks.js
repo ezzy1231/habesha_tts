@@ -1,4 +1,5 @@
 import { isDonorBanned, buildBanMessage } from '../utils/ban.js';
+import { offerRechargeMethods, sendGatewayLink, MIN_TOPUP, MAX_TOPUP } from '../utils/rechargeGateway.js';
 import { buildSpokenText, stylePromptFor } from '../../backend/utils/voices.js';
 
 export const registerCallbacks = (bot, deps = {}) => {
@@ -262,9 +263,37 @@ export const registerCallbacks = (bot, deps = {}) => {
           await bot.sendMessage(chatId, '✏️ እባክዎ የሚሞሉትን መጠን በቁጥር ያስገቡ (ለምሳሌ: 150):');
         } else {
           const amount = parseInt(amountStr, 10);
+          if (await offerRechargeMethods(bot, chatId, amount)) {
+            await userStates.delete(tgId);
+            safeAnswerCallback(query.id);
+            return;
+          }
           console.log(`[Bot] Setting recharge state: user=${tgId}, amount=${amount}`);
           await userStates.set(tgId, { step: 'recharge_name', recharge_amount: amount });
           await bot.sendMessage(chatId, `✅ ${amount} ብር ተመርጧል።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:`);
+        }
+        safeAnswerCallback(query.id);
+        return;
+      }
+
+      if (data.startsWith('rpay_')) {
+        if (await notifyBan()) return;
+        const [, method, amountStr] = data.split('_');
+        const amount = parseInt(amountStr, 10);
+        if (!Number.isInteger(amount) || amount < MIN_TOPUP || amount > MAX_TOPUP) {
+          safeAnswerCallback(query.id, { text: '❌ ትክክለኛ መጠን አይደለም።' });
+          return;
+        }
+        if (!user || user.role !== 'donor') {
+          await bot.sendMessage(chatId, '❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብዎት። /start ይጫኑ።');
+          safeAnswerCallback(query.id);
+          return;
+        }
+        if (method === 'manual') {
+          await userStates.set(tgId, { step: 'recharge_name', recharge_amount: amount });
+          await bot.sendMessage(chatId, `✅ ${amount} ብር ተመርጧል።\n\n💰 አሁን በቴሌብር ክፍያ ላይ የተጠቀሙበትን ትክክለኛ ስም ያስገቡ:`);
+        } else {
+          await sendGatewayLink(bot, chatId, { provider: method, amount, tgId, donorName: user.display_name });
         }
         safeAnswerCallback(query.id);
         return;

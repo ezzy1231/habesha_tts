@@ -142,6 +142,11 @@ const defaultDeps = {
   },
 };
 
+/** Tests replace the queue / sockets / notifier used by the HTTP routes. */
+export function setFulfilDeps(overrides) {
+  Object.assign(defaultDeps, overrides);
+}
+
 const emitTo = (io, rooms, event, payload) => {
   if (!io) return;
   for (const room of rooms.filter(Boolean)) {
@@ -179,7 +184,8 @@ export async function fulfilPayment(paymentId, verified = {}, deps = {}) {
     }
 
     const purpose = payment.purpose || {};
-    const isDemo = payment.provider === 'demo';
+    // Demo gateway and providers running on test keys never move real money.
+    const isDemo = payment.provider === 'demo' || purpose.testMode === true;
 
     if (purpose.kind === 'wallet_topup') {
       // Demo money must never become real wallet balance.
