@@ -1,15 +1,26 @@
 <!doctype html>
-<html lang="en">
+<html lang="am" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Habesha TTS</title>
-        
-      </head>
-      <body>
-        <div id="root"></div>
-        <script type="module" src="/src/main.jsx"></script>
-      </body>
-    </html>
-    
+    <meta name="theme-color" content="#0a0c0b" />
+    <meta name="description" content="Habesha TTS: viewers' messages read aloud live on your stream in Amharic." />
+    <title>Habesha TTS</title>
+    <script>
+      // Apply the saved theme and language before first paint (dark-first; see src/ui/theme.js and src/ui/i18n.js).
+      (function () {
+        try {
+          var theme = localStorage.getItem('theme');
+          document.documentElement.classList.toggle('dark', theme ? theme === 'dark' : true);
+          var lang = localStorage.getItem('lang');
+          if (lang === 'am' || lang === 'en') document.documentElement.lang = lang;
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
