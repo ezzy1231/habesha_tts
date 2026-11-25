@@ -207,6 +207,7 @@ export const registerCallbacks = (bot, deps = {}) => {
         const pending = userPendingDonations[pendingIndex];
         if (!user || Number(user.balance) < pending.amount) {
           await bot.sendMessage(chatId, '⚠️ በቂ ቀሪ ሂሳብ የለም። /recharge ይጠቀሙ።');
+          await safeAnswerCallback(query.id, { text: '⚠️ በቂ ቀሪ ሂሳብ የለም።', show_alert: true });
           return;
         }
 
@@ -260,7 +261,7 @@ export const registerCallbacks = (bot, deps = {}) => {
         await pendingDonations.set(tgId, userPendingDonations);
 
         await bot.sendMessage(chatId, '⏳ ልገሳዎ በመሰራት ላይ ነው...');
-        safeAnswerCallback(query.id, { text: '✅ በመሰራት ላይ...' });
+        await safeAnswerCallback(query.id, { text: '✅ በመሰራት ላይ...' });
         return;
       }
 
