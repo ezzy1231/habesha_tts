@@ -6,7 +6,7 @@ import { otpRequestLimiter, otpVerifyLimiter } from '../middleware/rateLimiter.j
 import { signStreamerToken } from '../utils/token.js';
 import { logOtpAction } from '../utils/auditLog.js';
 import { streamerSessionAuth } from '../middleware/streamerSessionAuth.js';
-import { getStreamerBalance } from '../utils/balance.js';
+import { getStreamerBalance, getAvailableBalance } from '../utils/balance.js';
 import { emitAdminEvent } from '../utils/adminNotifications.js';
 import { validateSchema } from '../middleware/validateSchema.js';
 import { setStreamerLiveState } from '../utils/liveStatus.js';
@@ -437,7 +437,7 @@ router.post(
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-  const currentBalance = await getStreamerBalance(req.streamerId);
+  const currentBalance = await getAvailableBalance(req.streamerId);
   if (amount > currentBalance) {
       return res.status(400).json({ error: 'Insufficient balance' });
     }

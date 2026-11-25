@@ -5,7 +5,7 @@ import { z } from "zod";
 import db from "../db-postgres.js";
 import { protectStreamer } from "../middleware/auth.js";
 import { bot } from '../../bot/bot.js';
-import { getStreamerBalance } from "../utils/balance.js";
+import { getStreamerBalance, getAvailableBalance } from "../utils/balance.js";
 import { emitAdminEvent } from "../utils/adminNotifications.js";
 import { validateSchema } from "../middleware/validateSchema.js";
 import { setStreamerLiveState } from "../utils/liveStatus.js";
@@ -330,7 +330,7 @@ router.post("/:uuid/withdraw", protectStreamer, express.json(), async (req, res)
   }
 
   try {
-    const balance = await getStreamerBalance(req.streamerId);
+    const balance = await getAvailableBalance(req.streamerId);
 
     if (amount > balance) {
       return res.status(400).json({ error: "Insufficient balance" });

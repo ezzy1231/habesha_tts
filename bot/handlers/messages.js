@@ -1,4 +1,7 @@
 import { isDonorBanned, buildBanMessage } from '../utils/ban.js';
+import { containsBlocked, maskBlocked } from '../../backend/utils/moderation.js';
+import { priceForTts } from '../../backend/utils/pricing.js';
+import { getStreamerSettings } from '../../backend/utils/streamerSettings.js';
 
 const DONOR_BAN_STEPS = new Set([
   'set_display_name',
@@ -116,7 +119,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
       }
 
       const { filteredWords } = await getSettings();
-      const containsFiltered = filteredWords.some((word) => proposedName.toLowerCase().includes(word));
+      const containsFiltered = containsBlocked(proposedName, filteredWords);
       if (containsFiltered) {
         await bot.sendMessage(chatId, '❌ ስምዎ የተከለከሉ ቃላትን ይዟል። እባክዎ ሌላ ስም ይሞክሩ።');
         return;
@@ -178,8 +181,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
         return;
       }
 
-      const lowerCaseText = text.normalize('NFC').toLowerCase();
-      const foundFilteredWord = filteredWords.some((word) => lowerCaseText.includes(word));
+      const foundFilteredWord = containsBlocked(text, filteredWords);
 
       if (foundFilteredWord) {
         await userStates.delete(tgId);
@@ -226,18 +228,29 @@ export const registerMessageFlows = (bot, deps = {}) => {
         return;
       }
 
-      const steps = Math.max(1, Math.ceil(length / stepChars));
-      const computedAmount = basePrice + (steps - 1) * incrementPrice;
+      // Streamer's own blocked words are masked (***) rather than rejected; their minimum applies.
+      let streamerSettings = null;
+      try {
+        streamerSettings = await getStreamerSettings(streamerId);
+      } catch (error) {
+        console.error('[Bot] Failed to load streamer settings, using defaults:', error.message);
+      }
+      const { display: shownText } = maskBlocked(text, streamerSettings?.blocked_words || []);
+      const computedAmount = priceForTts(
+        text,
+        { stepChars, basePrice, incrementPrice },
+        streamerSettings?.min_tts_amount || 0,
+      );
 
       const {
         rows: [{ id: donationId }],
       } = await db.query(
         'INSERT INTO donations (streamer_id, donor_id, message, amount, status) VALUES ($1, $2, $3, $4, \'pending_payment\') RETURNING id',
-        [streamerId, tgId, text, computedAmount]
+        [streamerId, tgId, shownText, computedAmount]
       );
 
       const userPendingDonations = (await pendingDonations.get(tgId)) || [];
-      await pendingDonations.set(tgId, [...userPendingDonations, { donationId, streamerId, text, chars: length, amount: computedAmount }]);
+      await pendingDonations.set(tgId, [...userPendingDonations, { donationId, streamerId, text: shownText, chars: length, amount: computedAmount }]);
       await userStates.delete(tgId);
 
       const inline_keyboard = [];
@@ -274,7 +287,7 @@ export const registerMessageFlows = (bot, deps = {}) => {
 
       await bot.sendMessage(
         chatId,
-        `✅ ልገሳዎ ተዘጋጅቷል!\n💬 መልዕክት: "${text}"\n💵 ዋጋ: ${computedAmount} ብር\n\n🗣 ድምፅ ይምረጡ:`,
+        `✅ ልገሳዎ ተዘጋጅቷል!\n💬 መልዕክት: "${shownText}"\n💵 ዋጋ: ${computedAmount} ብር\n\n🗣 ድምፅ ይምረጡ:`,
         { reply_markup: { inline_keyboard } }
       );
       return;

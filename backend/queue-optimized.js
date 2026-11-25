@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 // import { bot } from './bot.js';
 import db from './db-postgres.js';
 import { generateTTS } from '../bot/utils/tts.js';
+import { settleDonation } from './services/settlement.js';
 
 dotenv.config();
 
@@ -87,6 +88,7 @@ async function processTTSJob(job) {
   console.log(`[Worker:${job.queueName}] Processing job ${job.id} for donation ${job.data.donationId}. Data: ${JSON.stringify(job.data)}`);
   
   const { donationId, spokenText, engine, voice, stylePrompt, price, tgId, link_uuid, streamer_id, donorName, chatId } = job.data;
+  const fundedBy = job.data.fundedBy === 'payment' ? 'payment' : 'wallet';
   let client;
   
   try {
@@ -102,23 +104,19 @@ async function processTTSJob(job) {
     console.log(`[Worker:${job.queueName}] Job ${job.id}: Starting database transaction...`);
     await client.query('BEGIN');
 
-    // Update donation status to 'paid' only if it's not already paid
-    const updateDonationRes = await client.query(
-      "UPDATE donations SET status='paid', amount=$1, audio_file=$2 WHERE id=$3 AND status != 'paid'",
-      [price, audioFile, donationId]
-    );
+    // Mark paid and move money (donor debit for wallet-funded, net credit to streamer).
+    const settlement = await settleDonation(client, {
+      donationId,
+      price,
+      audioFile,
+      fundedBy,
+      donorTelegramId: tgId,
+      streamerTelegramId: streamer_id,
+    });
 
-    // Only if the donation was successfully marked as 'paid' (meaning it wasn't paid before)...
-    if (updateDonationRes.rowCount > 0) {
-      console.log(`[Worker:${job.queueName}] Job ${job.id}: Donation ${donationId} status updated to 'paid'. Proceeding with balance updates.`);
-      
-      // Atomically update balances
-      const [donorResult, streamerResult] = await Promise.all([
-        client.query('UPDATE users SET balance = balance - $1 WHERE telegram_id = $2 RETURNING balance', [price, tgId]),
-        client.query('UPDATE users SET balance = balance + $1 WHERE telegram_id = $2 RETURNING balance', [price, streamer_id])
-      ]);
-
-      const newDonorBalance = Number(donorResult.rows[0]?.balance || 0);
+    // Only if the donation was newly marked as 'paid'...
+    if (!settlement.already) {
+      const { newDonorBalance } = settlement;
       
   console.log(`[Worker:${job.queueName}] Job ${job.id}: Balances updated for donor ${tgId} and streamer ${streamer_id}.`);
       
@@ -139,14 +137,17 @@ async function processTTSJob(job) {
           status: 'paid',
           created_at: new Date().toISOString(),
           link_uuid: link_uuid,
+          kind: 'tts',
+          source: job.data.source || 'telegram',
+          is_demo: settlement.isDemo,
         },
         chatId,
         newDonorBalance,
         price,
       };
       
-      // Handle success immediately
-      await handleSuccess(result);
+      // Handle success immediately (web donations have no Telegram chat to notify)
+      await handleSuccess(result, { notifyDonor: fundedBy === 'wallet' });
       
       return result;
 
@@ -174,6 +175,19 @@ async function processTTSJob(job) {
       console.warn(`[Worker:${job.queueName}] Job ${job.id}: Error during rollback (might be no active transaction):`, rbErr.message);
     }
     
+    // A web donation was paid up front: if it can't be read, the donor gets it back as credit.
+    const finalAttempt = (job?.attemptsMade + 1) >= (job?.opts?.attempts || 1);
+    if (fundedBy === 'payment' && (error.name === 'ContentModerationError' || finalAttempt)) {
+      try {
+        const { failPaidDonation } = await import('./services/donations.js');
+        const refund = await failPaidDonation(donationId, error.name === 'ContentModerationError' ? 'tts_moderation' : 'tts_failed');
+        console.warn(`[Worker:${job.queueName}] Job ${job.id}: paid web donation ${donationId} refunded as ${refund.type || 'none'}.`);
+      } catch (refundError) {
+        console.error(`[Worker:${job.queueName}] Job ${job.id}: refund for donation ${donationId} failed:`, refundError);
+      }
+      return { message: 'Paid donation could not be read; refunded as credit.' };
+    }
+
     if (error.name === 'ContentModerationError') {
       // Moderation failures are deterministic — don't retry, just update the DB and
       // notify the user directly (bypassing handleFailure's isFinalAttempt guard,
@@ -238,7 +252,7 @@ const geminiWorker = new Worker(GEMINI_QUEUE_NAME, processTTSJob, {
 });
 
 // Optimized success handler
-async function handleSuccess(result) {
+async function handleSuccess(result, { notifyDonor = true } = {}) {
   const { donationData, chatId, newDonorBalance, price } = result;
   
   try {
@@ -261,10 +275,10 @@ async function handleSuccess(result) {
     // Telegram message (blocking but fast)
     const { bot } = await import('../bot/bot.js');
     console.log(`[Worker] Success handler: bot available=${!!bot}, chatId=${chatId}`);
-    if (bot && chatId) {
+    if (notifyDonor && bot && chatId) {
       promises.push(
         bot.sendMessage(chatId, 
-          `✅ ክፍያ ተሳክቷል! የ ${price.toFixed(2)} ብር ልገሳዎ ተልኳል።\nአዲስ ቀሪ ሂሳብ: ${newDonorBalance.toFixed(2)} ብር`, 
+          `✅ ክፍያ ተሳክቷል! የ ${Number(price).toFixed(2)} ብር ልገሳዎ ተልኳል።\nአዲስ ቀሪ ሂሳብ: ${Number(newDonorBalance ?? 0).toFixed(2)} ብር`, 
           {
             reply_markup: {
               inline_keyboard: [

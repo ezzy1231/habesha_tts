@@ -150,7 +150,10 @@ export async function generateTTS(donationId, text, engine = 'cloud', voice, pro
     const enableGemini = String(process.env.ENABLE_GEMINI_TTS || 'false').toLowerCase() === 'true'
     if (engine === 'gemini' && enableGemini) {
       // Gemini API works better with plain text, so we strip SSML tags here
-      const plainText = sanitizedSsml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const plainText = sanitizedSsml.replace(/<[^>]+>/g, ' ')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/\s+/g, ' ').trim();
       return await generateGeminiTTS(donationId, plainText, prompt, voice)
     }
     // For standard cloud TTS, we pass the sanitized SSML

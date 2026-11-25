@@ -29,14 +29,22 @@ const normalizeAmount = (value) => {
   return Number(amount.toFixed(2));
 };
 
+// Earnings are the streamer's net share (gross minus platform fee). Donations from before
+// the fee existed have no net_amount and count in full. Demo donations never count.
 const legacyBalanceSql = `
   SELECT
-    COALESCE((SELECT SUM(amount)::numeric(10,2)
+    COALESCE((SELECT SUM(COALESCE(net_amount, amount))::numeric(12,2)
               FROM donations
-              WHERE streamer_id = $1 AND status = 'paid'), 0) -
-    COALESCE((SELECT SUM(amount)::numeric(10,2)
+              WHERE streamer_id = $1 AND status = 'paid' AND NOT is_demo), 0) -
+    COALESCE((SELECT SUM(amount)::numeric(12,2)
               FROM withdrawals
               WHERE user_id = $1 AND status = 'approved'), 0) AS balance
+`;
+
+const pendingWithdrawalsSql = `
+  SELECT COALESCE(SUM(amount), 0)::numeric(12,2) AS pending
+  FROM withdrawals
+  WHERE user_id = $1 AND status = 'pending'
 `;
 
 const ledgerBalanceSql = `
@@ -69,6 +77,16 @@ export async function getStreamerBalance(streamerId, { client } = {}) {
     }
   }
   return getLegacyBalance(streamerId, { client });
+}
+
+/**
+ * What the streamer can still request: balance minus withdrawals waiting for approval.
+ * Use this when a withdrawal is requested; approval itself checks getStreamerBalance.
+ */
+export async function getAvailableBalance(streamerId, { client } = {}) {
+  const balance = await getStreamerBalance(streamerId, { client });
+  const { rows } = await runQuery(client, pendingWithdrawalsSql, [streamerId]);
+  return Number((balance - toNumber(rows?.[0]?.pending)).toFixed(2));
 }
 
 export async function insertLedgerEntry({

@@ -96,3 +96,5 @@ google-credentials.json
 /neon_dump.sql
 *.pdf
 docs/
+*-key.json
+github-actions-key.json
