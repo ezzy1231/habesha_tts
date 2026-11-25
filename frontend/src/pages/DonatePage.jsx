@@ -197,9 +197,9 @@ export default function DonatePage() {
   const tabs = useMemo(() => {
     if (!profile) return [];
     return [
-      { value: 'tts', label: t('donate.tab.tts'), icon: <Icon name="mic" size={16} /> },
-      profile.soundboard.enabled ? { value: 'sound', label: t('donate.tab.sound'), icon: <Icon name="music" size={16} /> } : null,
-      profile.media.enabled ? { value: 'media', label: t('donate.tab.media'), icon: <Icon name="film" size={16} /> } : null,
+      { value: 'tts', label: <><span className="sm:hidden">{t('donate.tab.tts.short')}</span><span className="hidden sm:inline">{t('donate.tab.tts')}</span></>, icon: <Icon name="mic" size={16} /> },
+      profile.soundboard.enabled ? { value: 'sound', label: <><span className="sm:hidden">{t('donate.tab.sound.short')}</span><span className="hidden sm:inline">{t('donate.tab.sound')}</span></>, icon: <Icon name="music" size={16} /> } : null,
+      profile.media.enabled ? { value: 'media', label: <><span className="sm:hidden">{t('donate.tab.media.short')}</span><span className="hidden sm:inline">{t('donate.tab.media')}</span></>, icon: <Icon name="film" size={16} /> } : null,
     ].filter(Boolean);
   }, [profile, t]);
 

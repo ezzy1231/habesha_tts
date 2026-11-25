@@ -46,7 +46,7 @@ export function priceForTts(text, tts) {
 
 /** Mirrors backend/services/payments.js chargeAmount for USD display. */
 export function usdFor(etb, rate) {
-  if (!rate) return null;
+  if (!rate || !(etb > 0)) return null;
   return Math.max(1, Math.ceil((etb / rate) * 100) / 100);
 }
 

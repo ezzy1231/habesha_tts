@@ -10,6 +10,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import SkeletonLoader from '../components/SkeletonLoader';
 
 import ApiKeyModal from '../components/ApiKeyModal';
+import PropTypes from 'prop-types';
+import { useTheme } from '../ui/theme';
 import ObsOverlayPanel from '../components/ObsOverlayPanel';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -70,7 +72,7 @@ const getDonationTimestamp = (donation) => {
   return 0;
 };
 
-export default function StreamerPage() {
+export default function StreamerPage({ embedded = false }) {
   const { uuid } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, logout, authToken } = useAuth();
@@ -88,11 +90,10 @@ export default function StreamerPage() {
   const queueRef = useRef([]);
   const playNextRef = useRef(() => {});
   const [currentPlaying, setCurrentPlaying] = useState(null);
-  const [darkMode, setDarkMode] = useState(() => {
-    // Check for theme in multiple possible keys for backward compatibility
-    const saved = localStorage.getItem('theme') || localStorage.getItem('streamer_theme');
-    return saved === 'dark';
-  });
+  // Theme comes from the shared store in src/ui/theme.js (dark-first).
+  const { theme, setTheme } = useTheme();
+  const darkMode = theme === 'dark';
+  const setDarkMode = useCallback((v) => setTheme(v ? 'dark' : 'light'), [setTheme]);
   const wakeLockRef = useRef(null);
   const keepAliveIntervalRef = useRef(null);
   const KEEP_ALIVE_INTERVAL_MS = Number(import.meta.env.VITE_STREAMER_KEEPALIVE_MS || 45000);
@@ -1389,14 +1390,7 @@ export default function StreamerPage() {
 
 
 
-  // ✅ Apply theme on load and when darkMode changes
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
+
 
   // ✅ Save enabled state persistently
   useEffect(() => {
@@ -1571,7 +1565,9 @@ export default function StreamerPage() {
     return 'text-red-700'; // #AC3939 equivalent
   };
 
-  const themeClasses = darkMode
+  const themeClasses = embedded
+    ? "text-fg"
+    : darkMode
     ? "min-h-screen streamer-bg-dark text-gray-100"
     : "min-h-screen streamer-bg-light text-gray-900";
   const cardBg = darkMode ? "card-dark" : "card-light";
@@ -1634,7 +1630,8 @@ export default function StreamerPage() {
       <header className="mb-6">
         <div className={`streamer-card streamer-glow-blue overflow-hidden`}>
           
-          {/* Zone 1: Brand & System Header */}
+          {/* Zone 1: Brand & System Header (the dashboard shell has its own) */}
+          {!embedded && (
           <div className={`px-4 py-3 flex items-center justify-between border-b ${darkMode ? 'border-white/[0.06] bg-black/20' : 'border-gray-100 bg-gray-50/60'}`}>
             {/* Left: Brand */}
             <div className="flex items-center gap-3">
@@ -1671,6 +1668,7 @@ export default function StreamerPage() {
               )}
             </div>
           </div>
+          )}
 
           {/* Zone 1.5: Connection Status Strip */}
           <div className={`px-4 py-2 flex items-center gap-3 text-xs border-b ${darkMode ? 'border-white/[0.06] bg-black/10' : 'border-gray-100 bg-white/40'}`}>
@@ -2088,3 +2086,5 @@ export default function StreamerPage() {
     </div>
   );
 }
+
+StreamerPage.propTypes = { embedded: PropTypes.bool };

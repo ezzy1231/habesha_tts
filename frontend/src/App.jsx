@@ -7,9 +7,10 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from "./pages/LandingPage";
 import { initTheme } from './ui/theme';
 import { Spinner } from './ui/Spinner';
+import { ToastProvider } from './ui/Toast';
 
 // Each page is its own chunk; the landing page stays in the main bundle.
-const StreamerPage = lazy(() => import("./pages/StreamerPage"));
+const StreamerDashboard = lazy(() => import('./pages/streamer/StreamerDashboard'));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const WithdrawPage = lazy(() => import("./pages/WithdrawPage"));
 const StreamerLogin = lazy(() => import('./pages/StreamerLogin'));
@@ -57,6 +58,7 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <StreamerBalanceProvider>
+          <ToastProvider>
           <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -74,7 +76,7 @@ function App() {
               <Route path="/streamer/:uuid/login" element={<StreamerLogin />} />
               <Route path="/streamer/:uuid/*" element={
                 <ProtectedRoute>
-                  <StreamerPage />
+                  <StreamerDashboard />
                 </ProtectedRoute>
               } />
               <Route path="/withdraw/:uuid" element={
@@ -85,6 +87,7 @@ function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          </ToastProvider>
         </StreamerBalanceProvider>
       </AuthProvider>
     </BrowserRouter>
