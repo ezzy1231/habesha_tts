@@ -236,7 +236,6 @@ router.post('/:uuid/media/:id/approve', requireStreamerOwner, writeLimiter, asyn
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
   const client = await db.getClient();
-  let row;
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(`
@@ -250,7 +249,6 @@ router.post('/:uuid/media/:id/approve', requireStreamerOwner, writeLimiter, asyn
     await settleDonation(client, { donationId: id, price: Number(rows[0].amount), fundedBy: 'payment', streamerTelegramId: req.streamerId });
     await client.query("UPDATE donations SET media_status = 'approved' WHERE id = $1", [id]);
     await client.query('COMMIT');
-    row = (await db.query(`${MEDIA_SELECT} WHERE d.id = $1`, [id])).rows[0];
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('[streamer] media approve failed:', error.message);
@@ -258,6 +256,8 @@ router.post('/:uuid/media/:id/approve', requireStreamerOwner, writeLimiter, asyn
   } finally {
     client.release();
   }
+  // Read back after releasing the client: querying the pool while holding one can deadlock.
+  const row = (await db.query(`${MEDIA_SELECT} WHERE d.id = $1`, [id])).rows[0];
   const settings = await getStreamerSettings(req.streamerId);
   const item = mediaRow(row);
   global.socketIO?.to(req.linkUuid).emit('media_play', { ...item, maxSeconds: settings.media_max_seconds });

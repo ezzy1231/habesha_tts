@@ -1,39 +1,18 @@
-import db from '../db-postgres.js';
+import { authorizeStreamerRequest } from '../utils/streamerIdentity.js';
 
+// Streamer routes: Authorization: Bearer <API key or login token>, or the login cookie.
 export const protectStreamer = async (req, res, next) => {
-  const apiKey = req.headers.authorization?.split(' ')[1]; // Expects "Bearer <key>"
   const { uuid } = req.params;
-
-  console.log(`[Auth Middleware] Received UUID: '${uuid}' (length: ${uuid?.length})`);
-  console.log(`[Auth Middleware] Received API Key (length: ${apiKey?.length ?? 0})`);
-
-  if (!apiKey) {
-    return res.status(401).json({ error: 'Unauthorized: No API key provided.' });
-  }
-
-  if (!uuid) {
-    return res.status(400).json({ error: 'Bad Request: Streamer UUID is missing.' });
-  }
-
+  if (!uuid) return res.status(400).json({ error: 'Bad Request: Streamer UUID is missing.' });
+  const hasCredential = req.headers.authorization?.startsWith('Bearer ') || /(?:^|;\s*)authToken=/.test(req.headers.cookie || '');
+  if (!hasCredential) return res.status(401).json({ error: 'Unauthorized: No API key provided.' });
   try {
-    const streamerRes = await db.query(
-      'SELECT telegram_id FROM users WHERE link_uuid = $1 AND api_key = $2 AND role = \'streamer\'',
-      [uuid, apiKey]
-    );
-
-    console.log("[Auth Middleware] DB Query Result:", streamerRes.rows);
-
-    const streamer = streamerRes.rows[0];
-
-    if (!streamer) {
-      return res.status(403).json({ error: 'Forbidden: Invalid API key or UUID.' });
-    }
-
-    // Attach the streamer's telegram_id to the request object for use in subsequent handlers
-    req.streamerId = streamer.telegram_id;
-    next();
+    const streamerId = await authorizeStreamerRequest(req, uuid);
+    if (!streamerId) return res.status(403).json({ error: 'Forbidden: Invalid API key or UUID.' });
+    req.streamerId = streamerId;
+    return next();
   } catch (error) {
-    console.error('Error in authentication middleware:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('Error in authentication middleware:', error.message);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 };

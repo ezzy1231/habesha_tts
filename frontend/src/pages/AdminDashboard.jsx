@@ -1775,9 +1775,9 @@ function Withdrawals({ apiClient }) {
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Payout (60%)</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Payout</span>
                     <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                      <Currency value={w.amount * 0.6} />
+                      <Currency value={w.amount} />
                     </div>
                   </div>
                 </div>
@@ -1803,7 +1803,7 @@ function Withdrawals({ apiClient }) {
                 <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Telebirr Username</th>
                 <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone Number</th>
                 <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Amount</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Payout (60%)</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Payout</th>
                 <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
                 <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
               </tr>
@@ -1841,7 +1841,7 @@ function Withdrawals({ apiClient }) {
                   </td>
                   <td className="py-4 px-6 text-right">
                     <div className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                      <Currency value={w.amount * 0.6} />
+                      <Currency value={w.amount} />
                     </div>
                   </td>
                   <td className="py-4 px-6 text-center">

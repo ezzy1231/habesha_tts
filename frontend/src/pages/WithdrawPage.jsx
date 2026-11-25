@@ -159,7 +159,7 @@ export default function WithdrawPage() {
   };
 
   const withdrawalAmount = parseFloat(amount);
-  const payoutAmount = !isNaN(withdrawalAmount) && withdrawalAmount > 0 ? (withdrawalAmount * 0.6).toFixed(2) : null;
+  const payoutAmount = !isNaN(withdrawalAmount) && withdrawalAmount > 0 ? withdrawalAmount.toFixed(2) : null;
 
   const themeClasses = darkMode
     ? "min-h-screen gradient-dark text-gray-100"
@@ -196,7 +196,7 @@ export default function WithdrawPage() {
           </div>
           {payoutAmount && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 text-center">
-              You will receive: <span className="font-semibold text-green-600 dark:text-green-400">Br {payoutAmount}</span> (60%)
+              You will receive: <span className="font-semibold text-green-600 dark:text-green-400">Br {payoutAmount}</span> (the platform fee was already taken from each donation)
             </p>
           )}
 

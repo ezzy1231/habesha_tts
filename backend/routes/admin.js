@@ -1103,8 +1103,8 @@ router.post("/withdrawals/:id/approve", async (req, res) => {
 
   try {
     if (bot) {
-      const payoutAmount = (withdrawalAmount * 0.6).toFixed(2);
-      const message = `✅ Your withdrawal of Br ${withdrawalAmount.toFixed(2)} was approved.\n\nYou will receive Br ${payoutAmount} (60% payout).\n\nNew balance: Br ${newBalance.toFixed(2)}.`;
+      // Balances are credited net of the platform fee, so the full amount is paid out.
+      const message = `✅ Your withdrawal of Br ${withdrawalAmount.toFixed(2)} was approved.\n\nYou will receive the full Br ${withdrawalAmount.toFixed(2)} (the platform fee was taken when each donation arrived).\n\nNew balance: Br ${newBalance.toFixed(2)}.`;
       bot.sendMessage(streamerUser.telegram_id, message);
     }
   } catch (botError) {
