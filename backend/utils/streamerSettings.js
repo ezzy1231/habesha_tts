@@ -45,6 +45,7 @@ export function withDefaults(row) {
 }
 
 let globalWordsCache = { at: 0, words: [] };
+export const invalidateGlobalWordsCache = () => { globalWordsCache = { at: 0, words: [] }; };
 /** Admin's global blocked-word list (settings.filteredWords), cached for 30 s. */
 export async function getGlobalBlockedWords({ client } = {}) {
   if (Date.now() - globalWordsCache.at < 30_000) return globalWordsCache.words;

@@ -1,4 +1,6 @@
 import express from "express";
+import { invalidatePricingCache } from '../utils/pricing.js';
+import { invalidateGlobalWordsCache } from '../utils/streamerSettings.js';
 import { inspectSound, uploadSoundFile, deleteSoundFile, parseSoundFields, MAX_SOUND_BYTES } from '../services/sounds.js';
 import { signedTelegramFileUrl } from '../utils/telegramFiles.js';
 import { isValidAdminToken } from '../utils/safeCompare.js';
@@ -1185,7 +1187,7 @@ router.get('/settings', async (req, res) => {
 });
 
 router.post('/settings', express.json(), async (req, res) => {
-  const allowed = ['maxChars', 'stepChars', 'basePrice', 'incrementPrice', 'filteredWords'];
+  const allowed = ['maxChars', 'stepChars', 'basePrice', 'incrementPrice', 'filteredWords', 'platformFeePercent'];
 
   // --- Input Validation ---
   for (const key of allowed) {
@@ -1199,6 +1201,12 @@ router.post('/settings', express.json(), async (req, res) => {
         const value = Number(req.body[key]);
         if (isNaN(value) || value < 0) {
           return res.status(400).json({ error: `Bad Request: Invalid value for '${key}'. Must be a non-negative number.` });
+        }
+        if (key === 'platformFeePercent' && value > 30) {
+          return res.status(400).json({ error: "Bad Request: 'platformFeePercent' must be between 0 and 30." });
+        }
+        if (key === 'stepChars' && value < 1) {
+          return res.status(400).json({ error: "Bad Request: 'stepChars' must be at least 1." });
         }
       }
     }
@@ -1241,6 +1249,9 @@ router.post('/settings', express.json(), async (req, res) => {
       return acc;
     }, {});
 
+    // Web pricing / fee and the global word list are cached for 30 s; drop the cache now.
+    invalidatePricingCache();
+    invalidateGlobalWordsCache();
     // Notify the bot to reload settings
     try {
       await reloadSettings();

@@ -370,7 +370,7 @@ runMigrations()
     // Catch payments whose webhook never arrived (verify with the provider, expire stale ones).
     const sweepTimer = setInterval(() => {
       sweepPendingPayments()
-        .then((r) => { if (r.paid || r.expired) console.log('[payments] sweep', r); })
+        .then((r) => { if (r.paid || r.expired || r.mediaRefunded) console.log('[payments] sweep', r); })
         .catch((e) => console.error('[payments] sweep failed:', e.message));
     }, Number(process.env.PAYMENT_SWEEP_MS || 5 * 60_000));
     sweepTimer.unref();

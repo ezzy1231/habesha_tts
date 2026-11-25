@@ -11,6 +11,9 @@ import { frontendBase } from '../services/payments.js';
 import {
   listStreamerSounds, inspectSound, uploadSoundFile, deleteSoundFile, parseSoundFields, MAX_SOUND_BYTES,
 } from '../services/sounds.js';
+import { settleDonation } from '../services/settlement.js';
+import { failPaidDonation } from '../services/donations.js';
+import { parseYouTubeUrl } from '../utils/media.js';
 
 const router = express.Router();
 
@@ -195,6 +198,167 @@ router.delete('/:uuid/sounds/:soundId', requireStreamerOwner, writeLimiter, asyn
   if (!sound) return res.status(404).json({ error: 'Sound not found' });
   deleteSoundFile(sound.file_url);
   return res.json({ success: true });
+});
+
+// ---------------------------------------------------------------------------
+// Media share queue: viewers' YouTube requests wait here for approval
+// ---------------------------------------------------------------------------
+
+const mediaRow = (r) => ({
+  id: r.id,
+  donorName: r.donor_name,
+  amount: Number(r.amount),
+  message: r.note || null,
+  title: r.title || null,
+  url: r.media_url,
+  videoId: parseYouTubeUrl(r.media_url)?.videoId || null,
+  start: Number(r.media_start_s || 0),
+  status: r.media_status,
+  isDemo: Boolean(r.is_demo),
+  createdAt: r.created_at,
+});
+
+const MEDIA_SELECT = `
+  SELECT d.id, d.donor_name, d.amount, d.media_url, d.media_start_s, d.media_status, d.is_demo, d.created_at,
+         p.purpose->>'mediaTitle' AS title, p.purpose->>'message' AS note
+    FROM donations d LEFT JOIN payments p ON p.id = d.payment_id`;
+
+router.get('/:uuid/media', requireStreamerOwner, async (req, res) => {
+  const status = ['pending', 'approved', 'rejected', 'played'].includes(req.query.status) ? req.query.status : null;
+  const { rows } = await db.query(`${MEDIA_SELECT}
+     WHERE d.streamer_id = $1 AND d.kind = 'media' AND ($2::text IS NULL OR d.media_status = $2)
+     ORDER BY CASE WHEN d.media_status = 'pending' THEN 0 ELSE 1 END, d.created_at ${status === 'pending' ? 'ASC' : 'DESC'}
+     LIMIT 100`, [req.streamerId, status]);
+  return res.json({ media: rows.map(mediaRow) });
+});
+
+router.post('/:uuid/media/:id/approve', requireStreamerOwner, writeLimiter, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+  const client = await db.getClient();
+  let row;
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(`
+      SELECT id, amount FROM donations
+       WHERE id = $1 AND streamer_id = $2 AND kind = 'media' AND status = 'awaiting_approval'
+       FOR UPDATE`, [id, req.streamerId]);
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'This request was already handled' });
+    }
+    await settleDonation(client, { donationId: id, price: Number(rows[0].amount), fundedBy: 'payment', streamerTelegramId: req.streamerId });
+    await client.query("UPDATE donations SET media_status = 'approved' WHERE id = $1", [id]);
+    await client.query('COMMIT');
+    row = (await db.query(`${MEDIA_SELECT} WHERE d.id = $1`, [id])).rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('[streamer] media approve failed:', error.message);
+    return res.status(500).json({ error: 'Failed to approve' });
+  } finally {
+    client.release();
+  }
+  const settings = await getStreamerSettings(req.streamerId);
+  const item = mediaRow(row);
+  global.socketIO?.to(req.linkUuid).emit('media_play', { ...item, maxSeconds: settings.media_max_seconds });
+  return res.json({ media: item });
+});
+
+router.post('/:uuid/media/:id/reject', requireStreamerOwner, writeLimiter, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+  const { rows } = await db.query(`
+    SELECT id FROM donations WHERE id = $1 AND streamer_id = $2 AND kind = 'media' AND status = 'awaiting_approval'`,
+  [id, req.streamerId]);
+  if (!rows[0]) return res.status(409).json({ error: 'This request was already handled' });
+  try {
+    const refund = await failPaidDonation(id, 'media_rejected');
+    global.socketIO?.to(req.linkUuid).emit('media_rejected', { id });
+    // The streamer sees how the viewer was made whole, never the claim code itself.
+    return res.json({ success: true, refundedAs: refund.type || 'none' });
+  } catch (error) {
+    console.error('[streamer] media reject failed:', error.message);
+    return res.status(500).json({ error: 'Failed to reject' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Analytics (real money only: demo donations are left out)
+// ---------------------------------------------------------------------------
+
+const TZ = 'Africa/Addis_Ababa';
+const num = (v) => Number(v || 0);
+
+router.get('/:uuid/analytics', requireStreamerOwner, async (req, res) => {
+  const days = Math.min(365, Math.max(7, Number.parseInt(req.query.days, 10) || 30));
+  const sid = req.streamerId;
+  const where = `d.streamer_id = $1 AND d.status = 'paid' AND NOT d.is_demo AND d.created_at > NOW() - ($2::int * INTERVAL '1 day')`;
+  try {
+    const totals = (await db.query(`
+      SELECT COUNT(*)::int AS count, SUM(d.amount) AS gross,
+             SUM(COALESCE(d.platform_fee, 0)) AS fee, SUM(COALESCE(d.net_amount, d.amount)) AS net,
+             COUNT(DISTINCT COALESCE(d.donor_id::text, d.donor_name))::int AS donors
+        FROM donations d WHERE ${where}`, [sid, days])).rows[0];
+    const byKind = (await db.query(`
+      SELECT d.kind, COUNT(*)::int AS count, SUM(COALESCE(d.net_amount, d.amount)) AS net
+        FROM donations d WHERE ${where} GROUP BY d.kind`, [sid, days])).rows;
+    const daily = (await db.query(`
+      SELECT to_char(date_trunc('day', d.created_at AT TIME ZONE '${TZ}'), 'YYYY-MM-DD') AS day,
+             COUNT(*)::int AS count, SUM(d.amount) AS gross, SUM(COALESCE(d.net_amount, d.amount)) AS net
+        FROM donations d WHERE ${where} GROUP BY 1 ORDER BY 1`, [sid, days])).rows;
+    const hourly = (await db.query(`
+      SELECT EXTRACT(HOUR FROM d.created_at AT TIME ZONE '${TZ}')::int AS hour,
+             COUNT(*)::int AS count, SUM(COALESCE(d.net_amount, d.amount)) AS net
+        FROM donations d WHERE ${where} GROUP BY 1 ORDER BY 1`, [sid, days])).rows;
+    const weekday = (await db.query(`
+      SELECT EXTRACT(ISODOW FROM d.created_at AT TIME ZONE '${TZ}')::int AS weekday,
+             COUNT(*)::int AS count, SUM(COALESCE(d.net_amount, d.amount)) AS net
+        FROM donations d WHERE ${where} GROUP BY 1 ORDER BY 1`, [sid, days])).rows;
+    const topDonors = (await db.query(`
+      SELECT COALESCE(d.donor_name, u.display_name, 'Anonymous') AS name,
+             COUNT(*)::int AS count, SUM(d.amount) AS total
+        FROM donations d LEFT JOIN users u ON u.telegram_id = d.donor_id
+       WHERE ${where}
+       GROUP BY COALESCE(d.donor_id::text, 'web:' || COALESCE(d.donor_name, '')), 1
+       ORDER BY total DESC LIMIT 10`, [sid, days])).rows;
+    const sessions = (await db.query(`
+      SELECT s.id, s.started_at, s.ended_at,
+             EXTRACT(EPOCH FROM (COALESCE(s.ended_at, NOW()) - s.started_at))::int AS seconds,
+             COUNT(d.id)::int AS count, COALESCE(SUM(d.amount), 0) AS gross,
+             COALESCE(SUM(COALESCE(d.net_amount, d.amount)), 0) AS net
+        FROM stream_sessions s
+        LEFT JOIN donations d ON d.streamer_id = s.streamer_id AND d.status = 'paid' AND NOT d.is_demo
+             AND d.created_at >= s.started_at AND d.created_at <= COALESCE(s.ended_at, NOW())
+       WHERE s.streamer_id = $1 AND s.started_at > NOW() - ($2::int * INTERVAL '1 day')
+       GROUP BY s.id ORDER BY s.started_at DESC LIMIT 30`, [sid, days])).rows;
+
+    return res.json({
+      days,
+      timezone: TZ,
+      totals: { count: totals.count, donors: totals.donors, gross: num(totals.gross), fee: num(totals.fee), net: num(totals.net) },
+      byKind: Object.fromEntries(['tts', 'sound', 'media'].map((k) => {
+        const r = byKind.find((x) => x.kind === k);
+        return [k, { count: r?.count || 0, net: num(r?.net) }];
+      })),
+      daily: daily.map((r) => ({ day: r.day, count: r.count, gross: num(r.gross), net: num(r.net) })),
+      hourly: Array.from({ length: 24 }, (_, h) => {
+        const r = hourly.find((x) => x.hour === h);
+        return { hour: h, count: r?.count || 0, net: num(r?.net) };
+      }),
+      weekday: Array.from({ length: 7 }, (_, i) => {
+        const r = weekday.find((x) => x.weekday === i + 1);
+        return { weekday: i + 1, count: r?.count || 0, net: num(r?.net) };
+      }),
+      topDonors: topDonors.map((r) => ({ name: r.name, count: r.count, total: num(r.total) })),
+      sessions: sessions.map((s) => ({
+        id: s.id, startedAt: s.started_at, endedAt: s.ended_at, seconds: s.seconds,
+        count: s.count, gross: num(s.gross), net: num(s.net),
+      })),
+    });
+  } catch (error) {
+    console.error('[streamer] analytics failed:', error.message);
+    return res.status(500).json({ error: 'Failed to load analytics' });
+  }
 });
 
 export default router;

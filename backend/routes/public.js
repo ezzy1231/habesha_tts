@@ -13,6 +13,7 @@ import { getStreamerSettings, getGlobalBlockedWords } from '../utils/streamerSet
 import { findVoice, availableVoices } from '../utils/voices.js';
 import { getTelegramFile, sendTelegramFile } from '../utils/telegramFiles.js';
 import { listStreamerSounds, cooldownRemaining } from '../services/sounds.js';
+import { parseYouTubeUrl, checkYouTubeVideo } from '../utils/media.js';
 
 const router = express.Router();
 
@@ -184,6 +185,7 @@ const checkoutSchema = z.object({
   soundId: z.number().int().positive().optional(),
   mediaUrl: z.string().max(300).optional(),
   mediaStart: z.number().int().min(0).max(36000).optional(),
+  amount: z.number().int().min(1).max(100000).optional(),
 }).strict();
 
 /**
@@ -227,6 +229,34 @@ export const purposeBuilders = {
       soundLabel: sound.label,
       soundUrl: sound.fileUrl,
       price: sound.price,
+    };
+  },
+
+  async media({ body, streamer, settings, donorName, globalWords }) {
+    if (!settings.media_enabled) throw new CheckoutError('This streamer has media share turned off');
+    const parsedUrl = parseYouTubeUrl(body.mediaUrl);
+    if (!parsedUrl) throw new CheckoutError('Paste a YouTube link (youtube.com or youtu.be)');
+    const video = await checkYouTubeVideo(parsedUrl.videoId);
+    if (!video.ok) throw new CheckoutError(video.error);
+    if (video.title && containsBlocked(video.title, globalWords)) throw new CheckoutError('That video is not allowed');
+    let note = null;
+    if (body.message?.trim()) {
+      const text = body.message.trim().slice(0, 200);
+      const mod = moderateMessage(text, { globalWords, streamerWords: settings.blocked_words });
+      if (!mod.ok) throw new CheckoutError('Your message contains words that are not allowed. Please change it.');
+      note = mod.display;
+    }
+    const price = Math.max(settings.media_min_amount, body.amount || 0);
+    return {
+      kind: 'media',
+      streamerId: streamer.telegram_id,
+      donorName,
+      mediaUrl: parsedUrl.url,
+      mediaVideoId: parsedUrl.videoId,
+      mediaStart: body.mediaStart ?? parsedUrl.start,
+      mediaTitle: video.title,
+      message: note,
+      price,
     };
   },
 };

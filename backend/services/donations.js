@@ -234,7 +234,7 @@ export async function fulfilPayment(paymentId, verified = {}, deps = {}) {
         payment.donor_telegram_id || null,
         purpose.donorName || payment.donor_name || null,
         price,
-        purpose.message ?? purpose.soundLabel ?? null,
+        purpose.message ?? purpose.soundLabel ?? purpose.mediaTitle ?? null,
         kind === 'media' ? 'awaiting_approval' : 'queued',
         kind,
         isDemo,
@@ -303,8 +303,8 @@ export async function fulfilPayment(paymentId, verified = {}, deps = {}) {
     });
   } else if (donation.kind === 'media') {
     emitTo(io(), [room, 'admin'], 'media_request', {
-      ...base, text: donation.message, media_url: donation.media_url, media_start_s: donation.media_start_s,
-      media_status: 'pending',
+      ...base, text: purpose.message || null, media_title: purpose.mediaTitle || null,
+      media_url: donation.media_url, media_start_s: donation.media_start_s, media_status: 'pending',
     });
   }
   return { already: false, kind: donation.kind, donation };

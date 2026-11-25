@@ -155,6 +155,22 @@ export async function fetchStreamerById(streamerId) {
   return normalizeStreamerRow(rows[0]);
 }
 
+export async function recordStreamSession(streamerId, isLive, endedAt = null) {
+  try {
+    if (isLive) {
+      await db.query(`
+        INSERT INTO stream_sessions (streamer_id)
+        SELECT $1 WHERE NOT EXISTS (SELECT 1 FROM stream_sessions WHERE streamer_id = $1 AND ended_at IS NULL)`, [streamerId]);
+    } else {
+      await db.query(`
+        UPDATE stream_sessions SET ended_at = GREATEST(started_at, COALESCE($2::timestamptz, NOW()))
+         WHERE streamer_id = $1 AND ended_at IS NULL`, [streamerId, endedAt]);
+    }
+  } catch (error) {
+    console.error('[LiveStatus] Failed to record stream session:', error.message);
+  }
+}
+
 export async function setStreamerLiveState({ streamerId, isLive, reason = 'manual', triggeredBy = 'dashboard', io }) {
   const current = await fetchStreamerById(streamerId);
   if (!current) {
@@ -182,6 +198,9 @@ export async function setStreamerLiveState({ streamerId, isLive, reason = 'manua
   if (updated.link_uuid) {
     linkUuidCache.set(updated.link_uuid, updated);
   }
+
+  // Stream sessions for analytics; an auto-ended stream ends at its last heartbeat.
+  await recordStreamSession(streamerId, updated.live_status, reason === 'auto_end' ? current.last_live_ping : null);
 
   if (updated.live_status) {
     scheduleWatchdog(updated, io);

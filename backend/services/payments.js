@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import db from '../db-postgres.js';
 import { getProvider, isTestMode } from '../payments/index.js';
-import { fulfilPayment, redeemCredit, releaseCredit } from './donations.js';
+import { fulfilPayment, redeemCredit, releaseCredit, failPaidDonation } from './donations.js';
 
 export const frontendBase = () => String(process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim().replace(/\/$/, '');
 export const backendBase = () => (process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`).replace(/\/$/, '');
@@ -188,5 +188,24 @@ export async function sweepPendingPayments({ limit = 25, expireAfterMinutes = 12
       if (await markPaymentFailed(payment.id, 'expired')) expired += 1;
     }
   }
-  return { checked: rows.length, paid, expired };
+  const media = await expireStaleMediaRequests();
+  return { checked: rows.length, paid, expired, mediaRefunded: media };
+}
+
+/** Media requests nobody approved within MEDIA_REQUEST_TTL_HOURS go back to the viewer as credit. */
+export async function expireStaleMediaRequests({ hours = Number(process.env.MEDIA_REQUEST_TTL_HOURS || 12) } = {}) {
+  const { rows } = await db.query(`
+    SELECT id FROM donations
+     WHERE kind = 'media' AND status = 'awaiting_approval' AND created_at < NOW() - ($1::int * INTERVAL '1 hour')
+     ORDER BY created_at LIMIT 50`, [hours]);
+  let n = 0;
+  for (const { id } of rows) {
+    try {
+      const r = await failPaidDonation(id, 'media_expired');
+      if (!r.already) n += 1;
+    } catch (error) {
+      console.error(`[payments] media ${id} expiry failed:`, error.message);
+    }
+  }
+  return n;
 }

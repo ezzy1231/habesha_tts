@@ -99,3 +99,21 @@ test('claim codes: format, normalization, hashing', () => {
   assert.equal(hashClaimCode(code), hashClaimCode(code));
   assert.notEqual(hashClaimCode(code), hashClaimCode(generateClaimCode()));
 });
+
+test('YouTube links: only YouTube, id extracted, start parsed', async () => {
+  const { parseYouTubeUrl, parseTimestamp } = await import('../utils/media.js');
+  const id = 'dQw4w9WgXcQ';
+  for (const link of ['https://www.youtube.com/watch?v=' + id, 'youtu.be/' + id + '?t=42', 'https://m.youtube.com/watch?v=' + id + '&t=1m30s',
+    'https://www.youtube.com/shorts/' + id, 'https://youtube.com/embed/' + id]) {
+    assert.equal(parseYouTubeUrl(link)?.videoId, id, link);
+  }
+  assert.equal(parseYouTubeUrl('youtu.be/' + id + '?t=42').start, 42);
+  assert.equal(parseYouTubeUrl('https://m.youtube.com/watch?v=' + id + '&t=1m30s').start, 90);
+  assert.equal(parseYouTubeUrl('https://www.youtube.com/watch?v=' + id + '&list=x').url, 'https://www.youtube.com/watch?v=' + id);
+  for (const bad of ['https://evil.com/watch?v=' + id, 'https://youtube.com.evil.com/watch?v=' + id,
+    'javascript:alert(1)', 'https://www.youtube.com/watch?v=short', 'https://www.youtube.com/watch?v=' + id + '%22%3E', '']) {
+    assert.equal(parseYouTubeUrl(bad), null, bad);
+  }
+  assert.equal(parseTimestamp('1:02:03'), 3723);
+  assert.equal(parseTimestamp('garbage'), 0);
+});

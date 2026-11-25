@@ -52,7 +52,7 @@ test('setup', opts, async () => {
   await q(`INSERT INTO notification_sounds (id, label, file_path) VALUES ('default_ping','Default','/x.mp3') ON CONFLICT DO NOTHING`);
   await runMigrations({ log: { log() {} } });
   donations = await import('../services/donations.js');
-  donations.setFulfilDeps({ enqueue: async () => {}, io: () => null });
+  donations.setFulfilDeps({ enqueue: async () => {}, io: () => global.socketIO });
   sounds.setUploadSoundFile(async (_buf, { ext, owner }) => `https://storage.googleapis.com/test-bucket/sounds/${owner}/x${Math.random()}.${ext}`);
   global.socketIO = { to: (room) => ({ emit: (ev, payload) => emitted.push({ room, ev, payload }) }) };
 
@@ -174,6 +174,127 @@ test('sound purchase: profile lists sounds, price is the streamer’s, cooldown 
   r = await buy();
   assert.equal(r.status, 400);
   await q('UPDATE streamer_settings SET soundboard_enabled = TRUE WHERE streamer_id = $1', [STREAMER]);
+});
+
+
+const realFetch = globalThis.fetch;
+function mockYouTube(status = 200, title = 'Teddy Afro - Tikur Sew') {
+  globalThis.fetch = async (u, init) => (String(u).startsWith('https://www.youtube.com/oembed')
+    ? new Response(JSON.stringify({ title }), { status, headers: { 'Content-Type': 'application/json' } })
+    : realFetch(u, init));
+}
+
+test('media share: checkout, approve plays, reject refunds, overlay sees approved media', opts, async () => {
+  await q('UPDATE streamer_settings SET media_enabled = TRUE, media_min_amount = 100, media_max_seconds = 45 WHERE streamer_id = $1', [STREAMER]);
+  const buy = (extra = {}) => fetch(`${base}/api/public/checkout`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: 'feat_live', kind: 'media', donorName: 'Viewer', provider: 'demo', mediaUrl: 'https://youtu.be/dQw4w9WgXcQ?t=10', ...extra }),
+  });
+  try {
+    mockYouTube(401);
+    let r = await buy();
+    assert.equal(r.status, 400, 'embedding disabled');
+    mockYouTube(200);
+    r = await buy({ mediaUrl: 'https://vimeo.com/123' });
+    assert.equal(r.status, 400);
+    r = await buy({ amount: 150, message: 'play this meh' });
+    assert.equal(r.status, 200);
+    const out = await r.json();
+    assert.equal(out.price, 150);
+    const tx1 = out.redirectUrl.split('/').pop();
+    await fetch(`${base}/pay/demo/${tx1}`, { method: 'POST', redirect: 'manual' });
+    r = await buy();
+    const tx2 = (await r.json()).redirectUrl.split('/').pop();
+    await fetch(`${base}/pay/demo/${tx2}`, { method: 'POST', redirect: 'manual' });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.ok(emitted.some((e) => e.room === UUID && e.ev === 'media_request'));
+
+  const pending = (await (await call(`/api/v1/streamer/${UUID}/media?status=pending`)).json()).media;
+  assert.equal(pending.length, 2);
+  const [first, second] = pending;
+  assert.equal(first.videoId, 'dQw4w9WgXcQ');
+  assert.equal(first.start, 10);
+  assert.equal(first.title, 'Teddy Afro - Tikur Sew');
+  assert.equal(first.message, 'play this ***');
+
+  let r = await call(`/api/v1/streamer/${OTHER_UUID}/media/${first.id}/approve`, { method: 'POST', headers: { Authorization: 'Bearer other-key' } });
+  assert.equal(r.status, 409, 'other streamers cannot act on it');
+
+  r = await call(`/api/v1/streamer/${UUID}/media/${first.id}/approve`, { method: 'POST' });
+  assert.equal(r.status, 200);
+  const play = emitted.find((e) => e.ev === 'media_play');
+  assert.equal(play.payload.maxSeconds, 45);
+  assert.equal(play.payload.videoId, 'dQw4w9WgXcQ');
+  r = await call(`/api/v1/streamer/${UUID}/media/${first.id}/approve`, { method: 'POST' });
+  assert.equal(r.status, 409, 'only once');
+
+  r = await call(`/api/v1/streamer/${UUID}/media/${second.id}/reject`, { method: 'POST' });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).refundedAs, 'none', 'demo money is not refunded');
+  const [d2] = await q('SELECT status, media_status FROM donations WHERE id = $1', [second.id]);
+  assert.deepEqual([d2.status, d2.media_status], ['refunded', 'rejected']);
+
+  const { makeOverlayToken } = await import('../utils/overlayToken.js');
+  const [{ id: userId }] = await q('SELECT id FROM users WHERE telegram_id = $1', [STREAMER]);
+  const { default: overlayRoutes } = await import('../routes/overlay.js');
+  const app = express(); app.use('/api/overlay', overlayRoutes);
+  const srv = await new Promise((ok) => { const s = app.listen(0, '127.0.0.1', () => ok(s)); });
+  try {
+    const port = srv.address().port;
+    const ov = await (await fetch(`http://127.0.0.1:${port}/api/overlay/${makeOverlayToken(userId)}`)).json();
+    const item = ov.pending.find((p) => p.id === first.id);
+    assert.equal(item.kind, 'media');
+    assert.equal(item.video_id, 'dQw4w9WgXcQ');
+    assert.equal(ov.config.mediaMaxSeconds, 45);
+    assert.equal(ov.config.position, 'top');
+    const played = await fetch(`http://127.0.0.1:${port}/api/overlay/${makeOverlayToken(userId)}/donations/${first.id}/played`, { method: 'POST' });
+    assert.equal(played.status, 200);
+    const [d1] = await q('SELECT media_status, played FROM donations WHERE id = $1', [first.id]);
+    assert.deepEqual([d1.media_status, d1.played], ['played', true]);
+  } finally {
+    srv.close();
+  }
+});
+
+test('stale media requests are refunded by the sweep', opts, async () => {
+  const { expireStaleMediaRequests } = await import('../services/payments.js');
+  const [{ id }] = await q(`
+    INSERT INTO donations (streamer_id, donor_id, amount, status, kind, media_url, media_status, created_at)
+    VALUES ($1, NULL, 100, 'awaiting_approval', 'media', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'pending', NOW() - INTERVAL '13 hours')
+    RETURNING id`, [STREAMER]);
+  assert.ok(await expireStaleMediaRequests() >= 1);
+  const [d] = await q('SELECT status FROM donations WHERE id = $1', [id]);
+  assert.equal(d.status, 'refunded');
+  assert.equal((await q('SELECT COUNT(*)::int AS n FROM wallet_credits WHERE source_donation_id = $1', [id]))[0].n, 1, 'claim code issued');
+});
+
+test('analytics: real money only, by kind, day, hour, donors, sessions', opts, async () => {
+  const { recordStreamSession } = await import('../utils/liveStatus.js');
+  await q('DELETE FROM stream_sessions WHERE streamer_id = $1', [STREAMER]);
+  await recordStreamSession(STREAMER, true);
+  await recordStreamSession(STREAMER, true);
+  assert.equal((await q('SELECT COUNT(*)::int AS n FROM stream_sessions WHERE streamer_id = $1', [STREAMER]))[0].n, 1, 'no duplicate open session');
+  await q(`INSERT INTO donations (streamer_id, donor_name, amount, platform_fee, net_amount, status, kind, source, is_demo)
+           VALUES ($1, 'Abebe', 100, 10, 90, 'paid', 'tts', 'web', FALSE), ($1, 'Abebe', 50, 5, 45, 'paid', 'sound', 'web', FALSE),
+                  ($1, 'Demo', 999, 0, 0, 'paid', 'tts', 'web', TRUE)`, [STREAMER]);
+  await recordStreamSession(STREAMER, false);
+
+  const a = await (await call(`/api/v1/streamer/${UUID}/analytics?days=7`)).json();
+  // only the two real donations; every demo-gateway donation above is excluded
+  assert.equal(a.totals.gross, 150);
+  assert.equal(a.totals.fee, 15);
+  assert.equal(a.totals.net, 135);
+  assert.equal(a.byKind.sound.net, 45);
+  assert.equal(a.byKind.media.net, 0);
+  assert.equal(a.hourly.length, 24);
+  assert.equal(a.weekday.length, 7);
+  assert.equal(a.topDonors[0].name, 'Abebe');
+  assert.ok(!a.topDonors.some((d) => d.name === 'Demo'));
+  assert.equal(a.sessions.length, 1);
+  assert.ok(a.sessions[0].endedAt);
+  assert.equal((await call(`/api/v1/streamer/${UUID}/analytics`, { headers: {} })).status, 401);
 });
 
 test('teardown', opts, async () => {
