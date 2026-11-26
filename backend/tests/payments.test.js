@@ -7,6 +7,7 @@ import express from 'express';
 
 const url = process.env.TEST_DATABASE_URL;
 const opts = { skip: !url && 'TEST_DATABASE_URL not set', concurrency: false };
+if (url && !['127.0.0.1', 'localhost', '::1', '[::1]'].includes(new URL(url).hostname)) throw new Error('Refusing to run against a non-local database');
 
 const STREAMER = 9100000001;
 const DONOR = 9100000002;
@@ -325,6 +326,73 @@ test('signed Telegram file URLs', opts, async () => {
   assert.equal(verifySignedFile('AgACAgQAAxkBAAIC', u.searchParams.get('exp'), u.searchParams.get('sig')), false);
   assert.equal(verifySignedFile(id, '1000000000', u.searchParams.get('sig')), false, 'expired');
   assert.equal(signedTelegramFileUrl('../etc/passwd'), null);
+});
+
+test('wallet: pays from balance, never goes negative, refunds when fulfilment fails', opts, async () => {
+  mockFetch(async () => assert.fail('no provider call'));
+  await q('UPDATE users SET balance = 50 WHERE telegram_id = $1', [DONOR]);
+  const balance = async () => Number((await q('SELECT balance FROM users WHERE telegram_id = $1', [DONOR]))[0].balance);
+
+  const jobs = [];
+  const r = await svc.startCheckout({
+    providerName: 'wallet', purpose: purpose(30), donorTelegramId: DONOR,
+    deps: { enqueue: async (...a) => jobs.push(a), io: () => null },
+  });
+  assert.equal(r.status, 'paid');
+  assert.equal(await balance(), 20);
+  const p = await svc.findPaymentByTxRef(r.txRef);
+  assert.equal(p.provider, 'wallet');
+  assert.equal(jobs.length, 1, 'TTS job queued');
+  const [d] = await q('SELECT donor_id, amount FROM donations WHERE payment_id = $1', [p.id]);
+  assert.equal(String(d.donor_id), String(DONOR), 'refunds go back to this wallet');
+
+  await assert.rejects(
+    svc.startCheckout({ providerName: 'wallet', purpose: purpose(30), donorTelegramId: DONOR, deps: noQueue }),
+    (e) => e.status === 402);
+  assert.equal(await balance(), 20, 'a refused payment takes nothing');
+  await assert.rejects(svc.startCheckout({ providerName: 'wallet', purpose: purpose(10), deps: noQueue }), (e) => e.status === 401);
+  await assert.rejects(svc.startCheckout({
+    providerName: 'wallet', purpose: { kind: 'wallet_topup', price: 10 }, donorTelegramId: DONOR, deps: noQueue,
+  }));
+
+  // Fulfilment keeps failing (bad purpose): the payment stays pending, and expiring it gives the money back.
+  const bad = await svc.startCheckout({
+    providerName: 'wallet', purpose: { ...purpose(10), kind: 'nope' }, donorTelegramId: DONOR, deps: noQueue,
+  }).catch((e) => e);
+  assert.ok(bad instanceof Error);
+  assert.equal(await balance(), 10, 'debited before fulfilment');
+  const [stuck] = await q("SELECT * FROM payments WHERE provider = 'wallet' AND status = 'pending' ORDER BY created_at DESC LIMIT 1");
+  assert.equal(await svc.confirmPayment(stuck, noQueue), 'pending', 'retry fails again');
+  assert.equal(await svc.markPaymentFailed(stuck.id, 'expired'), true);
+  assert.equal(await balance(), 20, 'refunded on expiry');
+});
+
+test('web login: bot binds the link, code is single use and per account', opts, async () => {
+  const wl = await import('../services/webLogin.js');
+  const { nonce } = await wl.createLoginRequest();
+  assert.deepEqual(await wl.loginRequestStatus(nonce), { status: 'waiting' });
+  await assert.rejects(wl.verifyLoginCode(nonce, '123456'), (e) => e.status === 409);
+
+  const code = await wl.bindLoginRequest(nonce, DONOR);
+  assert.match(code, /^\d{6}$/);
+  assert.equal(await wl.bindLoginRequest(nonce, STREAMER), null, 'another account cannot take over the link');
+  assert.deepEqual(await wl.loginRequestStatus(nonce), { status: 'code_sent' });
+
+  const wrong = code === '000000' ? '111111' : '000000';
+  await assert.rejects(wl.verifyLoginCode(nonce, wrong), (e) => e.status === 401);
+  assert.equal(await wl.verifyLoginCode(nonce, code), String(DONOR));
+  await assert.rejects(wl.verifyLoginCode(nonce, code), (e) => e.status === 410, 'single use');
+
+  // Too many wrong codes locks the request.
+  const { nonce: n2 } = await wl.createLoginRequest();
+  const c2 = await wl.bindLoginRequest(n2, DONOR);
+  const bad2 = c2 === '000000' ? '111111' : '000000';
+  for (let i = 0; i < wl.MAX_CODE_ATTEMPTS; i += 1) await wl.verifyLoginCode(n2, bad2).catch(() => {});
+  await assert.rejects(wl.verifyLoginCode(n2, c2), (e) => e.status === 429);
+
+  const { signAccountToken, verifyAccountToken, signStreamerToken } = await import('../utils/token.js');
+  assert.equal(verifyAccountToken(signAccountToken(DONOR)), String(DONOR));
+  assert.equal(verifyAccountToken(signStreamerToken(DONOR)), null, 'streamer tokens are not account tokens');
 });
 
 test('teardown', opts, async () => {

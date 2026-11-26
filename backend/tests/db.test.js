@@ -7,6 +7,7 @@ import crypto from 'crypto';
 
 const url = process.env.TEST_DATABASE_URL;
 const opts = { skip: !url && 'TEST_DATABASE_URL not set', concurrency: false };
+if (url && !['127.0.0.1', 'localhost', '::1', '[::1]'].includes(new URL(url).hostname)) throw new Error('Refusing to run against a non-local database');
 
 let db, runMigrations, settleDonation, balance, donations;
 const STREAMER = 9000000001;

@@ -6,6 +6,13 @@ import express from 'express';
 
 const url = process.env.TEST_DATABASE_URL;
 const opts = { skip: !url && 'TEST_DATABASE_URL not set', concurrency: false };
+// Point the app at the test database before anything imports db-postgres.js (which loads .env).
+// Only a database on this machine is allowed: these tests delete and insert rows.
+if (url) {
+  const host = new URL(url).hostname;
+  if (!['127.0.0.1', 'localhost', '::1', '[::1]'].includes(host)) throw new Error(`Refusing to run against a non-local database (${host})`);
+  process.env.DATABASE_URL = url;
+}
 
 const STREAMER = 9200000001;
 const OTHER = 9200000002;
