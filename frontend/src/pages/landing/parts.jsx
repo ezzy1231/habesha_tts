@@ -5,7 +5,7 @@ import { cn, focusRing, Icon, useI18n } from '../../ui';
  * Small presentational pieces shared by the landing sections.
  */
 
-/** Primary (gold) / secondary (glass) call-to-action link. */
+/** Primary (solid) / secondary (glass) call-to-action link. */
 export function CtaLink({ href, variant = 'primary', size = 'lg', external = false, icon, children, className }) {
   return (
     <a
@@ -16,7 +16,7 @@ export function CtaLink({ href, variant = 'primary', size = 'lg', external = fal
         focusRing,
         size === 'lg' ? 'h-12 px-6 text-[15px]' : 'h-10 px-4 text-sm',
         variant === 'primary' &&
-          'bg-gradient-to-b from-[#ffd24d] to-[#f2b705] text-[#16130a] shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_10px_30px_-10px_rgba(242,183,5,0.7)] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_16px_40px_-12px_rgba(242,183,5,0.85)] active:translate-y-0',
+          'bg-fg text-canvas shadow-[0_10px_30px_-12px_rgb(124_58_237/0.55)] hover:-translate-y-0.5 hover:bg-fg/90 hover:shadow-[0_16px_40px_-12px_rgb(124_58_237/0.7)] active:translate-y-0',
         variant === 'secondary' &&
           'border border-line-strong/80 bg-surface/50 text-fg backdrop-blur-md hover:border-fg/30 hover:bg-surface-2/80',
         className,
@@ -49,7 +49,7 @@ export function Eyebrow({ children, className }) {
         className,
       )}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-emerald-400 to-gold-bright" aria-hidden="true" />
+      <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-brand-400 to-sky-400" aria-hidden="true" />
       {children}
     </p>
   );
@@ -100,7 +100,7 @@ export function Panel({ as: Tag = 'div', className, children, ...rest }) {
 Panel.propTypes = { as: PropTypes.elementType, className: PropTypes.string, children: PropTypes.node };
 
 /** Animated equaliser bars (pauses for reduced-motion users). */
-export function Equalizer({ bars = 18, className, barClassName = 'bg-gold-bright' }) {
+export function Equalizer({ bars = 18, className, barClassName = 'bg-brand-400' }) {
   return (
     <span className={cn('flex h-5 items-end gap-[3px]', className)} aria-hidden="true">
       {Array.from({ length: bars }, (_, i) => (
@@ -119,7 +119,7 @@ Equalizer.propTypes = { bars: PropTypes.number, className: PropTypes.string, bar
 /** Fake window chrome (traffic lights + title) around a mockup. */
 export function WindowFrame({ title, right, className, children }) {
   return (
-    <div className={cn('overflow-hidden rounded-2xl border border-white/10 bg-[#0b0e0c] text-white shadow-2xl', className)}>
+    <div className={cn('overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0e] text-white shadow-2xl', className)}>
       <div className="flex h-9 items-center gap-3 border-b border-white/[0.07] bg-white/[0.03] px-3.5">
         <span className="flex gap-1.5" aria-hidden="true">
           <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
@@ -151,25 +151,21 @@ LiveChip.propTypes = { className: PropTypes.string };
 
 /**
  * The on-stream alert, styled like the real OBS overlay (OverlayPage):
- * flag stripe, gold donor name, amount, message, equaliser.
+ * donor name, amount, message, equaliser.
  */
 export function AlertCard({ name, amount, message, compact = false, className }) {
   const { t } = useI18n();
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-2xl border border-white/15 bg-[#0d100e]/85 text-white shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)] backdrop-blur-xl',
+        'overflow-hidden rounded-2xl border border-white/15 bg-[#0c0c0e]/85 text-white shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)] backdrop-blur-xl',
         className,
       )}
     >
-      <div className="flex h-1" aria-hidden="true">
-        <span className="flex-1 bg-flag-green" />
-        <span className="flex-1 bg-flag-yellow" />
-        <span className="flex-1 bg-flag-red" />
-      </div>
+      <div className="h-px bg-gradient-to-r from-transparent via-brand-400/70 to-transparent" aria-hidden="true" />
       <div className={cn('font-ethiopic', compact ? 'p-3.5' : 'p-4 sm:p-5')}>
         <div className="flex items-baseline justify-between gap-3">
-          <p className={cn('truncate font-extrabold text-flag-yellow', compact ? 'text-base' : 'text-lg sm:text-xl')}>
+          <p className={cn('truncate font-extrabold text-white', compact ? 'text-base' : 'text-lg sm:text-xl')}>
             {name} <span className="text-sm font-medium text-white/60">{t('lp.alert.sent')}</span>
           </p>
           <p className={cn('shrink-0 font-display font-extrabold tabular-nums', compact ? 'text-xl' : 'text-2xl sm:text-3xl')}>

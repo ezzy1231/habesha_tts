@@ -27,9 +27,9 @@ function Backdrop({ className }) {
   return (
     <div aria-hidden="true" className={cn('pointer-events-none absolute inset-0 overflow-hidden', className)}>
       <div className="lp-grid absolute inset-0" />
-      <div className="absolute -left-40 -top-40 h-[34rem] w-[34rem] rounded-full bg-emerald-500/20 blur-[120px] dark:bg-emerald-500/25" />
-      <div className="absolute -right-32 -top-24 h-[30rem] w-[30rem] rounded-full bg-amber-400/20 blur-[120px]" />
-      <div className="absolute left-1/2 top-[40%] h-[20rem] w-[40rem] -translate-x-1/2 rounded-full bg-rose-500/10 blur-[120px]" />
+      <div className="absolute -left-40 -top-40 h-[34rem] w-[34rem] rounded-full bg-brand-500/20 blur-[120px] dark:bg-brand-500/25" />
+      <div className="absolute -right-32 -top-24 h-[30rem] w-[30rem] rounded-full bg-sky-400/15 blur-[120px]" />
+      <div className="absolute left-1/2 top-[40%] h-[20rem] w-[40rem] -translate-x-1/2 rounded-full bg-fuchsia-500/10 blur-[120px]" />
       <div className="lp-noise absolute inset-0 opacity-[0.05] mix-blend-overlay dark:opacity-[0.08]" />
     </div>
   );
@@ -55,8 +55,8 @@ function Hero() {
             focusRing,
           )}
         >
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 font-semibold text-emerald-600 dark:text-emerald-400">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 motion-reduce:animate-none" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-500/15 px-2.5 py-0.5 font-semibold text-brand-600 dark:text-brand-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500 motion-reduce:animate-none" aria-hidden="true" />
             {t('lp.hero.badgeLead')}
           </span>
           {t('lp.hero.badge')}
@@ -140,14 +140,9 @@ function OverlayVisual() {
         </div>
       </div>
       <div className="relative bg-[#0f0c1c]">
-        <div className="absolute inset-0 bg-[radial-gradient(70%_60%_at_70%_20%,rgba(245,190,30,0.4),transparent),linear-gradient(180deg,#14213d,#3b1f4a)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(70%_60%_at_70%_20%,rgba(139,92,246,0.45),transparent),linear-gradient(180deg,#14213d,#3b1f4a)]" />
         <div className="absolute inset-x-3 bottom-3 rounded-xl border border-white/15 bg-black/60 p-2.5 text-white backdrop-blur">
-          <div className="mb-1.5 flex h-0.5 overflow-hidden rounded-full">
-            <span className="flex-1 bg-flag-green" />
-            <span className="flex-1 bg-flag-yellow" />
-            <span className="flex-1 bg-flag-red" />
-          </div>
-          <p className="text-[11px] font-bold text-flag-yellow">
+          <p className="text-[11px] font-bold text-white">
             Meron <span className="font-display text-white">500 ETB</span>
           </p>
           <p className="truncate font-ethiopic text-[10px] text-white/80">እንኳን ደስ አለህ! 💚💛❤️</p>
@@ -161,7 +156,7 @@ function VoiceVisual() {
   return (
     <VisualFrame className="flex h-44 flex-col items-center justify-center gap-4">
       <span className="rounded-2xl rounded-bl-sm bg-fg px-4 py-2 font-ethiopic text-lg font-bold text-canvas shadow-lg">ሰላም ጤና ይስጥልኝ 👋</span>
-      <Equalizer bars={28} className="h-8" barClassName="bg-gradient-to-t from-emerald-500 to-gold-bright" />
+      <Equalizer bars={28} className="h-8" barClassName="bg-gradient-to-t from-brand-500 to-sky-400" />
     </VisualFrame>
   );
 }
@@ -204,7 +199,7 @@ function ModerationVisual() {
       {rules.map((r) => (
         <div key={r.label} className="flex items-center justify-between rounded-xl border border-line bg-surface px-3 py-2.5">
           <span className="text-sm font-medium text-fg">{r.label}</span>
-          <span className={cn('flex h-5 w-9 items-center rounded-full p-0.5 transition-colors', r.on ? 'bg-emerald-500' : 'bg-surface-3')}>
+          <span className={cn('flex h-5 w-9 items-center rounded-full p-0.5 transition-colors', r.on ? 'bg-brand-500' : 'bg-surface-3')}>
             <span className={cn('h-4 w-4 rounded-full bg-white shadow', r.on && 'translate-x-4')} />
           </span>
         </div>
@@ -323,7 +318,7 @@ function Setup() {
       <ol className="relative mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <span
           aria-hidden="true"
-          className="absolute left-8 right-8 top-[2.35rem] hidden h-px bg-gradient-to-r from-emerald-400/60 via-gold-bright/60 to-rose-400/50 lg:block"
+          className="absolute left-8 right-8 top-[2.35rem] hidden h-px bg-gradient-to-r from-brand-500/60 via-brand-400/50 to-sky-400/50 lg:block"
         />
         {steps.map((n) => (
           <li key={n} className="relative">
@@ -355,7 +350,7 @@ function Faq() {
             rel="noreferrer"
             className={cn('mt-8 flex items-center gap-4 rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-line-strong', focusRing)}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/15 text-sky-500" aria-hidden="true">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-500/15 text-brand-500" aria-hidden="true">
               <Icon name="info" size={20} />
             </span>
             <span className="flex-1">
@@ -402,7 +397,7 @@ function FinalCta() {
   const { t } = useI18n();
   return (
     <section aria-labelledby="final-title" className="mx-auto max-w-6xl px-4 pb-24 sm:px-6 sm:pb-32">
-      <div className="dark relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-[#070908] px-6 py-20 text-center text-white sm:px-12 sm:py-28">
+      <div className="dark relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-[#09090b] px-6 py-20 text-center text-white sm:px-12 sm:py-28">
         <Backdrop />
         <div className="relative">
           <h2

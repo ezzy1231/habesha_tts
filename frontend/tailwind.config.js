@@ -9,21 +9,21 @@ export default {
     extend: {
       colors: {
         // ── Design system (src/ui) ─────────────────────────────
-        // Brand: anchored on the Ethiopian flag green (brand-600 = #078930).
+        // Brand: violet accent on neutral zinc surfaces.
         brand: {
-          50: '#eefbf2',
-          100: '#d5f5df',
-          200: '#aeeac3',
-          300: '#78d89c',
-          400: '#3fbe70',
-          500: '#17a24f',
-          600: '#078930',
-          700: '#076d29',
-          800: '#0a5724',
-          900: '#0a4720',
-          950: '#03280f',
+          50: '#f5f3ff',
+          100: '#ede9fe',
+          200: '#ddd6fe',
+          300: '#c4b5fd',
+          400: '#a78bfa',
+          500: '#8b5cf6',
+          600: '#7c3aed',
+          700: '#6d28d9',
+          800: '#5b21b6',
+          900: '#4c1d95',
+          950: '#2e1065',
         },
-        // Flag accents — use sparingly (flag bars, highlights, live dots).
+        // Legacy flag colours (OBS overlay only; not used in the app UI).
         flag: {
           green: '#078930',
           yellow: '#FCDD09',
@@ -46,22 +46,22 @@ export default {
         // Warm gold accent (landing "coffee & gold" theme). DEFAULT is theme-aware for text contrast.
         gold: {
           DEFAULT: 'rgb(var(--ui-gold) / <alpha-value>)',
-          bright: '#F2B705',
-          deep: '#8A5A00',
+          bright: '#8b5cf6',
+          deep: '#5b21b6',
         },
         // ── Legacy palette (existing pages) ────────────────────
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
+          50: '#f5f3ff',
+          100: '#ede9fe',
+          200: '#ddd6fe',
+          300: '#c4b5fd',
+          400: '#a78bfa',
+          500: '#8b5cf6',
+          600: '#7c3aed',
+          700: '#6d28d9',
+          800: '#5b21b6',
+          900: '#4c1d95',
+          950: '#2e1065',
         },
         secondary: {
           50: '#f5f3ff',

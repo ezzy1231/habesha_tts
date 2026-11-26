@@ -5,7 +5,7 @@ const VARIANTS = {
   neutral: 'bg-surface-2 text-muted border-line',
   brand: 'bg-brand-500/10 text-brand-700 border-brand-500/25 dark:text-brand-300',
   success: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/25 dark:text-emerald-300',
-  warning: 'bg-amber-400/15 text-amber-800 border-amber-400/30 dark:text-[#FCDD09]',
+  warning: 'bg-amber-400/15 text-amber-800 border-amber-400/30 dark:text-amber-300',
   danger: 'bg-red-500/10 text-red-700 border-red-500/25 dark:text-red-300',
   info: 'bg-sky-500/10 text-sky-700 border-sky-500/25 dark:text-sky-300',
 };
@@ -14,8 +14,8 @@ const DOT = {
   neutral: 'bg-subtle',
   brand: 'bg-brand-500',
   success: 'bg-emerald-500',
-  warning: 'bg-flag-yellow',
-  danger: 'bg-flag-red',
+  warning: 'bg-amber-500',
+  danger: 'bg-red-500',
   info: 'bg-sky-500',
 };
 

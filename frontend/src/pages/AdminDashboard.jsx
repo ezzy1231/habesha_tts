@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import io from 'socket.io-client';
-import ThemeToggle from '../components/ThemeToggle';
+import { Link, useParams } from 'react-router-dom';
 import Settings from '../components/Settings';
 import ApiKeyModal from '../components/ApiKeyModal';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -13,57 +13,50 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import DonorFlagsPanel from '../components/DonorFlagsPanel';
 import ImageViewer from '../components/ImageViewer';
 import { BAN_DURATION_OPTIONS, resolveBanDurationMinutes } from '../constants/banOptions';
+import { AdminLayout, Avatar, Button, Card, CardHeader, cn, EmptyState, focusRing, Icon, Input, Logo, StatCard } from '../ui';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const API = import.meta.env.VITE_BASE_URL || 'http://localhost:5000';
 const socket = io(API, { transports: ['websocket'] });
 
 function Currency({ value }) {
-  return <span className="text-gray-900 dark:text-white">Br {Number(value || 0).toFixed(2)}</span>;
+  return <span className="tabular-nums text-fg">Br {Number(value || 0).toFixed(2)}</span>;
 }
 Currency.propTypes = { value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]) };
 
-function StatCard({ title, value, subtitle, icon, iconClassName, chartData, chartColor }) {
+const CHART_STROKE = '#8b5cf6';
+
+function RankedList({ title, rows, idKey, fallback }) {
   return (
-    <div className="group bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-gray-200/60 dark:border-gray-700/60 hover:shadow-xl hover:shadow-gray-200/40 dark:hover:shadow-gray-900/40 hover:border-gray-300/60 dark:hover:border-gray-600/60 transition-all duration-300 relative overflow-hidden">
-      {/* Subtle gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent dark:from-gray-700/20 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-      <div className="flex items-center justify-between mb-4 relative z-10">
-        <div className={`p-3 rounded-2xl bg-opacity-10 dark:bg-opacity-20 ring-1 ring-inset ring-black/5 dark:ring-white/10 ${iconClassName || 'bg-primary-500 text-primary-500'}`}>
-          <span className="text-xl">{icon || '📊'}</span>
-        </div>
-        {chartData && chartData.length > 0 && (
-           <div className="h-12 w-24 min-w-[6rem] opacity-60 group-hover:opacity-100 transition-opacity">
-             <ResponsiveContainer width="100%" height="100%">
-               <AreaChart data={chartData}>
-                 <defs>
-                    <linearGradient id={`color-${title.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={chartColor || "#8884d8"} stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor={chartColor || "#8884d8"} stopOpacity={0}/>
-                    </linearGradient>
-                 </defs>
-                 <Area type="monotone" dataKey="amount" stroke={chartColor || "#8884d8"} fillOpacity={1} fill={`url(#color-${title.replace(/\s+/g, '')})`} strokeWidth={2} />
-               </AreaChart>
-             </ResponsiveContainer>
-           </div>
-        )}
-      </div>
-      <div className="relative z-10">
-        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{title}</p>
-        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{value}</h3>
-        {subtitle && <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 font-medium">{subtitle}</p>}
-      </div>
-    </div>
+    <Card>
+      <CardHeader title={title} description="By total amount" />
+      {rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted">No data yet.</p>
+      ) : (
+        <ol className="flex flex-col divide-y divide-line">
+          {rows.map((r, idx) => (
+            <li key={r[idKey]} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+              <span className="w-5 text-center text-xs font-semibold tabular-nums text-subtle">{idx + 1}</span>
+              <Avatar name={r.username || '#'} src={r.profile_picture_url || undefined} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-fg">{r.username || `${fallback} #${r[idKey]}`}</p>
+                <p className="text-xs text-subtle">ID {r[idKey]}</p>
+              </div>
+              <span className="text-sm font-semibold">
+                <Currency value={r.amount} />
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </Card>
   );
 }
-StatCard.propTypes = {
+RankedList.propTypes = {
   title: PropTypes.string.isRequired,
-  value: PropTypes.node.isRequired,
-  subtitle: PropTypes.string,
-  icon: PropTypes.node,
-  iconClassName: PropTypes.string,
-  chartData: PropTypes.array,
-  chartColor: PropTypes.string,
+  rows: PropTypes.array.isRequired,
+  idKey: PropTypes.string.isRequired,
+  fallback: PropTypes.string.isRequired,
 };
 
 function Overview({ apiClient, refreshKey }) {
@@ -79,183 +72,64 @@ function Overview({ apiClient, refreshKey }) {
     }).catch(e => setError(e?.message || 'Failed to load')).finally(() => setLoading(false));
   }, [apiClient, refreshKey]);
 
-  if (loading) return (
-    <div className="flex justify-center p-8">
-      <LoadingSpinner size="md" text="Loading overview..." />
-    </div>
-  );
-  if (error) return <div className="text-red-600">{error}</div>;
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <StatCard key={i} label="Loading" loading />
+        ))}
+      </div>
+    );
+  }
+  if (error) return <EmptyState icon="alert" title="Couldn't load the overview" description={error} />;
 
   const t = data.totals || {};
   const chartData = data.chartData || [];
 
   return (
-    <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          title="Total Revenue" 
-          value={<Currency value={t.total_amount} />} 
-          subtitle={`${t.total_count || 0} donations`} 
-          icon="💰" 
-          iconClassName="bg-green-500 text-green-500"
-          chartData={chartData}
-          chartColor="#22c55e"
-        />
-        <StatCard 
-          title="Active Streamers" 
-          value={t.unique_streamers || 0} 
-          subtitle="Unique creators" 
-          icon="🎥" 
-          iconClassName="bg-purple-500 text-purple-500"
-          chartData={chartData.map(d => ({ ...d, amount: Math.random() * 10 }))} // Mock data for now as backend only sends revenue chart
-          chartColor="#a855f7"
-        />
-        <StatCard 
-          title="Active Donors" 
-          value={t.unique_donors || 0} 
-          subtitle="Unique supporters" 
-          icon="💎" 
-          iconClassName="bg-blue-500 text-blue-500"
-          chartData={chartData.map(d => ({ ...d, amount: Math.random() * 20 }))} // Mock data
-          chartColor="#3b82f6"
-        />
-        <StatCard 
-          title="Avg. Donation" 
-          value={<Currency value={(t.total_amount || 0) / Math.max(1, t.total_count || 1)} />} 
-          subtitle="Per transaction" 
-          icon="📊" 
-          iconClassName="bg-orange-500 text-orange-500"
-          chartData={chartData.map(d => ({ ...d, amount: (d.amount / Math.max(1, Math.random() * 10)) }))} // Mock data
-          chartColor="#f97316"
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Total revenue" value={<Currency value={t.total_amount} />} hint={`${t.total_count || 0} donations`} icon="coins" />
+        <StatCard label="Active streamers" value={t.unique_streamers || 0} hint="Unique creators" icon="live" />
+        <StatCard label="Active donors" value={t.unique_donors || 0} hint="Unique supporters" icon="heart" />
+        <StatCard
+          label="Average donation"
+          value={<Currency value={(t.total_amount || 0) / Math.max(1, t.total_count || 1)} />}
+          hint="Per transaction"
+          icon="chart"
         />
       </div>
 
-      {/* Revenue Trends Chart */}
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-gray-200/60 dark:border-gray-700/60">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Revenue Trends</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Platform earnings over time</p>
-          </div>
-          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg">Last 30 Days</span>
-        </div>
-        <div className="h-80 w-full">
+      <Card>
+        <CardHeader title="Revenue" description="Platform earnings, last 30 days" />
+        <div className="h-72 w-full sm:h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
+            <AreaChart data={chartData} margin={{ left: 0, right: 8, top: 8 }}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.2}/>
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                  <stop offset="0%" stopColor={CHART_STROKE} stopOpacity={0.28} />
+                  <stop offset="100%" stopColor={CHART_STROKE} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-              <XAxis 
-                dataKey="date" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#6B7280', fontSize: 12 }} 
-                dy={10}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#6B7280', fontSize: 12 }} 
-                tickFormatter={(value) => `Br ${value}`}
-              />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#fff', borderRadius: '0.75rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                itemStyle={{ color: '#111827', fontWeight: 600 }}
+              <CartesianGrid vertical={false} stroke="#3f3f46" />
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 12 }} dy={8} />
+              <YAxis axisLine={false} tickLine={false} width={64} tick={{ fill: '#71717a', fontSize: 12 }} tickFormatter={(value) => `Br ${value}`} />
+              <Tooltip
+                cursor={{ stroke: 'rgb(var(--ui-line-strong))' }}
+                contentStyle={{ background: 'rgb(var(--ui-surface))', borderRadius: '0.75rem', border: '1px solid rgb(var(--ui-line))', boxShadow: '0 10px 30px -12px rgb(0 0 0 / 0.35)' }}
+                labelStyle={{ color: 'rgb(var(--ui-muted))' }}
+                itemStyle={{ color: 'rgb(var(--ui-fg))', fontWeight: 600 }}
                 formatter={(value) => [`Br ${Number(value).toFixed(2)}`, 'Revenue']}
               />
-              <Area 
-                type="monotone" 
-                dataKey="amount" 
-                stroke="#22c55e" 
-                strokeWidth={3} 
-                fillOpacity={1} 
-                fill="url(#colorRevenue)" 
-              />
+              <Area type="monotone" dataKey="amount" stroke={CHART_STROKE} strokeWidth={2.5} fillOpacity={1} fill="url(#colorRevenue)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </Card>
 
-      {/* Top Lists */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Top Streamers */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-gray-200/60 dark:border-gray-700/60">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Streamers</h3>
-            <span className="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1.5 rounded-lg text-xs font-semiboldg text-xs font-semibold">By Revenue</span>
-          </div>
-          <div className="space-y-4">
-            {(data.topStreamers || []).map((s, idx) => (
-              <div key={s.streamer_id} className="flex items-center justify-between group">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    {s.profile_picture_url ? (
-                      <img src={s.profile_picture_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 font-bold">
-                        {s.username?.[0]?.toUpperCase() || '#'}
-                      </div>
-                    )}
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center text-xs font-bold shadow-sm border border-gray-100 dark:border-gray-700">
-                      {idx + 1}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900 dark:text-white group-hover:text-purple-500 transition-colors">
-                      {s.username || `Streamer #${s.streamer_id}`}
-                    </div>
-                    <div className="text-xs text-gray-500">ID: {s.streamer_id}</div>
-                  </div>
-                </div>
-                <div className="font-bold text-gray-900 dark:text-white">
-                  <Currency value={s.amount} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Top Donors */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-gray-200/60 dark:border-gray-700/60">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Donors</h3>
-            <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg text-xs font-semiboldtext-xs font-semibold">By Contribution</span>
-          </div>
-          <div className="space-y-4">
-            {(data.topDonors || []).map((d, idx) => (
-              <div key={d.donor_id} className="flex items-center justify-between group">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    {d.profile_picture_url ? (
-                      <img src={d.profile_picture_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 font-bold">
-                        {d.username?.[0]?.toUpperCase() || '#'}
-                      </div>
-                    )}
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center text-xs font-bold shadow-sm border border-gray-100 dark:border-gray-700">
-                      {idx + 1}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900 dark:text-white group-hover:text-blue-500 transition-colors">
-                      {d.username || `Donor #${d.donor_id}`}
-                    </div>
-                    <div className="text-xs text-gray-500">ID: {d.donor_id}</div>
-                  </div>
-                </div>
-                <div className="font-bold text-gray-900 dark:text-white">
-                  <Currency value={d.amount} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <RankedList title="Top streamers" rows={data.topStreamers || []} idKey="streamer_id" fallback="Streamer" />
+        <RankedList title="Top donors" rows={data.topDonors || []} idKey="donor_id" fallback="Donor" />
       </div>
     </div>
   );
@@ -289,7 +163,8 @@ function Streamers({ apiClient, refreshKey }) {
   useEffect(() => {
     fetchStreamers();
 
-    socket.on('admin_update', (data) => {// console.log('[Streamers] Admin update received via socket:', data);
+    socket.on('admin_update', (data) => {
+// console.log('[Streamers] Admin update received via socket:', data);
       fetchStreamers(); // Re-fetch streamers on any admin-related update
     });
 
@@ -373,11 +248,11 @@ function Streamers({ apiClient, refreshKey }) {
 
   return (
     <>
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50 flex items-center justify-between">
+      <div className="bg-surface/80 backdrop-blur-xl rounded-2xl shadow-sm border border-line/60 overflow-hidden">
+        <div className="px-6 py-5 border-b border-line/80 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Streamers Management</h3>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Drag and drop to reorder streamers on the public page.</p>
+            <h3 className="text-lg font-bold text-fg tracking-tight">Streamers Management</h3>
+            <p className="text-sm text-subtle mt-1">Drag and drop to reorder streamers on the public page.</p>
           </div>
           <button 
             onClick={handleSaveOrder} 
@@ -396,7 +271,7 @@ function Streamers({ apiClient, refreshKey }) {
         </div>
 
         {/* Mobile List */}
-        <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+        <div className="block sm:hidden divide-y divide-line">
           {rows.map((s, index) => (
             <div
               key={s.telegram_id}
@@ -404,17 +279,17 @@ function Streamers({ apiClient, refreshKey }) {
             >
               <div className="flex items-center gap-3">
                 {s.profile_picture_url ? (
-                  <img src={s.profile_picture_url} alt="Profile" className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-gray-800" />
+                  <img src={s.profile_picture_url} alt="Profile" className="w-10 h-10 rounded-full object-cover ring-2 ring-surface" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold ring-2 ring-white dark:ring-gray-800">
+                  <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 font-bold ring-2 ring-surface">
                     {(s.username || 'S').charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-gray-900 dark:text-white truncate">
+                  <div className="font-semibold text-fg truncate">
                     {s.username || 'Unknown Streamer'}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">ID: {s.telegram_id}</div>
+                  <div className="text-xs text-muted">ID: {s.telegram_id}</div>
                 </div>
                 <button
                   type="button"
@@ -424,16 +299,16 @@ function Streamers({ apiClient, refreshKey }) {
                   Remove
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg">
+              <div className="grid grid-cols-2 gap-3 text-sm bg-surface-2 p-3 rounded-lg">
                 <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Link UUID</span>
-                  <code className="text-xs font-mono text-gray-700 dark:text-gray-300 mt-1 block truncate">
+                  <span className="text-xs text-muted block uppercase tracking-wider">Link UUID</span>
+                  <code className="text-xs font-mono text-muted mt-1 block truncate">
                     {s.link_uuid}
                   </code>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Total Earned</span>
-                  <div className="font-bold text-gray-900 dark:text-white mt-1">
+                  <span className="text-xs text-muted block uppercase tracking-wider">Total Earned</span>
+                  <div className="font-bold text-fg mt-1">
                     <Currency value={s.total_earned} />
                   </div>
                 </div>
@@ -446,16 +321,16 @@ function Streamers({ apiClient, refreshKey }) {
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
+              <tr className="bg-surface-2/50 border-b border-line">
                 <th className="py-3 px-6 w-12"></th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Streamer</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Link UUID</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Donations</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Total Earned</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center w-24">Actions</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Streamer</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Link UUID</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Donations</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-right">Total Earned</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center w-24">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            <tbody className="divide-y divide-line">
               {rows.map((s, index) => (
                 <tr
                   key={s.telegram_id}
@@ -464,9 +339,9 @@ function Streamers({ apiClient, refreshKey }) {
                   onDragEnter={(e) => handleDragEnter(e, index)}
                   onDragEnd={handleDragEnd}
                   onDragOver={(e) => e.preventDefault()}
-                  className="group hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                  className="group hover:bg-surface-2 transition-colors"
                 >
-                  <td className="py-4 px-6 text-center text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing group-hover:text-gray-400 dark:group-hover:text-gray-500">
+                  <td className="py-4 px-6 text-center text-subtle cursor-grab active:cursor-grabbing group-hover:text-subtle">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mx-auto" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                   </td>
                   <td className="py-4 px-6">
@@ -475,23 +350,23 @@ function Streamers({ apiClient, refreshKey }) {
                         <img
                           src={s.profile_picture_url}
                           alt="Profile"
-                          className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
+                          className="w-9 h-9 rounded-full object-cover ring-2 ring-surface"
                         />
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-sm ring-2 ring-white dark:ring-gray-800">
+                        <div className="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 font-bold text-sm ring-2 ring-surface">
                           {(s.username || 'S').charAt(0).toUpperCase()}
                         </div>
                       )}
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-white text-sm">
+                        <div className="font-medium text-fg text-sm">
                           {s.username || 'Unknown Streamer'}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">ID: {s.telegram_id}</div>
+                        <div className="text-xs text-muted">ID: {s.telegram_id}</div>
                       </div>
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded text-xs font-mono border border-gray-200 dark:border-gray-700">
+                    <code className="px-2 py-1 bg-surface-2 text-muted rounded text-xs font-mono border border-line">
                       {s.link_uuid}
                     </code>
                   </td>
@@ -501,7 +376,7 @@ function Streamers({ apiClient, refreshKey }) {
                     </span>
                   </td>
                   <td className="py-4 px-6 text-right">
-                    <div className="font-bold text-gray-900 dark:text-white text-sm">
+                    <div className="font-bold text-fg text-sm">
                       <Currency value={s.total_earned} />
                     </div>
                   </td>
@@ -512,7 +387,7 @@ function Streamers({ apiClient, refreshKey }) {
                         e.stopPropagation();
                         openDeleteModal(s);
                       }}
-                      className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                      className="text-subtle hover:text-red-600 dark:hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
                       title="Remove Streamer"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -580,7 +455,8 @@ function Donors({ apiClient, refreshKey, search }) {
       }
     }).catch((e) => setError(e?.message || 'Failed')).finally(() => setLoading(false));
 
-    socket.on('admin_update', (data) => {// console.log('[Donors] Admin update received via socket:', data);
+    socket.on('admin_update', (data) => {
+// console.log('[Donors] Admin update received via socket:', data);
       setRefresh((x) => x + 1); // Trigger a refresh of donors
     });
 
@@ -691,14 +567,14 @@ function Donors({ apiClient, refreshKey, search }) {
   if (error) return <div className="text-red-600">{error}</div>;
 
   return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden animate-fade-in-stagger">
-      <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Donors Management</h3>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Manage donor information and display names</p>
+    <div className="bg-surface/80 backdrop-blur-xl rounded-2xl shadow-sm border border-line/60 overflow-hidden animate-fade-in-stagger">
+      <div className="px-6 py-5 border-b border-line/80">
+        <h3 className="text-lg font-bold text-fg tracking-tight">Donors Management</h3>
+        <p className="text-sm text-subtle mt-1">Manage donor information and display names</p>
       </div>
 
       {/* Mobile Card View */}
-      <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+      <div className="block sm:hidden divide-y divide-line">
         {rows.map((d, index) => {
           const isBanned = Boolean(d.is_banned);
           return (
@@ -709,7 +585,7 @@ function Donors({ apiClient, refreshKey, search }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <div className="font-semibold text-gray-900 dark:text-white truncate">
+                    <div className="font-semibold text-fg truncate">
                       {d.username || 'Unknown Donor'}
                     </div>
                     {isBanned ? (
@@ -718,18 +594,18 @@ function Donors({ apiClient, refreshKey, search }) {
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">ACTIVE</span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">ID: {d.telegram_id}</div>
+                  <div className="text-xs text-muted mb-3">ID: {d.telegram_id}</div>
 
                   <div className="space-y-3">
-                    <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg">
-                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1 uppercase tracking-wider">Display Name</label>
+                    <div className="bg-surface-2 p-3 rounded-lg">
+                      <label className="text-xs font-medium text-muted block mb-1 uppercase tracking-wider">Display Name</label>
                       {editingId === d.telegram_id ? (
                         <div className="space-y-2">
                           <input
                             type="text"
                             value={displayName}
                             onChange={(e) => setDisplayName(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full px-3 py-2 rounded-lg border border-line-strong bg-surface text-fg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                             placeholder="e.g. አበበ መኮንን"
                           />
                           <div className="flex gap-2">
@@ -743,7 +619,7 @@ function Donors({ apiClient, refreshKey, search }) {
                             <button
                               disabled={saving}
                               onClick={cancelEdit}
-                              className="flex-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-medium rounded transition-colors"
+                              className="flex-1 px-3 py-1.5 bg-surface-3 hover:bg-gray-300 text-muted text-xs font-medium rounded transition-colors"
                             >
                               Cancel
                             </button>
@@ -751,8 +627,8 @@ function Donors({ apiClient, refreshKey, search }) {
                         </div>
                       ) : (
                         <div className="flex items-center justify-between">
-                          <div className="font-medium text-gray-900 dark:text-white truncate">
-                            {d.display_name || d.username || <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>}
+                          <div className="font-medium text-fg truncate">
+                            {d.display_name || d.username || <span className="text-subtle italic">Not set</span>}
                           </div>
                           <button
                             onClick={() => startEdit(d)}
@@ -765,13 +641,13 @@ function Donors({ apiClient, refreshKey, search }) {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-gray-50 dark:bg-gray-700/30 p-2 rounded-lg">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 block">Donations</span>
-                        <div className="font-semibold text-gray-900 dark:text-white text-sm mt-0.5">{d.donations_count}</div>
+                      <div className="bg-surface-2 p-2 rounded-lg">
+                        <span className="text-xs text-muted block">Donations</span>
+                        <div className="font-semibold text-fg text-sm mt-0.5">{d.donations_count}</div>
                       </div>
-                      <div className="bg-gray-50 dark:bg-gray-700/30 p-2 rounded-lg text-right">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 block">Total Donated</span>
-                        <div className="font-semibold text-gray-900 dark:text-white text-sm mt-0.5">
+                      <div className="bg-surface-2 p-2 rounded-lg text-right">
+                        <span className="text-xs text-muted block">Total Donated</span>
+                        <div className="font-semibold text-fg text-sm mt-0.5">
                           <Currency value={d.total_donated} />
                         </div>
                       </div>
@@ -814,23 +690,23 @@ function Donors({ apiClient, refreshKey, search }) {
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Donor</th>
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Display Name</th>
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Donations</th>
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Total Donated</th>
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Balance</th>
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
+            <tr className="bg-surface-2/50 border-b border-line">
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Donor</th>
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Display Name</th>
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Donations</th>
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-right">Total Donated</th>
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-right">Balance</th>
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Status</th>
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+          <tbody className="divide-y divide-line">
             {rows.map((d, index) => {
               const isBanned = Boolean(d.is_banned);
               return (
                 <tr
                   key={d.telegram_id}
-                  className={`transition-colors ${isBanned ? 'bg-rose-50/30 dark:bg-rose-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
+                  className={`transition-colors ${isBanned ? 'bg-rose-50/30 dark:bg-rose-900/10' : 'hover:bg-surface-2'}`}
                 >
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
@@ -838,10 +714,10 @@ function Donors({ apiClient, refreshKey, search }) {
                         {(d.username || 'D').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-white text-sm">
+                        <div className="font-medium text-fg text-sm">
                           {d.username || 'Unknown Donor'}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">ID: {d.telegram_id}</div>
+                        <div className="text-xs text-muted">ID: {d.telegram_id}</div>
                       </div>
                     </div>
                   </td>
@@ -852,24 +728,24 @@ function Donors({ apiClient, refreshKey, search }) {
                           type="text"
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
-                          className="w-64 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 shadow-sm"
+                          className="w-64 px-3 py-2 rounded-lg border border-line-strong bg-surface text-fg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 shadow-sm"
                           placeholder="Name"
                           autoFocus
                         />
                       </div>
                     ) : (
-                      <div className="font-medium text-gray-900 dark:text-white text-sm">
-                        {d.display_name || d.username || <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>}
+                      <div className="font-medium text-fg text-sm">
+                        {d.display_name || d.username || <span className="text-subtle italic">Not set</span>}
                       </div>
                     )}
                   </td>
                   <td className="py-4 px-6 text-center">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-2 text-fg">
                       {d.donations_count}
                     </span>
                   </td>
                   <td className="py-4 px-6 text-right">
-                    <div className="font-bold text-gray-900 dark:text-white text-sm">
+                    <div className="font-bold text-fg text-sm">
                       <Currency value={d.total_donated} />
                     </div>
                   </td>
@@ -890,7 +766,7 @@ function Donors({ apiClient, refreshKey, search }) {
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                           <p className="font-bold">Reason:</p>
                           <p>{d.ban_reason || 'No reason provided'}</p>
-                          <p className="mt-1 text-gray-400">Expires: {formatBanExpiry(d.ban_expires_at)}</p>
+                          <p className="mt-1 text-subtle">Expires: {formatBanExpiry(d.ban_expires_at)}</p>
                         </div>
                       </div>
                     ) : (
@@ -914,7 +790,7 @@ function Donors({ apiClient, refreshKey, search }) {
                           <button
                             disabled={saving}
                             onClick={cancelEdit}
-                            className="text-gray-400 hover:text-gray-600 p-1"
+                            className="text-subtle hover:text-muted p-1"
                             title="Cancel"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -923,14 +799,14 @@ function Donors({ apiClient, refreshKey, search }) {
                       ) : (
                         <button
                           onClick={() => startEdit(d)}
-                          className="text-gray-400 hover:text-primary-600 transition-colors p-1"
+                          className="text-subtle hover:text-primary-600 transition-colors p-1"
                           title="Edit Name"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </button>
                       )}
                       
-                      <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
+                      <div className="w-px h-4 bg-surface-3 mx-1"></div>
 
                       {isBanned ? (
                         <button
@@ -943,7 +819,7 @@ function Donors({ apiClient, refreshKey, search }) {
                       ) : (
                         <button
                           onClick={() => openBanModal(d)}
-                          className="text-gray-400 hover:text-rose-600 transition-colors p-1"
+                          className="text-subtle hover:text-rose-600 transition-colors p-1"
                           title="Ban Donor"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
@@ -960,22 +836,22 @@ function Donors({ apiClient, refreshKey, search }) {
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Page <span className="font-medium text-gray-900 dark:text-white">{page}</span> of <span className="font-medium text-gray-900 dark:text-white">{totalPages}</span>
+        <div className="flex items-center justify-between px-6 py-4 border-t border-line bg-surface-2/50">
+          <div className="text-sm text-muted">
+            Page <span className="font-medium text-fg">{page}</span> of <span className="font-medium text-fg">{totalPages}</span>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1 text-sm font-medium rounded-lg border border-line bg-surface text-muted hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1 text-sm font-medium rounded-lg border border-line bg-surface text-muted hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>
@@ -985,17 +861,17 @@ function Donors({ apiClient, refreshKey, search }) {
 
       {banModal.open && banModal.donor && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 transition-all">
-          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl p-6 space-y-4 animate-scale-in transform transition-all scale-100">
+          <div className="w-full max-w-lg rounded-2xl bg-surface border border-line shadow-2xl p-6 space-y-4 animate-scale-in transform transition-all scale-100">
             <div>
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Ban Donor</h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <h4 className="text-lg font-semibold text-fg">Ban Donor</h4>
+              <p className="text-sm text-muted">
                 {banModal.donor.display_name || banModal.donor.username || `ID ${banModal.donor.telegram_id}`}
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Reason</label>
+              <label className="text-sm font-medium text-muted">Reason</label>
               <textarea
-                className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-rose-400"
+                className="w-full rounded-xl border border-line-strong bg-surface text-fg px-3 py-2 text-sm focus:ring-2 focus:ring-rose-400"
                 rows={3}
                 value={banReason}
                 onChange={(e) => setBanReason(e.target.value)}
@@ -1003,9 +879,9 @@ function Donors({ apiClient, refreshKey, search }) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Duration</label>
+              <label className="text-sm font-medium text-muted">Duration</label>
               <select
-                className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-rose-400"
+                className="w-full rounded-xl border border-line-strong bg-surface text-fg px-3 py-2 text-sm focus:ring-2 focus:ring-rose-400"
                 value={banDuration}
                 onChange={(e) => setBanDuration(e.target.value)}
               >
@@ -1017,7 +893,7 @@ function Donors({ apiClient, refreshKey, search }) {
                 <input
                   type="number"
                   min="1"
-                  className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-rose-400"
+                  className="w-full rounded-xl border border-line-strong bg-surface text-fg px-3 py-2 text-sm focus:ring-2 focus:ring-rose-400"
                   placeholder="Enter minutes (e.g. 60)"
                   value={customDurationMinutes}
                   onChange={(e) => setCustomDurationMinutes(e.target.value)}
@@ -1090,49 +966,49 @@ function Donations({ apiClient, refreshKey }) {
   if (error) return <div className="text-red-600">{error}</div>;
 
   return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden animate-fade-in-stagger">
-      <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Recent Donations</h3>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">View all donation transactions</p>
+    <div className="bg-surface/80 backdrop-blur-xl rounded-2xl shadow-sm border border-line/60 overflow-hidden animate-fade-in-stagger">
+      <div className="px-6 py-5 border-b border-line/80">
+        <h3 className="text-lg font-bold text-fg tracking-tight">Recent Donations</h3>
+        <p className="text-sm text-subtle mt-1">View all donation transactions</p>
       </div>
 
       {/* Mobile Card View */}
-      <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+      <div className="block sm:hidden divide-y divide-line">
         {rows.map((d, index) => (
-          <div key={d.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+          <div key={d.id} className="p-4 hover:bg-surface-2 transition-colors">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-gray-900 dark:text-white truncate">
+                <div className="font-medium text-fg truncate">
                   {d.donor?.username || 'Unknown Donor'}
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <div className="text-xs text-muted flex items-center gap-1">
                   <span>to</span>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">{d.streamer?.username || 'Unknown Streamer'}</span>
+                  <span className="font-medium text-muted">{d.streamer?.username || 'Unknown Streamer'}</span>
                 </div>
               </div>
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${d.status === 'paid'
                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                 : d.status === 'pending'
                   ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                  : 'bg-surface-2 text-muted'
                 }`}>
                 {d.status}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg">
+            <div className="grid grid-cols-2 gap-3 bg-surface-2 p-3 rounded-lg">
               <div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Amount</span>
-                <div className="font-bold text-gray-900 dark:text-white mt-0.5">
+                <span className="text-xs text-muted block uppercase tracking-wider">Amount</span>
+                <div className="font-bold text-fg mt-0.5">
                   <Currency value={d.amount} />
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Date</span>
-                <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-0.5">
+                <span className="text-xs text-muted block uppercase tracking-wider">Date</span>
+                <div className="text-xs font-medium text-muted mt-0.5">
                   {new Date(d.created_at).toLocaleDateString()}
                 </div>
-                <div className="text-[10px] text-gray-400">
+                <div className="text-[10px] text-subtle">
                   {new Date(d.created_at).toLocaleTimeString()}
                 </div>
               </div>
@@ -1145,37 +1021,37 @@ function Donations({ apiClient, refreshKey }) {
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">When</th>
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Streamer</th>
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Donor</th>
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Amount</th>
-              <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
+            <tr className="bg-surface-2/50 border-b border-line">
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">When</th>
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Streamer</th>
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Donor</th>
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-right">Amount</th>
+              <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+          <tbody className="divide-y divide-line">
             {rows.map((d, index) => (
-              <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+              <tr key={d.id} className="hover:bg-surface-2 transition-colors">
                 <td className="py-4 px-6">
-                  <div className="text-sm text-gray-900 dark:text-white font-medium">
+                  <div className="text-sm text-fg font-medium">
                     {new Date(d.created_at).toLocaleDateString()}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="text-xs text-muted">
                     {new Date(d.created_at).toLocaleTimeString()}
                   </div>
                 </td>
                 <td className="py-4 px-6">
-                  <div className="font-medium text-gray-900 dark:text-white text-sm">
+                  <div className="font-medium text-fg text-sm">
                     {d.streamer?.username || '—'}
                   </div>
                 </td>
                 <td className="py-4 px-6">
-                  <div className="font-medium text-gray-900 dark:text-white text-sm">
+                  <div className="font-medium text-fg text-sm">
                     {d.donor?.username || '—'}
                   </div>
                 </td>
                 <td className="py-4 px-6 text-right">
-                  <div className="font-bold text-gray-900 dark:text-white text-sm">
+                  <div className="font-bold text-fg text-sm">
                     <Currency value={d.amount} />
                   </div>
                 </td>
@@ -1184,7 +1060,7 @@ function Donations({ apiClient, refreshKey }) {
                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                     : d.status === 'pending'
                       ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      : 'bg-surface-2 text-muted'
                     }`}>
                     {d.status}
                   </span>
@@ -1197,22 +1073,22 @@ function Donations({ apiClient, refreshKey }) {
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Page <span className="font-medium text-gray-900 dark:text-white">{page}</span> of <span className="font-medium text-gray-900 dark:text-white">{totalPages}</span>
+        <div className="flex items-center justify-between px-6 py-4 border-t border-line bg-surface-2/50">
+          <div className="text-sm text-muted">
+            Page <span className="font-medium text-fg">{page}</span> of <span className="font-medium text-fg">{totalPages}</span>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1 text-sm font-medium rounded-lg border border-line bg-surface text-muted hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1 text-sm font-medium rounded-lg border border-line bg-surface text-muted hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>
@@ -1243,7 +1119,8 @@ function Recharges({ apiClient }) {
     setLoading(true);
     apiClient.get(`/recharges`).then(r => setRows(r.data.recharges || [])).catch(e => setError(e?.message || 'Failed')).finally(() => setLoading(false));
 
-    socket.on('admin_update', (data) => {// console.log('[Recharges] Admin update received via socket:', data);
+    socket.on('admin_update', (data) => {
+// console.log('[Recharges] Admin update received via socket:', data);
       setRefresh(x => x + 1); // Trigger a refresh of recharges
     });
 
@@ -1345,13 +1222,13 @@ function Recharges({ apiClient }) {
       {modal.open && modal.recharge && (
         <div className="fixed inset-0 z-[9998] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 pt-16 sm:pt-20">
           <div 
-            className="relative w-full max-w-xl md:max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+            className="relative w-full max-w-xl md:max-w-2xl bg-surface rounded-2xl shadow-2xl border border-line overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
             <button
               onClick={closeModal}
-              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-surface-2 hover:bg-surface-3 text-muted transition-colors"
               aria-label="Close"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1360,27 +1237,27 @@ function Recharges({ apiClient }) {
             </button>
 
             {/* Header */}
-            <div className="p-5 pb-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white pr-8">Review Recharge</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Request from <span className="font-medium text-gray-900 dark:text-white">{modal.recharge.donor_username || 'Unknown'}</span>
+            <div className="p-5 pb-4 border-b bg-surface-2">
+              <h3 className="text-lg font-bold text-fg pr-8">Review Recharge</h3>
+              <p className="text-sm text-muted mt-1">
+                Request from <span className="font-medium text-fg">{modal.recharge.donor_username || 'Unknown'}</span>
               </p>
             </div>
             
             {/* Content - Scrollable */}
             <div className="p-5 space-y-5 max-h-[calc(100vh-16rem)] overflow-y-auto">
               {/* Name on Payment */}
-              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Name on Payment</span>
-                <span className="font-semibold text-gray-900 dark:text-white">{modal.recharge.name_on_payment}</span>
+              <div className="flex justify-between items-center p-3 bg-surface-2 rounded-xl">
+                <span className="text-sm text-muted">Name on Payment</span>
+                <span className="font-semibold text-fg">{modal.recharge.name_on_payment}</span>
               </div>
               
               {/* Screenshot */}
               {modal.recharge.screenshot_url && (
                 <div className="space-y-2">
-                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Payment Screenshot</span>
+                  <span className="text-xs font-semibold text-muted uppercase tracking-wider">Payment Screenshot</span>
                   <div 
-                    className="relative group rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer"
+                    className="relative group rounded-xl overflow-hidden border border-line cursor-pointer"
                     onClick={() => openImageModal(modal.recharge.screenshot_url)}
                   >
                     <img 
@@ -1402,7 +1279,7 @@ function Recharges({ apiClient }) {
 
               {/* Amount Input */}
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+                <label className="block text-sm font-semibold text-muted">
                   Approved Amount (Br)
                 </label>
                 <input
@@ -1411,11 +1288,11 @@ function Recharges({ apiClient }) {
                   step="0.01"
                   value={modal.amount}
                   onChange={(e) => setModal(m => ({ ...m, amount: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xl font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-shadow"
+                  className="w-full px-4 py-3 rounded-xl border border-line-strong bg-surface text-fg text-xl font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-shadow"
                   placeholder="0.00"
                 />
                 {modal.recharge.requested_amount && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                  <p className="text-xs text-muted text-right">
                     Requested: <span className="font-semibold text-primary-600 dark:text-primary-400">{modal.recharge.requested_amount} Br</span>
                   </p>
                 )}
@@ -1423,7 +1300,7 @@ function Recharges({ apiClient }) {
             </div>
 
             {/* Actions - Fixed at bottom */}
-            <div className="p-5 pt-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 space-y-3">
+            <div className="p-5 pt-4 border-t bg-surface-2 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={handleReject} 
@@ -1444,40 +1321,40 @@ function Recharges({ apiClient }) {
           </div>
         </div>
       )}
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden animate-fade-in-stagger">
-        <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50">
+      <div className="bg-surface/80 backdrop-blur-xl rounded-2xl shadow-sm border border-line/60 overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-5 border-b border-line/80">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Recharge Requests</h3>
-              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Manage donor wallet top-ups</p>
+              <h3 className="text-lg font-bold text-fg tracking-tight">Recharge Requests</h3>
+              <p className="text-sm text-subtle mt-1">Manage donor wallet top-ups</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
                 ? 'bg-primary-500 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                : 'bg-surface-2 text-muted hover:bg-surface-3'
                 }`}>Pending</button>
               <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'approved'
                 ? 'bg-emerald-500 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                : 'bg-surface-2 text-muted hover:bg-surface-3'
                 }`}>Approved</button>
               <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'rejected'
                 ? 'bg-rose-500 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                : 'bg-surface-2 text-muted hover:bg-surface-3'
                 }`}>Rejected</button>
             </div>
           </div>
         </div>
 
         {/* Mobile Card View */}
-        <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+        <div className="block sm:hidden divide-y divide-line">
           {filteredRows.map((r, index) => (
-            <div key={r.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            <div key={r.id} className="p-4 hover:bg-surface-2 transition-colors">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 dark:text-white truncate">
+                  <div className="font-medium text-fg truncate">
                     {r.donor_username || 'Unknown Donor'}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="text-xs text-muted">
                     {new Date(r.created_at).toLocaleDateString()}
                   </div>
                 </div>
@@ -1492,22 +1369,22 @@ function Recharges({ apiClient }) {
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg">
+                <div className="flex items-center gap-3 bg-surface-2 p-3 rounded-lg">
                   {r.screenshot_url ? (
                     <img
                       src={r.screenshot_url}
                       alt="screenshot"
-                      className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0 border border-gray-200 dark:border-gray-600"
+                      className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0 border border-line"
                       onClick={() => openImageModal(r.screenshot_url)}
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                      <span className="text-gray-400 dark:text-gray-500 text-[10px]">No img</span>
+                    <div className="w-12 h-12 rounded-lg bg-surface-3 flex items-center justify-center flex-shrink-0">
+                      <span className="text-subtle text-[10px]">No img</span>
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name on Payment</div>
-                    <div className="font-medium text-gray-900 dark:text-white truncate text-sm">
+                    <div className="text-xs text-muted uppercase tracking-wider">Name on Payment</div>
+                    <div className="font-medium text-fg truncate text-sm">
                       {r.name_on_payment}
                     </div>
                   </div>
@@ -1515,14 +1392,14 @@ function Recharges({ apiClient }) {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Requested</span>
-                    <div className="font-bold text-gray-900 dark:text-white mt-0.5">
-                      {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">—</span>}
+                    <span className="text-xs text-muted block uppercase tracking-wider">Requested</span>
+                    <div className="font-bold text-fg mt-0.5">
+                      {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-subtle">—</span>}
                     </div>
                   </div>
                   {r.amount > 0 && (
                     <div className="text-right">
-                      <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Approved</span>
+                      <span className="text-xs text-muted block uppercase tracking-wider">Approved</span>
                       <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                         <Currency value={r.amount} />
                       </div>
@@ -1531,10 +1408,10 @@ function Recharges({ apiClient }) {
                 </div>
 
                 {r.status === 'pending' && (
-                  <div className="pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+                  <div className="pt-2 border-t border-line mt-2">
                     <button 
                       onClick={() => openReviewModal(r)} 
-                      className="w-full py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
+                      className="w-full py-2.5 bg-surface border border-line hover:bg-surface-2 text-muted rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
                     >
                       <span>Review Request</span>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -1550,35 +1427,35 @@ function Recharges({ apiClient }) {
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">When</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Donor</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Payment Name</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Screenshot</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Requested</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Approved</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
+              <tr className="bg-surface-2/50 border-b border-line">
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">When</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Donor</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Payment Name</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Screenshot</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-right">Requested</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-right">Approved</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Status</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            <tbody className="divide-y divide-line">
               {filteredRows.map((r, index) => (
-                <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <tr key={r.id} className="hover:bg-surface-2 transition-colors">
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-900 dark:text-white font-medium">
+                    <div className="text-sm text-fg font-medium">
                       {new Date(r.created_at).toLocaleDateString()}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-xs text-muted">
                       {new Date(r.created_at).toLocaleTimeString()}
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="font-medium text-gray-900 dark:text-white text-sm">
+                    <div className="font-medium text-fg text-sm">
                       {r.donor_username || '—'}
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-900 dark:text-white">
+                    <div className="text-sm text-fg">
                       {r.name_on_payment}
                     </div>
                   </td>
@@ -1587,21 +1464,21 @@ function Recharges({ apiClient }) {
                       <img
                         src={r.screenshot_url}
                         alt="screenshot"
-                        className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity border border-gray-200 dark:border-gray-600"
+                        className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity border border-line"
                         onClick={() => openImageModal(r.screenshot_url)}
                       />
                     ) : (
-                      <span className="text-gray-400 dark:text-gray-500 text-xs">—</span>
+                      <span className="text-subtle text-xs">—</span>
                     )}
                   </td>
                   <td className="py-4 px-6 text-right">
-                    <div className="font-bold text-gray-900 dark:text-white text-sm">
-                      {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-gray-400">—</span>}
+                    <div className="font-bold text-fg text-sm">
+                      {r.requested_amount ? <Currency value={r.requested_amount} /> : <span className="text-subtle">—</span>}
                     </div>
                   </td>
                   <td className="py-4 px-6 text-right">
                     <div className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                      {r.amount > 0 ? <Currency value={r.amount} /> : <span className="text-gray-400">—</span>}
+                      {r.amount > 0 ? <Currency value={r.amount} /> : <span className="text-subtle">—</span>}
                     </div>
                   </td>
                   <td className="py-4 px-6 text-center">
@@ -1619,7 +1496,7 @@ function Recharges({ apiClient }) {
                       {r.status === 'pending' && (
                         <button 
                           onClick={() => openReviewModal(r)} 
-                          className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-bold transition-all shadow-sm hover:shadow flex items-center gap-2"
+                          className="px-4 py-2 bg-surface border border-line hover:bg-surface-2 text-muted rounded-lg text-sm font-bold transition-all shadow-sm hover:shadow flex items-center gap-2"
                         >
                           Review
                         </button>
@@ -1658,7 +1535,8 @@ function Withdrawals({ apiClient }) {
     setLoading(true);
     apiClient.get(`/withdrawals`).then(r => setRows(r.data.withdrawals || [])).catch(e => setError(e?.message || 'Failed')).finally(() => setLoading(false));
 
-    socket.on('admin_update', (data) => {// console.log('[Withdrawals] Admin update received via socket:', data);
+    socket.on('admin_update', (data) => {
+// console.log('[Withdrawals] Admin update received via socket:', data);
       setRefresh(x => x + 1); // Trigger a refresh of withdrawals
     });
 
@@ -1708,40 +1586,40 @@ function Withdrawals({ apiClient }) {
         confirmButtonClass={confirmModal.action === 'reject' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden animate-fade-in-stagger">
-        <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50">
+      <div className="bg-surface/80 backdrop-blur-xl rounded-2xl shadow-sm border border-line/60 overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-5 border-b border-line/80">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Withdrawal Requests</h3>
-              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Manage streamer payout requests</p>
+              <h3 className="text-lg font-bold text-fg tracking-tight">Withdrawal Requests</h3>
+              <p className="text-sm text-subtle mt-1">Manage streamer payout requests</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
                 ? 'bg-primary-500 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                : 'bg-surface-2 text-muted hover:bg-surface-3'
                 }`}>Pending</button>
               <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'approved'
                 ? 'bg-emerald-500 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                : 'bg-surface-2 text-muted hover:bg-surface-3'
                 }`}>Approved</button>
               <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'rejected'
                 ? 'bg-rose-500 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                : 'bg-surface-2 text-muted hover:bg-surface-3'
                 }`}>Rejected</button>
             </div>
           </div>
         </div>
 
         {/* Mobile Card View */}
-        <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+        <div className="block sm:hidden divide-y divide-line">
           {filteredRows.map((w, index) => (
-            <div key={w.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            <div key={w.id} className="p-4 hover:bg-surface-2 transition-colors">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 dark:text-white truncate">
+                  <div className="font-medium text-fg truncate">
                     {w.streamer_username || 'Unknown Streamer'}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="text-xs text-muted">
                     {new Date(w.created_at).toLocaleDateString()}
                   </div>
                 </div>
@@ -1756,26 +1634,26 @@ function Withdrawals({ apiClient }) {
               </div>
 
               <div className="space-y-3">
-                <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg space-y-2">
+                <div className="bg-surface-2 p-3 rounded-lg space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Telebirr</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{w.telebirr_username}</span>
+                    <span className="text-xs text-muted">Telebirr</span>
+                    <span className="text-sm font-medium text-fg">{w.telebirr_username}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Phone</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{w.phone_number}</span>
+                    <span className="text-xs text-muted">Phone</span>
+                    <span className="text-sm font-medium text-fg">{w.phone_number}</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Amount</span>
-                    <div className="font-bold text-gray-900 dark:text-white mt-0.5">
+                    <span className="text-xs text-muted block uppercase tracking-wider">Amount</span>
+                    <div className="font-bold text-fg mt-0.5">
                       <Currency value={w.amount} />
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block uppercase tracking-wider">Payout (60%)</span>
+                    <span className="text-xs text-muted block uppercase tracking-wider">Payout (60%)</span>
                     <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                       <Currency value={w.amount * 0.6} />
                     </div>
@@ -1783,7 +1661,7 @@ function Withdrawals({ apiClient }) {
                 </div>
 
                 {w.status === 'pending' && (
-                  <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+                  <div className="flex gap-2 pt-2 border-t border-line mt-2">
                     <button onClick={() => openConfirmModal('approve', w.id, 'Approve Withdrawal', `Are you sure you want to approve this withdrawal request from ${w.streamer_username}?`)} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors">Approve</button>
                     <button onClick={() => openConfirmModal('reject', w.id, 'Reject Withdrawal', `Are you sure you want to reject this withdrawal request from ${w.streamer_username}?`)} className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors">Reject</button>
                   </div>
@@ -1797,45 +1675,45 @@ function Withdrawals({ apiClient }) {
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">When</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Streamer</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Telebirr Username</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone Number</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Amount</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Payout (60%)</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
+              <tr className="bg-surface-2/50 border-b border-line">
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">When</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Streamer</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Telebirr Username</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Phone Number</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-right">Amount</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-right">Payout (60%)</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Status</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            <tbody className="divide-y divide-line">
               {filteredRows.map((w, index) => (
-                <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <tr key={w.id} className="hover:bg-surface-2 transition-colors">
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-900 dark:text-white font-medium">
+                    <div className="text-sm text-fg font-medium">
                       {new Date(w.created_at).toLocaleDateString()}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-xs text-muted">
                       {new Date(w.created_at).toLocaleTimeString()}
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="font-medium text-gray-900 dark:text-white text-sm">
+                    <div className="font-medium text-fg text-sm">
                       {w.streamer_username || '—'}
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-900 dark:text-white">
+                    <div className="text-sm text-fg">
                       {w.telebirr_username}
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-900 dark:text-white">
+                    <div className="text-sm text-fg">
                       {w.phone_number}
                     </div>
                   </td>
                   <td className="py-4 px-6 text-right">
-                    <div className="font-bold text-gray-900 dark:text-white text-sm">
+                    <div className="font-bold text-fg text-sm">
                       <Currency value={w.amount} />
                     </div>
                   </td>
@@ -1898,7 +1776,8 @@ function StreamerRequests({ apiClient }) {
       .catch(e => setError(e?.message || 'Failed to load requests'))
       .finally(() => setLoading(false));
 
-    socket.on('admin_update', (data) => {// console.log('[StreamerRequests] Admin update received via socket:', data);
+    socket.on('admin_update', (data) => {
+// console.log('[StreamerRequests] Admin update received via socket:', data);
       setRefresh(x => x + 1); // Trigger a refresh of streamer requests
     });
 
@@ -1951,50 +1830,50 @@ function StreamerRequests({ apiClient }) {
         confirmButtonClass={confirmModal.action === 'reject' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}
         confirmText={confirmModal.action === 'reject' ? 'Reject' : 'Confirm'}
       />
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden animate-fade-in-stagger">
-        <div className="px-6 py-5 border-b border-gray-100/80 dark:border-gray-700/50">
+      <div className="bg-surface/80 backdrop-blur-xl rounded-2xl shadow-sm border border-line/60 overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-5 border-b border-line/80">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Streamer Requests</h3>
-              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Review new streamer applications</p>
+              <h3 className="text-lg font-bold text-fg tracking-tight">Streamer Requests</h3>
+              <p className="text-sm text-subtle mt-1">Review new streamer applications</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('pending')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending'
                 ? 'bg-primary-500 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                : 'bg-surface-2 text-muted hover:bg-surface-3'
                 }`}>Pending</button>
               <button onClick={() => setStatusFilter('approved')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'approved'
                 ? 'bg-emerald-500 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                : 'bg-surface-2 text-muted hover:bg-surface-3'
                 }`}>Approved</button>
               <button onClick={() => setStatusFilter('rejected')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'rejected'
                 ? 'bg-rose-500 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                : 'bg-surface-2 text-muted hover:bg-surface-3'
                 }`}>Rejected</button>
             </div>
           </div>
         </div>
 
         {/* Mobile Card View */}
-        <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+        <div className="block sm:hidden divide-y divide-line">
           {filteredRows.map((r, index) => (
-            <div key={r.telegram_id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            <div key={r.telegram_id} className="p-4 hover:bg-surface-2 transition-colors">
               <div className="flex items-start gap-3 mb-3">
                 {r.profile_picture_url ? (
                   <img
                     src={r.profile_picture_url}
                     alt="Profile"
-                    className="w-12 h-12 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0 border border-gray-200 dark:border-gray-600"
+                    className="w-12 h-12 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0 border border-line"
                     onClick={() => openImageModal(r.profile_picture_url)}
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                    <span className="text-gray-400 dark:text-gray-500 text-[10px]">No img</span>
+                  <div className="w-12 h-12 rounded-full bg-surface-3 flex items-center justify-center flex-shrink-0">
+                    <span className="text-subtle text-[10px]">No img</span>
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <div className="font-medium text-gray-900 dark:text-white truncate">
+                    <div className="font-medium text-fg truncate">
                       {r.full_name}
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${r.registration_status === 'approved'
@@ -2006,26 +1885,26 @@ function StreamerRequests({ apiClient }) {
                       {r.registration_status}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <div className="text-xs text-muted mt-0.5">
                     @{r.username}
                   </div>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg space-y-2">
+                <div className="bg-surface-2 p-3 rounded-lg space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Phone</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{r.phone_number}</span>
+                    <span className="text-xs text-muted">Phone</span>
+                    <span className="text-sm font-medium text-fg">{r.phone_number}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Submitted</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{new Date(r.created_at).toLocaleDateString()}</span>
+                    <span className="text-xs text-muted">Submitted</span>
+                    <span className="text-sm font-medium text-fg">{new Date(r.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
 
                 {r.registration_status === 'pending' && (
-                  <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+                  <div className="flex gap-2 pt-2 border-t border-line mt-2">
                     <button onClick={() => openConfirmModal('approve', r.telegram_id, 'Approve Streamer', `Are you sure you want to approve ${r.full_name || r.username}?`)} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors">Approve</button>
                     <button onClick={() => openConfirmModal('reject', r.telegram_id, 'Reject Streamer', `Are you sure you want to reject ${r.full_name || r.username}?`)} className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors">Reject</button>
                   </div>
@@ -2039,24 +1918,24 @@ function StreamerRequests({ apiClient }) {
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Submitted</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Picture</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Full Name</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Username</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone Number</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
+              <tr className="bg-surface-2/50 border-b border-line">
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Submitted</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Picture</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Full Name</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Username</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Phone Number</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Status</th>
+                <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            <tbody className="divide-y divide-line">
               {filteredRows.map((r, index) => (
-                <tr key={r.telegram_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <tr key={r.telegram_id} className="hover:bg-surface-2 transition-colors">
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-900 dark:text-white font-medium">
+                    <div className="text-sm text-fg font-medium">
                       {new Date(r.created_at).toLocaleDateString()}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-xs text-muted">
                       {new Date(r.created_at).toLocaleTimeString()}
                     </div>
                   </td>
@@ -2065,27 +1944,27 @@ function StreamerRequests({ apiClient }) {
                       <img
                         src={r.profile_picture_url}
                         alt="Profile"
-                        className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity border border-gray-200 dark:border-gray-600"
+                        className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity border border-line"
                         onClick={() => openImageModal(r.profile_picture_url)}
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-                        <span className="text-gray-400 dark:text-gray-500 text-[10px]">No img</span>
+                      <div className="w-10 h-10 rounded-full bg-surface-3 flex items-center justify-center">
+                        <span className="text-subtle text-[10px]">No img</span>
                       </div>
                     )}
                   </td>
                   <td className="py-4 px-6">
-                    <div className="font-medium text-gray-900 dark:text-white text-sm">
+                    <div className="font-medium text-fg text-sm">
                       {r.full_name}
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="text-sm text-muted">
                       @{r.username}
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-900 dark:text-white">
+                    <div className="text-sm text-fg">
                       {r.phone_number}
                     </div>
                   </td>
@@ -2135,7 +2014,8 @@ StreamerRequests.propTypes = {
 
 // --- Main Component ---
 export default function AdminDashboard() {
-  const [tab, setTab] = useState('overview');
+  const { tab: tabParam } = useParams();
+  const tab = tabParam || 'overview';
   const [globalSearch, setGlobalSearch] = useState('');
   const [pendingCounts, setPendingCounts] = useState({ recharges: 0, withdrawals: 0, streamerRequests: 0, complaints: 0, flags: 0 });
   const [toasts, setToasts] = useState([]);
@@ -2143,12 +2023,6 @@ export default function AdminDashboard() {
   const [flagRefreshKey, setFlagRefreshKey] = useState(0);
   const [adminToken, setAdminToken] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => {
-    // Check for theme in localStorage
-    const saved = localStorage.getItem('theme');
-    return saved === 'dark';
-  });
   const [notificationsMuted, setNotificationsMuted] = useState(() => localStorage.getItem('adminNotificationsMuted') === 'true');
   const [notificationAudioReady, setNotificationAudioReady] = useState(false);
   const toastTimersRef = useRef([]);
@@ -2177,14 +2051,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Apply theme on load and when darkMode changes
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
 
   useEffect(() => {
     const audio = new Audio('/sounds/admin-notification.mp3');
@@ -2228,10 +2094,10 @@ export default function AdminDashboard() {
     return cleanup;
   }, [notificationAudioReady]);
 
-  const toggleDarkMode = (isDark) => {
-    setDarkMode(isDark);
-    const nextTheme = isDark ? 'dark' : 'light';
-    localStorage.setItem('theme', nextTheme);
+  const handleLogout = () => {
+    localStorage.removeItem('adminToken');
+    setAdminToken(null);
+    setIsModalOpen(true);
   };
 
   const toggleNotificationMute = () => {
@@ -2277,78 +2143,78 @@ export default function AdminDashboard() {
     const payload = event.payload || {};
     let title = 'Admin Update';
     let description = 'Check the admin dashboard for details.';
-    let icon = 'ℹ️';
+    let icon = 'info';
 
     switch (event.type) {
       case 'donation_paid': {
-        icon = '💰';
+        icon = 'coins';
         title = 'Donation Paid';
         const donor = payload.donorName || 'New donor';
         description = `${donor} sent ${formatAmount(payload.amount)}.`;
         break;
       }
       case 'withdrawal_created': {
-        icon = '💸';
+        icon = 'wallet';
         title = 'New Withdrawal Request';
         description = `${formatAmount(payload.amount)} awaiting approval.`;
         break;
       }
       case 'withdrawal_updated': {
-        icon = '💸';
+        icon = 'wallet';
         title = `Withdrawal ${capitalize(payload.status)}`;
         description = `${formatAmount(payload.amount)} for streamer #${payload.streamerId || '—'}.`;
         break;
       }
       case 'recharge_created': {
-        icon = '🔄';
+        icon = 'refresh';
         title = 'Recharge Submitted';
         description = `Donor #${payload.donorId || '—'} uploaded proof.`;
         break;
       }
       case 'recharge_updated': {
-        icon = '🔄';
+        icon = 'refresh';
         title = `Recharge ${capitalize(payload.status)}`;
         description = `Donation balance updated for donor #${payload.donorId || '—'}.`;
         break;
       }
       case 'streamer_request_created': {
-        icon = '👥';
+        icon = 'userPlus';
         title = 'Streamer Request Received';
         description = `${payload.fullName || 'New applicant'} is waiting for review.`;
         break;
       }
       case 'streamer_request_updated': {
-        icon = '👥';
+        icon = 'userPlus';
         title = `Streamer Request ${capitalize(payload.status)}`;
         description = `Telegram ID ${payload.telegramId || '—'} ${payload.status || 'updated'}.`;
         break;
       }
       case 'complaint_created': {
-        icon = '📝';
+        icon = 'message';
         title = 'New Complaint';
         description = 'Check the complaints tab for the latest submission.';
         break;
       }
       case 'complaint_updated': {
-        icon = '📝';
+        icon = 'message';
         title = 'Complaint Responded';
         description = 'Marked as responded successfully.';
         break;
       }
       case 'donor_flag_created': {
-        icon = '🚩';
+        icon = 'flag';
         title = 'Streamer Flag Raised';
         description = `Streamer #${payload.streamerId || '—'} escalated a donor.`;
         break;
       }
       case 'donor_flag_updated': {
-        icon = '🚩';
+        icon = 'flag';
         title = `Flag ${capitalize(payload.status)}`;
         description = `Donor #${payload.donorId || '—'} update posted.`;
         break;
       }
       default: {
-        icon = 'ℹ️';
+        icon = 'info';
         title = 'Admin Update';
         description = 'Dashboard data changed.';
       }
@@ -2425,11 +2291,13 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     socket.emit('join_admin_room');
-    socket.on('connect', () => {// console.log('Admin socket connected');
+    socket.on('connect', () => {
+// console.log('Admin socket connected');
       socket.emit('join_admin_room');
     });
     socket.on('disconnect', () => console.log('Admin socket disconnected'));
-    socket.on('new_donation', (data) => {// console.log('[AdminDashboard] New donation received via socket:', data);
+    socket.on('new_donation', (data) => {
+// console.log('[AdminDashboard] New donation received via socket:', data);
       refreshData();
     });
     return () => {
@@ -2446,7 +2314,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!apiClient) return;
 
-    const handleAdminUpdate = (data) => {// console.log('[AdminDashboard] Admin update received via socket:', data);
+    const handleAdminUpdate = (data) => {
+// console.log('[AdminDashboard] Admin update received via socket:', data);
       fetchCounts();
       addToast(data);
 
@@ -2461,11 +2330,14 @@ export default function AdminDashboard() {
           audio.volume = 0.5;
           audio.currentTime = 0;
           notificationAudioRef.current = audio;
-          audio.play().catch(err => {// console.log('Audio play failed:', err);
-            if (!notificationAudioReady) {// console.log('Waiting for user interaction to unlock notification audio.');
+          audio.play().catch(err => {
+// console.log('Audio play failed:', err);
+            if (!notificationAudioReady) {
+// console.log('Waiting for user interaction to unlock notification audio.');
             }
           });
-        } catch (err) {// console.log('Audio notification failed:', err);
+        } catch (err) {
+// console.log('Audio notification failed:', err);
         }
       }
     };
@@ -2477,360 +2349,149 @@ export default function AdminDashboard() {
   }, [apiClient, fetchCounts, addToast, notificationsMuted, notificationAudioReady, triggerFlagRefresh]);
 
   const NAV_ITEMS = [
-    { 
-      id: 'overview', 
-      label: 'Overview', 
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg> 
-    },
-    { 
-      id: 'streamer-requests', 
-      label: 'Streamer Requests', 
-      count: pendingCounts.streamerRequests,
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-    },
-    { 
-      id: 'streamers', 
-      label: 'Streamers', 
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-    },
-    { 
-      id: 'donors', 
-      label: 'Donors', 
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
-    },
-    { 
-      id: 'donations', 
-      label: 'Donations', 
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-    },
-    { 
-      id: 'withdrawals', 
-      label: 'Withdrawals', 
-      count: pendingCounts.withdrawals,
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z" /></svg>
-    },
-    { 
-      id: 'recharges', 
-      label: 'Recharges', 
-      count: pendingCounts.recharges,
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-    },
-    { 
-      id: 'flags', 
-      label: 'Flags', 
-      count: pendingCounts.flags,
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-8a2 2 0 012-2h14a2 2 0 012 2v8H3zM3 10V3m0 7h14v-7H3" /></svg>
-    },
-    { 
-      id: 'complaints', 
-      label: 'Complaints', 
-      count: pendingCounts.complaints,
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-    },
-    { 
-      id: 'settings', 
-      label: 'Settings', 
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-    }
+    { id: 'overview', label: 'Overview', icon: 'chart' },
+    { id: 'streamer-requests', label: 'Streamer requests', icon: 'userPlus', count: pendingCounts.streamerRequests },
+    { id: 'streamers', label: 'Streamers', icon: 'live' },
+    { id: 'donors', label: 'Donors', icon: 'heart' },
+    { id: 'donations', label: 'Donations', icon: 'coins' },
+    { id: 'withdrawals', label: 'Withdrawals', icon: 'wallet', count: pendingCounts.withdrawals },
+    { id: 'recharges', label: 'Recharges', icon: 'card', count: pendingCounts.recharges },
+    { id: 'flags', label: 'Flags', icon: 'flag', count: pendingCounts.flags },
+    { id: 'complaints', label: 'Complaints', icon: 'message', count: pendingCounts.complaints },
+    { id: 'settings', label: 'Settings', icon: 'settings' },
   ];
+  const sidebarItems = NAV_ITEMS.map((item) => ({
+    to: item.id === 'overview' ? '/admin' : `/admin/${item.id}`,
+    icon: item.icon,
+    label: item.label,
+    end: item.id === 'overview',
+    badge: item.count > 0 ? item.count : undefined,
+  }));
+  const currentItem = NAV_ITEMS.find((i) => i.id === tab);
+
+  const authModal = (
+    <ApiKeyModal
+      isOpen={isModalOpen}
+      onClose={handleModalClose}
+      onSubmit={handleTokenSubmit}
+      title="Admin sign-in"
+      message="Enter the admin token to open the console. It's the ADMIN_TOKEN value in the server's .env file."
+    />
+  );
 
   if (!apiClient) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-        <ApiKeyModal
-          isOpen={isModalOpen}
-          onClose={handleModalClose}
-          onSubmit={handleTokenSubmit}
-          title="Admin Authentication Required"
-          message="Please enter the Admin Token to access this dashboard. The token can be found in your project's .env file."
-        />
-        <div className="text-center"><p className="text-gray-500 dark:text-gray-400">Waiting for Admin Token...</p></div>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas px-4 text-center font-sans text-fg">
+        {authModal}
+        <Logo />
+        <p className="text-sm text-muted">Waiting for the admin token…</p>
+        {!isModalOpen ? (
+          <Button variant="secondary" onClick={() => setIsModalOpen(true)} leftIcon={<Icon name="key" size={16} />}>
+            Enter token
+          </Button>
+        ) : null}
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 font-sans overflow-hidden">
-      <ApiKeyModal
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
-        onSubmit={handleTokenSubmit}
-        title="Admin Authentication Required"
-        message="Please enter Admin Token to access this dashboard. The token can be found in your project's .env file."
-      />
-
-      {/* Mobile Sidebar Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
-          <aside className="fixed inset-y-0 left-0 w-[280px] bg-white/95 dark:bg-gray-900/98 backdrop-blur-xl shadow-2xl shadow-black/20 transform transition-transform duration-300 ease-in-out flex flex-col z-50">
-             {/* Logo */}
-             <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100/80 dark:border-gray-800">
-                <div className="flex items-center gap-3">
-                   <div className="relative w-9 h-9">
-                      <div className="absolute inset-0 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-xl opacity-20 blur-sm"></div>
-                      <img src="/image/habesha-logo.png" alt="Logo" className="relative w-full h-full object-contain" />
-                   </div>
-                   <div>
-                     <span className="text-base font-bold text-gray-900 dark:text-white tracking-tight">HabeshaTTS</span>
-                     <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600 -mt-0.5">Admin Console</p>
-                   </div>
-                </div>
-                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-             </div>
-             
-             {/* Section Label */}
-             <div className="px-6 pt-6 pb-2">
-               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600">Navigation</p>
-             </div>
-
-             {/* Nav Items */}
-             <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5 custom-scrollbar">
-               {NAV_ITEMS.map((item) => (
-                 <button
-                   key={item.id}
-                   onClick={() => { setTab(item.id); setIsMobileMenuOpen(false); }}
-                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
-                     tab === item.id
-                       ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
-                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-white'
-                   }`}
-                 >
-                   {tab === item.id && (
-                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white/30 rounded-r-full"></div>
-                   )}
-                   <div className="flex items-center gap-3">
-                     <span className={`transition-colors ${tab === item.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
-                       {item.icon}
-                     </span>
-                     <span className="font-medium text-[13px]">{item.label}</span>
-                   </div>
-                   {item.count > 0 && (
-                     <span className={`text-[10px] font-bold min-w-[20px] text-center px-1.5 py-0.5 rounded-md ${
-                       tab === item.id ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                     }`}>
-                       {item.count}
-                     </span>
-                   )}
-                 </button>
-               ))}
-             </nav>
-
-             {/* User Profile */}
-             <div className="p-3 border-t border-gray-100/80 dark:border-gray-800">
-               <div className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-800/50 border border-gray-100/80 dark:border-gray-700/50">
-                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-md shadow-primary-500/20">
-                   A
-                 </div>
-                 <div className="flex-1 min-w-0">
-                   <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">Admin</p>
-                   <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate font-medium">Super Administrator</p>
-                 </div>
-                 <div className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20 flex-shrink-0"></div>
-               </div>
-             </div>
-          </aside>
-        </div>
-      )}
-
-      {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-[260px] bg-white/80 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/60 dark:border-gray-800 z-20">
-        {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-gray-100/80 dark:border-gray-800">
-          <div className="relative w-9 h-9">
-             <div className="absolute inset-0 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-xl opacity-20 blur-sm"></div>
-             <img src="/image/habesha-logo.png" alt="Logo" className="relative w-full h-full object-contain" />
-          </div>
-          <div>
-            <span className="text-base font-bold text-gray-900 dark:text-white tracking-tight">HabeshaTTS</span>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600 -mt-0.5">Admin Console</p>
-          </div>
-        </div>
-
-        {/* Section Label */}
-        <div className="px-6 pt-6 pb-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600">Navigation</p>
-        </div>
-
-        {/* Nav Items */}
-        <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5 custom-scrollbar">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setTab(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
-                tab === item.id
-                  ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              {tab === item.id && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white/30 rounded-r-full"></div>
-              )}
-              <div className="flex items-center gap-3">
-                <span className={`transition-colors ${tab === item.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
-                  {item.icon}
-                </span>
-                <span className="font-medium text-[13px]">{item.label}</span>
-              </div>
-              {item.count > 0 && (
-                <span className={`text-[10px] font-bold min-w-[20px] text-center px-1.5 py-0.5 rounded-md ${
-                  tab === item.id ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                }`}>
-                  {item.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-
-        {/* User Profile (Bottom Sidebar) */}
-        <div className="p-3 border-t border-gray-100/80 dark:border-gray-800">
-          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-800/50 border border-gray-100/80 dark:border-gray-700/50">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-md shadow-primary-500/20">
-              A
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">Admin</p>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate font-medium">Super Administrator</p>
-            </div>
-            <div className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20 flex-shrink-0"></div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content Wrapper */}
-      <div className="flex-1 flex flex-col min-w-0 bg-gray-50/50 dark:bg-gray-950">
-        {/* Header */}
-        <header className="h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-gray-800 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-10">
-          {/* Mobile Menu Button */}
-          <button 
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden p-2 -ml-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 rounded-xl transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-
-          {/* Search Bar */}
-          <div className="flex-1 max-w-md px-4 hidden md:block">
-            <div className="relative group">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                <svg className="h-4 w-4 text-gray-400 group-focus-within:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search donors, streamers..."
+    <>
+      {authModal}
+      <AdminLayout
+        items={sidebarItems}
+        title={currentItem?.label || 'Overview'}
+        user={{ name: 'Admin', subtitle: 'Super administrator', status: 'online' }}
+        onLogout={handleLogout}
+        headerActions={
+          <>
+            <div className="hidden w-64 md:block">
+              <Input
+                aria-label="Search donors"
+                size="sm"
+                placeholder="Search donors…"
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
-                className="block w-full pl-10 pr-4 py-2 border border-gray-200/60 dark:border-gray-700/60 rounded-xl leading-5 bg-gray-50/80 dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white dark:focus:bg-gray-800 transition-all text-[13px]"
+                leftIcon={<Icon name="search" size={15} />}
               />
             </div>
-          </div>
-
-          {/* Right Actions */}
-          <div className="flex items-center gap-1.5">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
               onClick={toggleNotificationMute}
-              className="p-2.5 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors relative"
+              aria-label={notificationsMuted ? 'Unmute notifications' : 'Mute notifications'}
               title={notificationsMuted ? 'Unmute notifications' : 'Mute notifications'}
+              className="text-muted"
             >
-              {notificationsMuted ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
-              )}
-              {!notificationsMuted && (
-                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-              )}
-            </button>
-            
-            <div className="h-6 w-px bg-gray-200/60 dark:bg-gray-700/60 mx-1"></div>
-            
-            <ThemeToggle isDarkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-          </div>
-        </header>
+              <Icon name={notificationsMuted ? 'bellOff' : 'bell'} size={18} />
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-6">
+          <p className="-mt-2 text-sm text-muted">Manage and monitor the platform.</p>
+          {tab === 'overview' && <Overview apiClient={apiClient} refreshKey={refreshKey} />}
+          {tab === 'streamer-requests' && <StreamerRequests apiClient={apiClient} />}
+          {tab === 'streamers' && <Streamers apiClient={apiClient} refreshKey={refreshKey} />}
+          {tab === 'donors' && <Donors apiClient={apiClient} refreshKey={refreshKey} search={globalSearch} />}
+          {tab === 'donations' && <Donations apiClient={apiClient} refreshKey={refreshKey} />}
+          {tab === 'withdrawals' && <Withdrawals apiClient={apiClient} />}
+          {tab === 'recharges' && <Recharges apiClient={apiClient} />}
+          {tab === 'flags' && <DonorFlagsPanel apiClient={apiClient} refreshKey={flagRefreshKey} onFlagResolved={fetchCounts} />}
+          {tab === 'complaints' && <AdminComplaints apiClient={apiClient} refreshData={refreshData} />}
+          {tab === 'settings' && <Settings apiClient={apiClient} />}
+          {!currentItem ? (
+            <EmptyState
+              icon="search"
+              title="Unknown section"
+              description="That admin page doesn't exist."
+              action={
+                <Button as={Link} to="/admin" variant="secondary">
+                  Go to overview
+                </Button>
+              }
+            />
+          ) : null}
+        </div>
+      </AdminLayout>
 
-        {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scroll-smooth">
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* Page Title */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-                  {NAV_ITEMS.find(i => i.id === tab)?.label}
-                </h2>
-                <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">Manage and monitor your platform</p>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="animate-fade-in">
-              {tab === 'overview' && <Overview apiClient={apiClient} refreshKey={refreshKey} />}
-              {tab === 'streamer-requests' && <StreamerRequests apiClient={apiClient} />}
-              {tab === 'streamers' && <Streamers apiClient={apiClient} refreshKey={refreshKey} />}
-              {tab === 'donors' && <Donors apiClient={apiClient} refreshKey={refreshKey} search={globalSearch} />}
-              {tab === 'donations' && <Donations apiClient={apiClient} refreshKey={refreshKey} />}
-              {tab === 'withdrawals' && <Withdrawals apiClient={apiClient} />}
-              {tab === 'recharges' && <Recharges apiClient={apiClient} />}
-              {tab === 'flags' && (
-                <DonorFlagsPanel
-                  apiClient={apiClient}
-                  refreshKey={flagRefreshKey}
-                  onFlagResolved={fetchCounts}
-                />
-              )}
-              {tab === 'complaints' && <AdminComplaints apiClient={apiClient} refreshData={refreshData} />}
-              {tab === 'settings' && <Settings apiClient={apiClient} />}
-            </div>
-          </div>
-        </main>
-      </div>
-
-      {/* Toast Notifications */}
       {toasts.length > 0 && (
-        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 max-w-xs sm:max-w-sm">
+        <div className="fixed bottom-4 right-4 z-50 flex max-w-xs flex-col gap-3 sm:max-w-sm">
           {toasts.map((toast) => (
-            <div
-              key={toast.id}
-              className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-4 w-72 sm:w-80 animate-slide-in-right overflow-hidden relative"
-            >
-              {/* Accent color bar */}
-              <div className={`absolute left-0 top-0 bottom-0 w-1 ${
-                toast.type === 'error' ? 'bg-red-500' :
-                toast.type === 'warning' ? 'bg-amber-500' :
-                toast.type === 'success' ? 'bg-emerald-500' :
-                'bg-primary-500'
-              }`}></div>
-              <div className="flex items-start gap-3 pl-2">
-                <div className="text-xl leading-none mt-0.5 flex-shrink-0">
-                  {toast.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-bold text-gray-900 dark:text-white truncate tracking-tight">
-                    {toast.title}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                    {toast.description}
-                  </p>
-                  <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-300 dark:text-gray-600 mt-2.5">
-                    {toast.timestamp ? 'Updated just now' : 'Live update'}
-                  </p>
+            <div key={toast.id} className="relative w-72 overflow-hidden rounded-xl border border-line bg-surface p-4 shadow-overlay animate-slide-in-right sm:w-80">
+              <div className="flex items-start gap-3">
+                <span
+                  className={cn(
+                    'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                    toast.type === 'error'
+                      ? 'bg-red-500/10 text-red-500'
+                      : toast.type === 'warning'
+                        ? 'bg-amber-500/10 text-amber-500'
+                        : toast.type === 'success'
+                          ? 'bg-emerald-500/10 text-emerald-500'
+                          : 'bg-brand-500/10 text-brand-500',
+                  )}
+                >
+                  <Icon name={toast.icon} size={16} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-fg">{toast.title}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted">{toast.description}</p>
+                  <p className="mt-2 text-[11px] text-subtle">{toast.timestamp ? 'Just now' : 'Live update'}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => removeToast(toast.id)}
-                  className="text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                  className={cn('rounded-md p-1 text-subtle transition-colors hover:bg-surface-2 hover:text-fg', focusRing)}
                   aria-label="Dismiss notification"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                  <Icon name="close" size={14} />
                 </button>
               </div>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }

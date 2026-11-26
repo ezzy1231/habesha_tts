@@ -9,7 +9,7 @@ const VARIANTS = {
   secondary:
     'bg-surface-2 text-fg border border-line hover:bg-surface-3 hover:border-line-strong',
   ghost: 'bg-transparent text-fg hover:bg-surface-2',
-  danger: 'bg-[#DA121A] text-white shadow-card hover:bg-[#b80f16] active:bg-[#9a0d12]',
+  danger: 'bg-red-600 text-white shadow-card hover:bg-red-700 active:bg-red-800',
 };
 
 const SIZES = {

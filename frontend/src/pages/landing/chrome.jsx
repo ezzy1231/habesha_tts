@@ -185,20 +185,12 @@ export function LandingFooter() {
         aria-hidden="true"
         className="pointer-events-none mx-auto -mb-[0.28em] max-w-6xl select-none px-4 font-display text-[22vw] font-extrabold leading-none tracking-[-0.06em] text-fg/[0.04] sm:px-6 lg:text-[15rem]"
       >
-        ሀበሻ TTS
+        Habesha TTS
       </p>
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-subtle sm:px-6">
           <span>
             © {new Date().getFullYear()} {t('app.name')}. {t('footer.rights')}
-          </span>
-          <span className="inline-flex items-center gap-2 whitespace-nowrap">
-            <span className="flex h-2 w-6 overflow-hidden rounded-sm" aria-hidden="true">
-              <span className="flex-1 bg-flag-green" />
-              <span className="flex-1 bg-flag-yellow" />
-              <span className="flex-1 bg-flag-red" />
-            </span>
-            {t('footer.madeIn')}
           </span>
         </div>
       </div>

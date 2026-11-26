@@ -9,7 +9,7 @@ const controlBase =
   'disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-muted';
 
 function stateClasses(error) {
-  return error ? 'border-[#DA121A] focus:border-[#DA121A] focus:ring-[#DA121A]/30' : 'border-line hover:border-line-strong';
+  return error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/30' : 'border-line hover:border-line-strong';
 }
 
 /**
@@ -29,7 +29,7 @@ export function Field({ id, label, hint, error, required, className, children })
         <label htmlFor={controlId} className="text-sm font-medium text-fg">
           {label}
           {required ? (
-            <span className="ml-0.5 text-[#DA121A]" aria-hidden="true">
+            <span className="ml-0.5 text-red-500" aria-hidden="true">
               *
             </span>
           ) : null}

@@ -23,8 +23,8 @@ Theming uses the `dark` class on `<html>` (`darkMode: 'class'`).
 | Surfaces | `bg-surface`, `bg-surface-2`, `bg-surface-3` | Cards, then insets, then pressed/skeleton |
 | Lines | `border-line`, `border-line-strong` | Hairlines, then hover/strong borders |
 | Text | `text-fg`, `text-muted`, `text-subtle` | Primary, secondary and tertiary |
-| Brand | `brand-50 … brand-950` | **`brand-600` = flag green `#078930`** (4.5:1 with white) |
-| Flag | `flag-green`, `flag-yellow`, `flag-red` | Use **sparingly**: flag bars, live dots, highlights |
+| Brand | `brand-50 … brand-950` | **`brand-600` = violet `#7c3aed`** (5.7:1 with white) |
+| Flag (legacy) | `flag-green`, `flag-yellow`, `flag-red` | OBS overlay only — not used in the app UI |
 | Shadows | `shadow-card`, `shadow-raised`, `shadow-overlay` | Resting, then hover, then modals/toasts |
 | Radius | `rounded-md` 6px · `rounded-lg` 8px · `rounded-xl` 12px · `rounded-2xl` 16px | Controls · inputs/buttons · cards · dialogs |
 | Fonts | `font-sans`, `font-ethiopic` | Inter and Noto Sans Ethiopic. Ge'ez glyphs fall through to Noto automatically |
@@ -64,7 +64,7 @@ All components have prop-types, show visible `focus-visible` rings and work from
 | `Select` | Same as Input, plus `options=[{value,label,disabled}]` (or `<option>` children) · `placeholder` |
 | `Field` | Low-level wrapper: `children(controlProps)` receives `id`, `aria-describedby`, `aria-invalid` and `required` |
 | `Card` / `CardHeader` | `padding` none/sm/md/lg · `interactive` · `accent` (flag stripe) · `as`. `CardHeader`: `title`, `description`, `actions` |
-| `FlagBar` | The three-colour stripe, with a `height` prop |
+| `AccentBar` | Thin violet→blue accent line, with a `height` prop (`FlagBar` is an alias) |
 | `Tabs` | `items=[{value,label,content?,icon?,count?,disabled?}]` · `value`/`onChange` or `defaultValue` · `variant` underline/pill · `size` · `fitted` · `label`. Arrow keys, Home and End. Leave out `content` to use it as a segmented control |
 | `Modal` (alias `Dialog`) | `open` · `onClose` · `title` · `description` · `footer` · `size` sm/md/lg/xl · `dismissible` · `initialFocusRef`. Includes a portal, focus trap, Escape, focus restore and scroll lock. It becomes a bottom sheet on mobile |
 | `ToastProvider` / `useToast` | Wrap the tree once. `toast({title, description, variant, duration, action})`, `toast.success/error/warning/info(title, opts)`, `toast.dismiss(id)` |

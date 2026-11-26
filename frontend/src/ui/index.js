@@ -7,7 +7,7 @@ export { useTheme, setTheme, getTheme, initTheme } from './theme';
 export { Button } from './Button';
 export { Spinner } from './Spinner';
 export { Field, Input, Textarea, Select } from './Field';
-export { Card, CardHeader, FlagBar } from './Card';
+export { Card, CardHeader, AccentBar, FlagBar } from './Card';
 export { Tabs } from './Tabs';
 export { Modal, Dialog } from './Modal';
 export { Badge } from './Badge';

@@ -5,7 +5,6 @@ import { cn, focusRing } from '../utils';
 import { Icon } from '../icons';
 import { Button } from '../Button';
 import { Logo } from '../Logo';
-import { FlagBar } from '../Card';
 import { ThemeToggle, LanguageToggle } from '../Toggles';
 import { useI18n } from '../i18n';
 import { PUBLIC_NAV } from './navConfig';
@@ -96,7 +95,6 @@ export function PublicLayout({
       >
         {t('nav.skip')}
       </a>
-      <FlagBar height={3} />
       <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
           <Link to={homeHref} className={cn('rounded-lg', focusRing)}>
@@ -207,10 +205,6 @@ export function PublicLayout({
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-subtle sm:px-6">
             <span>
               © {new Date().getFullYear()} {t('app.name')}. {t('footer.rights')}
-            </span>
-            <span className="inline-flex items-center gap-2 whitespace-nowrap">
-              <FlagBar className="w-6 shrink-0 overflow-hidden rounded-sm" height={8} />
-              {t('footer.madeIn')}
             </span>
           </div>
         </div>

@@ -19,7 +19,7 @@ export function Card({ as: Component = 'div', padding = 'md', interactive = fals
       )}
       {...rest}
     >
-      {accent ? <FlagBar className="absolute inset-x-0 top-0" /> : null}
+      {accent ? <AccentBar className="absolute inset-x-0 top-0" /> : null}
       {children}
     </Component>
   );
@@ -55,19 +55,21 @@ CardHeader.propTypes = {
   as: PropTypes.elementType,
 };
 
-/** Three-colour Ethiopian flag stripe. */
-export function FlagBar({ className, height = 3 }) {
+/** Thin brand accent line (violet → blue). `FlagBar` is kept as an alias for older imports. */
+export function AccentBar({ className, height = 2 }) {
   return (
     // Full width unless the caller sets its own width class (w-6, w-1/2, …).
-    <div className={cn('flex', !/(^|\s)w-/.test(className || '') && 'w-full', className)} style={{ height }} aria-hidden="true">
-      <span className="flex-1 bg-flag-green" />
-      <span className="flex-1 bg-flag-yellow" />
-      <span className="flex-1 bg-flag-red" />
-    </div>
+    <div
+      className={cn('bg-gradient-to-r from-brand-500 via-brand-400 to-sky-400', !/(^|\s)w-/.test(className || '') && 'w-full', className)}
+      style={{ height }}
+      aria-hidden="true"
+    />
   );
 }
 
-FlagBar.propTypes = {
+export const FlagBar = AccentBar;
+
+AccentBar.propTypes = {
   className: PropTypes.string,
   height: PropTypes.number,
 };

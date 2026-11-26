@@ -62,7 +62,7 @@ function StreamScene({ className, children }) {
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(60% 55% at 70% 28%, rgba(245,190,30,0.55), transparent 60%), radial-gradient(70% 60% at 20% 10%, rgba(52,211,153,0.35), transparent 60%), linear-gradient(180deg, #14213d 0%, #3b1f4a 55%, #6b2b3a 100%)',
+            'radial-gradient(60% 55% at 70% 28%, rgba(245,190,30,0.55), transparent 60%), radial-gradient(70% 60% at 20% 10%, rgba(139,92,246,0.45), transparent 60%), linear-gradient(180deg, #14213d 0%, #3b1f4a 55%, #6b2b3a 100%)',
         }}
       />
       <div aria-hidden="true" className="absolute left-[64%] top-[22%] h-16 w-16 rounded-full bg-[#ffd27a] opacity-90 blur-[1px] sm:h-24 sm:w-24" />
@@ -96,7 +96,7 @@ export function HeroStudio() {
     <div className="relative mx-auto mt-16 max-w-5xl sm:mt-20" aria-label={t('lp.alert.overlay')} role="img">
       <div
         aria-hidden="true"
-        className="absolute -inset-x-10 -top-10 bottom-0 -z-10 rounded-[50%] bg-[radial-gradient(closest-side,rgba(52,211,153,0.28),transparent),radial-gradient(closest-side,rgba(245,190,30,0.18),transparent)] blur-2xl"
+        className="absolute -inset-x-10 -top-10 bottom-0 -z-10 rounded-[50%] bg-[radial-gradient(closest-side,rgba(139,92,246,0.3),transparent),radial-gradient(closest-side,rgba(96,165,250,0.16),transparent)] blur-2xl"
       />
       <div className="[perspective:2200px]">
         <div className="origin-top transition-transform duration-700 [transform:rotateX(8deg)] motion-reduce:[transform:none] lg:hover:[transform:rotateX(0deg)]">
@@ -142,14 +142,14 @@ export function HeroStudio() {
                     </li>
                   ))}
                 </ul>
-                <div className="mt-auto rounded-xl border border-white/[0.06] bg-gradient-to-b from-emerald-400/10 to-transparent p-3">
+                <div className="mt-auto rounded-xl border border-white/[0.06] bg-gradient-to-b from-brand-400/10 to-transparent p-3">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">{t('lp.mock.today')}</p>
                   <p className="mt-1 font-display text-2xl font-bold tabular-nums text-white">ETB 4,860</p>
                   <div className="mt-3 flex h-10 items-end gap-1">
                     {bars.map((h, i) => (
                       <span
                         key={i}
-                        className="flex-1 rounded-sm bg-gradient-to-t from-emerald-500/40 to-emerald-300"
+                        className="flex-1 rounded-sm bg-gradient-to-t from-brand-500/40 to-brand-300"
                         style={{ height: `${h}%`, opacity: 0.45 + i * 0.055 }}
                       />
                     ))}
@@ -218,7 +218,7 @@ export function DonationTicker() {
 function CheckRow({ children }) {
   return (
     <li className="flex gap-3">
-      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500" aria-hidden="true">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-500" aria-hidden="true">
         <Icon name="check" size={14} strokeWidth={3} />
       </span>
       <span className="text-[15px] leading-relaxed text-fg/90">{children}</span>
@@ -233,12 +233,12 @@ function ViewerMock() {
   const { t } = useI18n();
   return (
     <div className="relative mx-auto w-full max-w-[300px]" aria-hidden="true">
-      <div className="rounded-[2.4rem] border border-line-strong bg-[#0b0e0c] p-2.5 shadow-2xl">
-        <div className="overflow-hidden rounded-[1.9rem] bg-[#111512] text-white">
+      <div className="rounded-[2.4rem] border border-line-strong bg-[#0c0c0e] p-2.5 shadow-2xl">
+        <div className="overflow-hidden rounded-[1.9rem] bg-[#131316] text-white">
           <div className="mx-auto mt-2 h-5 w-24 rounded-full bg-black" />
           <div className="p-5">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-700 font-ethiopic text-sm font-bold">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 font-ethiopic text-sm font-bold">
                 ኤ
               </span>
               <span>
@@ -262,7 +262,7 @@ function ViewerMock() {
                 </span>
               ))}
             </div>
-            <div className="mt-5 flex h-11 items-center justify-center rounded-full bg-gradient-to-b from-[#ffd24d] to-[#f2b705] text-sm font-bold text-[#16130a]">
+            <div className="mt-5 flex h-11 items-center justify-center rounded-full bg-white text-sm font-bold text-zinc-900">
               {t('lp.mock.donate')} · ETB 20
             </div>
           </div>
@@ -290,7 +290,7 @@ function StreamerMock() {
           {week.map((h, i) => (
             <span
               key={i}
-              className={cn('flex-1 rounded-lg', i === 5 ? 'bg-gradient-to-t from-[#f2b705] to-[#ffd24d]' : 'bg-surface-3')}
+              className={cn('flex-1 rounded-lg', i === 5 ? 'bg-gradient-to-t from-brand-600 to-brand-400' : 'bg-surface-3')}
               style={{ height: `${h}%` }}
             />
           ))}
@@ -464,7 +464,7 @@ function SliderRow({ label, value, onChange, min, max, step = 1, format }) {
       </div>
       <SliderControl className="relative mt-1 flex h-8 cursor-pointer touch-none items-center">
         <SliderTrack className="relative h-2 w-full rounded-full bg-surface-3">
-          <SliderIndicator className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-gold-bright" />
+          <SliderIndicator className="h-full rounded-full bg-gradient-to-r from-brand-400 to-sky-400" />
           <SliderThumb
             aria-label={label}
             className="h-6 w-6 rounded-full border-[3px] border-gold-bright bg-white shadow-[0_4px_12px_rgb(0_0_0/0.3)] transition-transform data-[dragging]:scale-110"
@@ -505,9 +505,9 @@ export function EarningsCalculator() {
         <SliderRow label={t('lp.earn.streams')} value={streams} onChange={setStreams} min={1} max={30} />
       </Panel>
 
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0b0e0c] p-6 text-white sm:p-8">
-        <div aria-hidden="true" className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(245,190,30,0.35),transparent)]" />
-        <div aria-hidden="true" className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(52,211,153,0.25),transparent)]" />
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0c0c0e] p-6 text-white sm:p-8">
+        <div aria-hidden="true" className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(139,92,246,0.4),transparent)]" />
+        <div aria-hidden="true" className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(96,165,250,0.22),transparent)]" />
         <div className="relative">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/50">{t('lp.earn.net')}</p>
           <p className="mt-2 font-display text-5xl font-extrabold tabular-nums tracking-tight sm:text-6xl" aria-live="polite">
@@ -524,7 +524,7 @@ export function EarningsCalculator() {
             </div>
           </dl>
           <div className="mt-6 flex h-3 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
-            <span className="bg-gradient-to-r from-emerald-400 to-gold-bright" style={{ width: `${KEEP_PERCENT}%` }} />
+            <span className="bg-gradient-to-r from-brand-400 to-sky-400" style={{ width: `${KEEP_PERCENT}%` }} />
             <span className="flex-1 bg-white/25" />
           </div>
           <div className="mt-2 flex justify-between text-[11px] font-semibold text-white/50" aria-hidden="true">

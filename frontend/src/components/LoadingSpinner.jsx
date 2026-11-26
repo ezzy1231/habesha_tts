@@ -25,7 +25,7 @@ export default function LoadingSpinner({
     <div className={`flex flex-col items-center justify-center gap-3 ${className}`}>
       <div className="relative">
         {/* Outer ring */}
-        <div className={`${sizeClasses[size]} border-4 border-gray-200 dark:border-gray-700 rounded-full animate-spin`}></div>
+        <div className={`${sizeClasses[size]} border-4 border-line rounded-full animate-spin`}></div>
         {/* Inner ring with gradient */}
         <div className={`absolute top-0 left-0 ${sizeClasses[size]} border-4 border-transparent border-t-primary-500 border-r-primary-500 rounded-full animate-spin`}></div>
         {/* Center dot */}
@@ -33,7 +33,7 @@ export default function LoadingSpinner({
       </div>
       {showText && (
         <div className="flex flex-col items-center gap-1">
-          <span className={`${textSizes[size]} font-medium text-gray-600 dark:text-gray-300 animate-pulse`}>
+          <span className={`${textSizes[size]} font-medium text-muted animate-pulse`}>
             {text}
           </span>
           {/* Loading dots animation */}
@@ -49,7 +49,7 @@ export default function LoadingSpinner({
 
   if (overlay) {
     return (
-      <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-surface/80 backdrop-blur-sm flex items-center justify-center z-50">
         {spinnerContent}
       </div>
     );

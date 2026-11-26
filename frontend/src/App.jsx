@@ -8,6 +8,7 @@ import { AdminBalanceProvider } from "./contexts/AdminBalanceContext";
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import StreamerLogin from './pages/StreamerLogin';
+import NotFound from './pages/NotFound';
 
 import { lazy, Suspense, useEffect } from 'react';
 import { initTheme } from './ui/theme';
@@ -31,7 +32,7 @@ function App() {
             {UiKitPage ? (
               <Route path="/ui-kit/*" element={<Suspense fallback={null}><UiKitPage /></Suspense>} />
             ) : null}
-            <Route path="/admin" element={
+            <Route path="/admin/:tab?" element={
               <AdminBalanceProvider>
                 <AdminDashboard />
               </AdminBalanceProvider>
@@ -47,14 +48,7 @@ function App() {
                 <WithdrawPage />
               </ProtectedRoute>
             } />
-            <Route path="*" element={
-              <div className="min-h-screen bg-gray-100 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">🎙️ Habesha TTS Dashboard</h2>
-                  <p className="text-gray-600 dark:text-gray-400">Please use a valid streamer link to access the dashboard.</p>
-                </div>
-              </div>
-            } />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </StreamerBalanceProvider>
       </AuthProvider>

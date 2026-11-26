@@ -11,7 +11,7 @@ import {
   CopyField,
   DataTable,
   EmptyState,
-  FlagBar,
+  AccentBar,
   Icon,
   Input,
   LanguageToggle,
@@ -135,7 +135,7 @@ function Gallery() {
 
   return (
     <div className="min-h-screen bg-canvas font-sans text-fg">
-      <FlagBar />
+      <AccentBar />
       <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
           <p className="font-semibold">UI kit</p>
@@ -178,11 +178,8 @@ function Gallery() {
             <Swatch name="line" className="bg-line" />
             <Swatch name="fg / muted" className="bg-gradient-to-r from-fg to-muted" />
             <Swatch name="brand-500" className="bg-brand-500" hex="#17a24f" />
-            <Swatch name="brand-600" className="bg-brand-600" hex="#078930" />
+            <Swatch name="brand-600" className="bg-brand-600" hex="#7c3aed" />
             <Swatch name="brand-700" className="bg-brand-700" hex="#076d29" />
-            <Swatch name="flag-green" className="bg-flag-green" hex="#078930" />
-            <Swatch name="flag-yellow" className="bg-flag-yellow" hex="#FCDD09" />
-            <Swatch name="flag-red" className="bg-flag-red" hex="#DA121A" />
           </div>
           <Card className="mt-4" padding="sm">
             <p className="text-2xl font-bold">ሀበሻ TTS — የድምፅ መልዕክት</p>

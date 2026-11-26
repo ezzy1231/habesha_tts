@@ -5,9 +5,9 @@ import io from "socket.io-client";
 import DonationCard from "../components/DonationCard";
 import Pagination from "../components/Pagination";
 import Balance from "../components/Balance";
-import ThemeToggle from '../components/ThemeToggle';
-import LoadingSpinner from '../components/LoadingSpinner';
-import SkeletonLoader from '../components/SkeletonLoader';
+import PropTypes from 'prop-types';
+import { Slider, SliderControl, SliderIndicator, SliderThumb, SliderTrack, SliderValue } from '@ui-sdk/react/slider';
+import { Avatar, Badge, Button, Card, cn, EmptyState, focusRing, Icon, Logo, Skeleton, Spinner, StatCard, StreamerLayout, Switch } from '../ui';
 
 import ApiKeyModal from '../components/ApiKeyModal';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,6 +19,16 @@ const socket = io(SOCKET_URL, {
   reconnection: false, // we handle backoff + retries manually for finer control
   forceNew: false,
 });
+const CONNECTION_VARIANT = {
+  connected: 'success',
+  connecting: 'info',
+  reconnecting: 'warning',
+  disconnected: 'danger',
+  degraded: 'warning',
+  error: 'danger',
+  sleeping: 'neutral',
+};
+
 const FLAG_ACTION_LABELS = {
   temp_ban: 'Time Ban',
   permanent_ban: 'Ban Donor',
@@ -84,11 +94,6 @@ export default function StreamerPage() {
   const queueRef = useRef([]);
   const playNextRef = useRef(() => {});
   const [currentPlaying, setCurrentPlaying] = useState(null);
-  const [darkMode, setDarkMode] = useState(() => {
-    // Check for theme in multiple possible keys for backward compatibility
-    const saved = localStorage.getItem('theme') || localStorage.getItem('streamer_theme');
-    return saved === 'dark';
-  });
   const wakeLockRef = useRef(null);
   const keepAliveIntervalRef = useRef(null);
   const KEEP_ALIVE_INTERVAL_MS = Number(import.meta.env.VITE_STREAMER_KEEPALIVE_MS || 45000);
@@ -236,7 +241,8 @@ export default function StreamerPage() {
           const firstKey = audioBufferCacheRef.current.keys().next().value;
           audioBufferCacheRef.current.delete(firstKey);
         }
-      } catch (e) {// console.warn(;
+      } catch (e) {
+// console.warn(;
       }
     };
     preloadNext();
@@ -346,15 +352,18 @@ export default function StreamerPage() {
               source.connect(gainNodeRef.current || ctx.destination);
               source.start(0);
               source.stop(ctx.currentTime + 0.001);
-            } catch (silentErr) {// console.warn(;
+            } catch (silentErr) {
+// console.warn(;
             }
             finalize();
           })
           .catch((err) => {
-            audioUnlockedRef.current = false;// console.warn(;
+            audioUnlockedRef.current = false;
+// console.warn(;
           });
       } catch (err) {
-        audioUnlockedRef.current = false;// console.warn(;
+        audioUnlockedRef.current = false;
+// console.warn(;
       }
     };
 
@@ -830,7 +839,8 @@ export default function StreamerPage() {
         wakeLockRef.current = null;
       }, { once: true });
 // console.log('[WakeLock] Screen lock acquired');
-    } catch (err) {// console.warn(;
+    } catch (err) {
+// console.warn(;
     }
   }, []);
 
@@ -838,7 +848,8 @@ export default function StreamerPage() {
     if (!wakeLockRef.current) return;
     try {
       await wakeLockRef.current.release();
-    } catch (err) {// console.warn(;
+    } catch (err) {
+// console.warn(;
     } finally {
       wakeLockRef.current = null;
     }
@@ -1297,7 +1308,8 @@ export default function StreamerPage() {
               }
             }, 100);
           }
-        } catch (e) {// console.warn(;
+        } catch (e) {
+// console.warn(;
         }
       }
     };
@@ -1353,14 +1365,6 @@ export default function StreamerPage() {
 
 
 
-  // ✅ Apply theme on load and when darkMode changes
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
 
   // ✅ Save enabled state persistently
   useEffect(() => {
@@ -1449,7 +1453,8 @@ export default function StreamerPage() {
           try {
             await audioContextRef.current.resume();
 // console.log("✅ AudioContext resumed after visibility change");
-          } catch (e) {// console.warn(;
+          } catch (e) {
+// console.warn(;
           }
         }
 
@@ -1518,26 +1523,6 @@ export default function StreamerPage() {
     }
   };
 
-  // Get volume icon based on level
-  const getVolumeIcon = (vol) => {
-    if (vol === 0) return '🔇';
-    if (vol <= 0.33) return '🔈';
-    if (vol <= 0.66) return '🔉';
-    return '🔊';
-  };
-
-  // Get volume color based on level
-  const getVolumeColor = (vol) => {
-    if (vol === 0) return 'text-gray-400';
-    if (vol <= 0.33) return 'text-blue-500';
-    if (vol <= 0.80) return 'text-green-500';
-    return 'text-red-700'; // #AC3939 equivalent
-  };
-
-  const themeClasses = darkMode
-    ? "min-h-screen streamer-bg-dark text-gray-100"
-    : "min-h-screen streamer-bg-light text-gray-900";
-  const cardBg = darkMode ? "card-dark" : "card-light";
   const connectionStatusLabelMap = {
     connected: 'Live Connection',
     connecting: 'Connecting…',
@@ -1547,16 +1532,6 @@ export default function StreamerPage() {
     error: 'Connection Error',
     sleeping: 'Paused',
   };
-  const connectionBadgeStyles = {
-    connected: 'bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-800',
-    connecting: 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800',
-    reconnecting: 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-100 dark:border-amber-800',
-    disconnected: 'bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-100 dark:border-rose-800',
-    degraded: 'bg-orange-100 text-orange-800 border border-orange-200 dark:bg-orange-900/30 dark:text-orange-100 dark:border-orange-800',
-    error: 'bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-100 dark:border-rose-800',
-    sleeping: 'bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800/60 dark:text-gray-300 dark:border-gray-700',
-  };
-  const connectionBadgeClass = connectionBadgeStyles[connectionStatus] || connectionBadgeStyles.connecting;
   const offlineDurationLabel = offlineDurationMinutes === null
     ? null
     : offlineDurationMinutes === 0
@@ -1568,25 +1543,114 @@ export default function StreamerPage() {
   const lastHeartbeatLabel = lastHeartbeatAt ? new Date(lastHeartbeatAt).toLocaleTimeString() : '—';
   const isLive = Boolean(streamerInfo?.live_status);
   const liveSinceLabel = streamerInfo?.live_since ? new Date(streamerInfo.live_since).toLocaleTimeString() : null;
-  const liveBadgeClass = isLive
-    ? 'bg-emerald-100 text-emerald-900 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-100 dark:border-emerald-800'
-    : 'bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-700';
+
+  const handleAudioToggle = async () => {
+    if (enabled) {
+      setEnabled(false);
+      return;
+    }
+    try {
+      const ctx = ensureAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+
+      if (ctx) {
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(gainNodeRef.current || ctx.destination);
+        source.start(0);
+        source.stop(ctx.currentTime + 0.001);
+      } else {
+        const silent = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA');
+        silent.volume = 0;
+        silent.muted = true;
+        silent.playsInline = true;
+        await silent.play();
+        silent.pause();
+      }
+      setEnabled(true);
+      playbackFailuresRef.current.clear();
+      setPlaybackWarning(null);
+
+      setTimeout(() => {
+        if (!playingRef.current && queue.length > 0) {
+          playNext();
+        }
+      }, 50);
+    } catch (e) {
+      console.error("Audio autoplay unlock failed:", e);
+      alert("Could not enable audio automatically. Please check your browser's autoplay settings for this site.");
+    }
+  };
+
+  const handleSkip = () => {
+    if (!currentPlaying) return;
+    if (audioRef.current) {
+      if (audioRef.current.stop) {
+        audioRef.current.stop();
+      } else if (audioRef.current.pause) {
+        audioRef.current.pause();
+      }
+    }
+    playingRef.current = false;
+    setCurrentPlaying(null);
+    markAsPlayed(currentPlaying);
+    setQueue((prev) => prev.slice(1));
+    clearPlaybackFailure(currentPlaying);
+    setPlaybackWarning(null);
+  };
+
+  const handleVolumeChange = (newVolume) => {
+    setVolume(newVolume);
+    localStorage.setItem('tts_volume', newVolume);
+  };
+
+  const handleLogout = usingSession
+    ? async () => {
+        try { await logout(); } catch { /* ignore */ }
+        navigate(`/streamer/${uuid}/login`);
+      }
+    : undefined;
+
+  const navItems = [
+    { to: `/streamer/${uuid}`, icon: 'live', label: 'Dashboard', end: true },
+    { to: `/withdraw/${uuid}`, icon: 'wallet', label: 'Withdraw' },
+  ];
+  const displayName = streamerInfo?.full_name || (streamerInfo?.username ? `@${streamerInfo.username}` : 'Streamer');
+  const heartbeatHint = `Last heartbeat ${lastHeartbeatLabel}${connectionAttempts > 0 && connectionStatus !== 'connected' ? ` · attempt ${connectionAttempts}` : ''}`;
 
   if (loading && donations.length === 0) { // Only show full-screen loader on initial load
     return (
-      <div className={`${themeClasses} flex items-center justify-center min-h-screen`}>
-        <LoadingSpinner
-          size="lg"
-          text="Loading dashboard..."
-          className="text-center"
-        />
+      <div className="flex min-h-screen items-center justify-center bg-canvas text-fg">
+        <div className="flex flex-col items-center gap-4">
+          <Logo compact />
+          <Spinner />
+          <p className="text-sm text-muted">Loading dashboard…</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={`${themeClasses} p-3 sm:p-4 md:p-6 lg:p-8 transition-colors duration-300 relative`}>
-
+    <StreamerLayout
+      items={navItems}
+      title="Dashboard"
+      live={isLive}
+      user={streamerInfo ? { name: displayName, subtitle: streamerInfo.username ? `@${streamerInfo.username}` : undefined, avatarUrl: streamerInfo.profile_picture_url || undefined } : undefined}
+      onLogout={handleLogout}
+      headerActions={
+        <Badge
+          variant={CONNECTION_VARIANT[connectionStatus] || 'info'}
+          dot
+          pulse={connectionStatus === 'connecting' || connectionStatus === 'reconnecting'}
+          className="hidden md:inline-flex"
+        >
+          {connectionStatusLabel}
+        </Badge>
+      }
+    >
       <ApiKeyModal
         isOpen={isModalOpen && !usingSession}
         onClose={handleModalClose}
@@ -1594,454 +1658,207 @@ export default function StreamerPage() {
         title="Streamer API Key Required"
         message="Please enter your secret API Key to connect to your dashboard. You can find this key in the registration message from the Telegram bot."
       />
-      <header className="mb-6">
-        <div className={`streamer-card streamer-glow-blue overflow-hidden`}>
-          
-          {/* Zone 1: Brand & System Header */}
-          <div className={`px-4 py-3 flex items-center justify-between border-b ${darkMode ? 'border-white/[0.06] bg-black/20' : 'border-gray-100 bg-gray-50/60'}`}>
-            {/* Left: Brand */}
-            <div className="flex items-center gap-3">
-              <div className="relative w-9 h-9">
-                <div className="absolute inset-0 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-xl opacity-20 blur-sm"></div>
-                <img src="/image/habesha-logo.png" alt="Habesha TTS" className="relative w-full h-full object-contain" />
+
+      <div className="flex flex-col gap-6">
+        {/* Overview: identity, balance, go-live */}
+        <section className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+          <div className="relative overflow-hidden rounded-2xl border border-line bg-surface p-5 sm:p-6">
+            <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-brand-500/15 blur-3xl" />
+            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-4">
+                <Avatar name={displayName} src={streamerInfo?.profile_picture_url || undefined} size="xl" status={isLive ? 'live' : undefined} />
+                <div className="min-w-0">
+                  <h2 className="truncate text-xl font-semibold tracking-tight text-fg sm:text-2xl">{displayName}</h2>
+                  <p className="mt-1 flex items-center gap-2 text-sm text-muted">
+                    <span className={cn('h-2 w-2 rounded-full', isLive ? 'animate-pulse bg-red-500' : 'bg-subtle')} aria-hidden="true" />
+                    {isLive ? (liveSinceLabel ? `Live since ${liveSinceLabel}` : 'Live') : 'Offline'}
+                  </p>
+                </div>
               </div>
+              <Button
+                variant={isLive ? 'secondary' : 'primary'}
+                size="lg"
+                loading={liveToggleLoading}
+                disabled={!apiClient || liveToggleLoading}
+                onClick={handleLiveToggle}
+                leftIcon={<Icon name={isLive ? 'close' : 'live'} size={18} />}
+                className={cn('w-full sm:w-auto', isLive && 'text-red-600 dark:text-red-400')}
+              >
+                {liveToggleLoading ? 'Updating…' : isLive ? 'End live session' : 'Go live'}
+              </Button>
+            </div>
+            <div className="relative mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-line pt-5">
               <div>
-                <h1 className="text-base font-bold text-gray-900 dark:text-white leading-none tracking-tight">
-                  Habesha TTS
-                </h1>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wide uppercase mt-0.5">
-                  Streamer Dashboard
-                </p>
-              </div>
-            </div>
-
-            {/* Right: System Controls */}
-            <div className="flex items-center gap-3">
-              <ThemeToggle isDarkMode={darkMode} toggleDarkMode={setDarkMode} />
-              {usingSession && (
-                <>
-                  <div className="w-px h-4 bg-gray-200 dark:bg-white/10"></div>
-                  <button
-                    onClick={async () => {
-                      try { await logout(); } catch { }
-                      navigate(`/streamer/${uuid}/login`);
-                    }}
-                    className="px-3 py-1.5 rounded-lg border border-red-200/60 dark:border-red-900/40 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-xs font-semibold"
-                  >
-                    Logout
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Zone 1.5: Connection Status Strip */}
-          <div className={`px-4 py-2 flex items-center gap-3 text-xs border-b ${darkMode ? 'border-white/[0.06] bg-black/10' : 'border-gray-100 bg-white/40'}`}>
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-[11px] ${connectionBadgeClass}`}>
-              <span className="text-[10px]">🛰️</span>
-              {connectionStatusLabel}
-              {connectionAttempts > 0 && connectionStatus !== 'connected' ? (
-                <span className="text-[11px] font-normal opacity-80">(attempt {connectionAttempts})</span>
-              ) : null}
-            </span>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
-            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
-              <span>Last heartbeat:</span>
-              <span className="font-mono font-medium text-gray-700 dark:text-gray-300">{lastHeartbeatLabel}</span>
-            </span>
-          </div>
-
-          {/* Zone 2: Main Control Deck (Middle) */}
-          <div className="p-5 sm:p-6">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              
-              {/* Left: Identity & Balance */}
-              {streamerInfo && (
-                <div className="flex items-center gap-4 w-full md:w-auto">
-                  {/* Avatar */}
-                  <div className="relative">
-                    {streamerInfo.profile_picture_url ? (
-                      <img src={streamerInfo.profile_picture_url} alt="Profile" className="w-14 h-14 rounded-2xl object-cover ring-2 ring-offset-2 ring-blue-500/50 dark:ring-blue-400/30 dark:ring-offset-gray-900" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl ring-2 ring-offset-2 ring-purple-500/40 dark:ring-offset-gray-900 shadow-lg shadow-purple-500/20">
-                        {(streamerInfo.username || 'S').charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="absolute -bottom-1 -right-1 bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded-md border border-white/20 font-semibold tracking-wide uppercase">
-                      Streamer
-                    </div>
-                  </div>
-
-                  <div className="flex-1">
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight">
-                      {streamerInfo.full_name || `@${streamerInfo.username}`}
-                    </h1>
-                    
-                    <div className="flex items-center gap-3 mt-2">
-                      <div className="flex items-baseline gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40">
-                        <span className="text-sm">💰</span>
-                        <span className="text-emerald-700 dark:text-emerald-400 font-bold text-lg"><Balance value={streamerInfo.balance} showLabel={false} /></span>
-                      </div>
-                      <button
-                        onClick={() => navigate(`/withdraw/${uuid}`)}
-                        className="text-xs bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-3.5 py-2 rounded-xl shadow-md shadow-emerald-500/20 transition-all hover:shadow-lg hover:shadow-emerald-500/25 flex items-center gap-1.5 font-semibold"
-                      >
-                        <span>💸</span> Withdraw
-                      </button>
-                    </div>
-                  </div>
+                <p className="text-xs font-medium uppercase tracking-[0.12em] text-subtle">Available balance</p>
+                <div className="mt-1 text-3xl font-semibold tracking-tight text-fg">
+                  <Balance value={streamerInfo?.balance} showLabel={false} />
                 </div>
-              )}
-
-              {/* Right: Live Control */}
-              {streamerInfo && (
-                <div className="flex flex-col items-end gap-2.5 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-gray-100/60 dark:border-white/[0.06]">
-                  <button
-                    type="button"
-                    disabled={!apiClient || liveToggleLoading}
-                    onClick={handleLiveToggle}
-                    className={`w-full md:w-auto flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-2xl font-bold shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] ${
-                      isLive
-                        ? 'bg-white text-rose-600 border-2 border-rose-100 hover:border-rose-200 hover:bg-rose-50 dark:bg-gray-800/80 dark:text-rose-400 dark:border-rose-900/50 dark:hover:bg-rose-900/20 streamer-glow-live'
-                        : 'bg-gradient-to-r from-[#00730b] via-[#d1bc00] to-[#820000] text-white hover:shadow-xl hover:shadow-yellow-500/25'
-                    } ${(!apiClient || liveToggleLoading) ? 'opacity-60 cursor-not-allowed' : ''}`}
-                  >
-                    {liveToggleLoading ? (
-                      <>
-                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a12 12 0 00-9 11h4z" />
-                        </svg>
-                        <span>Updating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-xl">{isLive ? '⏹️' : '📡'}</span>
-                        <span>{isLive ? 'End Live Session' : 'Go Live Now'}</span>
-                      </>
-                    )}
-                  </button>
-                  
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className={`inline-block w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></span>
-                    <span className="text-gray-500 dark:text-gray-400 font-medium">
-                      {isLive ? (liveSinceLabel ? `Live since ${liveSinceLabel}` : 'Live') : 'Offline'}
-                    </span>
-                  </div>
-                </div>
-              )}
+              </div>
+              <Button variant="secondary" onClick={() => navigate(`/withdraw/${uuid}`)} leftIcon={<Icon name="wallet" size={16} />}>
+                Withdraw
+              </Button>
             </div>
           </div>
 
-          {/* Zone 3: Audio Toolbar (Bottom) */}
-          <div className={`px-4 py-3 border-t flex flex-wrap items-center justify-between gap-4 ${darkMode ? 'bg-black/15 border-white/[0.06]' : 'bg-gray-50/60 border-gray-100'}`}>
-            
-            {/* Audio Toggle */}
-            <button
-              onClick={async () => {
-                if (!enabled) {
-                  try {
-                    const ctx = ensureAudioContext();
-                    if (ctx && ctx.state === 'suspended') {
-                      await ctx.resume();
-                    }
-
-                    if (ctx) {
-                      const buffer = ctx.createBuffer(1, 1, 22050);
-                      const source = ctx.createBufferSource();
-                      source.buffer = buffer;
-                      source.connect(gainNodeRef.current || ctx.destination);
-                      source.start(0);
-                      source.stop(ctx.currentTime + 0.001);
-                    } else {
-                      const silent = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA');
-                      silent.volume = 0;
-                      silent.muted = true;
-                      silent.playsInline = true;
-                      await silent.play();
-                      silent.pause();
-                    }
-// console.log("Audio permission granted; enabling autoplay.");
-                    setEnabled(true);
-                    playbackFailuresRef.current.clear();
-                    setPlaybackWarning(null);
-
-                    setTimeout(() => {
-                      if (!playingRef.current && queue.length > 0) {
-                        playNext();
-                      }
-                    }, 50);
-                  } catch (e) {
-                    console.error("Audio autoplay unlock failed:", e);
-                    alert("Could not enable audio automatically. Please check your browser's autoplay settings for this site.");
-                  }
-                } else {
-                  setEnabled(false);
-                }
-              }}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                enabled 
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' 
-                  : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-              }`}
-            >
-              <span>{enabled ? "🔊" : "🔇"}</span>
-              <span>{enabled ? "Audio On" : "Audio Off"}</span>
-            </button>
-
-            {/* Volume Slider */}
-            <div className="flex-1 max-w-xs flex items-center gap-3 mx-auto">
-              <span className="text-xs text-gray-400">{getVolumeIcon(volume)}</span>
-              <div className="relative flex-1 h-8 flex items-center group">
-                  <input
-                    id="volume-slider"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={volume}
-                    onChange={(e) => {
-                      const newVolume = Number(e.target.value);
-                      setVolume(newVolume);
-                      localStorage.setItem('tts_volume', newVolume);
-                    }}
-                    className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer dark:bg-gray-700/60 focus:outline-none focus:ring-2 focus:ring-blue-500/30 accent-blue-500"
-                    style={{
-                      background: `linear-gradient(to right, ${volume === 0 ? '#6B7280' : volume <= 0.33 ? '#6366f1' : volume <= 0.80 ? '#10B981' : '#EF4444'} 0%, ${volume === 0 ? '#6B7280' : volume <= 0.33 ? '#6366f1' : volume <= 0.80 ? '#10B981' : '#EF4444'} ${volume * 100}%, ${darkMode ? '#374151' : '#E5E7EB'} ${volume * 100}%, ${darkMode ? '#374151' : '#E5E7EB'} 100%)`
-                    }}
-                  />
-                  {/* Tooltip */}
-                  <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none translate-y-1 group-hover:translate-y-0">
-                    {Math.round(volume * 100)}%
-                  </div>
+          {/* Playback controls */}
+          <div className="flex flex-col rounded-2xl border border-line bg-surface p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-fg">Playback</h2>
+                <p className="text-xs text-muted">Read donations aloud as they arrive.</p>
               </div>
+              <Switch checked={enabled} onChange={handleAudioToggle} aria-label="Audio playback" />
             </div>
 
-            {/* Skip Button */}
-            <button
-              onClick={() => {
-                if (currentPlaying) {
-                  if (audioRef.current) {
-                    if (audioRef.current.stop) {
-                      audioRef.current.stop();
-                    } else if (audioRef.current.pause) {
-                      audioRef.current.pause();
-                    }
-                  }
-                  playingRef.current = false;
-                  setCurrentPlaying(null);
-                  markAsPlayed(currentPlaying);
-                  setQueue((prev) => prev.slice(1));
-                  clearPlaybackFailure(currentPlaying);
-                  setPlaybackWarning(null);
-                }
-              }}
-              disabled={!currentPlaying}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                currentPlaying
-                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
-              }`}
-            >
-              <span>⏭️</span>
-              <span>Skip</span>
-            </button>
-
-          </div>
-        </div>
-      </header>
-      {liveStatusMessage && (
-        <div
-          className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg border text-sm sm:text-base shadow-sm flex items-start justify-between gap-3 ${liveStatusMessage.type === 'error'
-            ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-900/20 dark:border-rose-900 dark:text-rose-100'
-            : liveStatusMessage.type === 'warning'
-              ? 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-900 dark:text-amber-100'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-900 dark:text-emerald-100'}`}
-        >
-          <span>{liveStatusMessage.message}</span>
-          <button
-            type="button"
-            onClick={() => setLiveStatusMessage(null)}
-            className="text-xs uppercase tracking-wide font-semibold opacity-70 hover:opacity-100"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      <div className={`streamer-card p-4 sm:p-5 mb-4 sm:mb-6 ${currentPlaying ? 'ring-1 ring-emerald-500/30 dark:ring-emerald-400/20' : ''} transition-all duration-300`}>
-        <div className="flex flex-col gap-3 sm:gap-4">
-          {/* Queue Info and Playing Indicator - Horizontal Layout */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/20">
-                <span className="text-white text-lg sm:text-xl">🎵</span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1 tracking-tight">
-                  Audio Queue
-                </h3>
-                <div className="flex items-center gap-2 text-xs sm:text-sm">
-                  <span className="badge badge-primary">{queue.length}</span>
-                  <span className="text-gray-500 dark:text-gray-400">
-                    pending
+            <div className="mt-6">
+              <Slider value={volume} onValueChange={handleVolumeChange} min={0} max={1} step={0.01} format={{ style: 'percent' }} locale="en-US">
+                <div className="flex items-center justify-between text-xs text-muted">
+                  <span className="flex items-center gap-1.5">
+                    <Icon name={volume === 0 ? 'volumeX' : 'volume'} size={14} /> Volume
                   </span>
+                  <SliderValue className="font-semibold tabular-nums text-fg" />
                 </div>
-              </div>
+                <SliderControl className="relative mt-1 flex h-7 cursor-pointer touch-none items-center">
+                  <SliderTrack className="relative h-1.5 w-full rounded-full bg-surface-3">
+                    <SliderIndicator className="h-full rounded-full bg-brand-500" />
+                    <SliderThumb
+                      aria-label="Volume"
+                      className="h-4 w-4 rounded-full border-2 border-brand-500 bg-white shadow transition-transform data-[dragging]:scale-125 [&:has(:focus-visible)]:ring-2 [&:has(:focus-visible)]:ring-brand-500/40"
+                    />
+                  </SliderTrack>
+                </SliderControl>
+              </Slider>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Mini stats */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200/60 dark:border-blue-500/10">
-                <span className="text-sm">🎁</span>
-                <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{pagination?.totalCount || 0}</span>
-                <span className="text-[10px] text-blue-500 dark:text-blue-400 hidden sm:inline">donations</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200/60 dark:border-purple-500/10">
-                <span className="text-sm">🎵</span>
-                <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">{queue.length}</span>
-                <span className="text-[10px] text-purple-500 dark:text-purple-400 hidden sm:inline">queued</span>
-              </div>
+            <div className="mt-auto pt-5">
+              {currentPlaying ? (
+                <div className="flex items-center gap-3 rounded-xl border border-brand-500/30 bg-brand-500/10 p-3">
+                  <span className="flex h-5 items-end gap-[3px]" aria-hidden="true">
+                    {[6, 14, 9, 16].map((h, i) => (
+                      <span key={i} className="waveform-bar w-[3px] rounded-full bg-brand-500" style={{ height: `${h}px` }} />
+                    ))}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-fg">Now playing</p>
+                    <p className="truncate text-[11px] text-muted">Donation #{currentPlaying}</p>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={handleSkip} leftIcon={<Icon name="skip" size={14} />}>
+                    Skip
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-line-strong p-3 text-xs text-muted">
+                  <span>{enabled ? 'Waiting for the next donation…' : 'Audio is off'}</span>
+                  <Button variant="ghost" size="sm" disabled leftIcon={<Icon name="skip" size={14} />}>
+                    Skip
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
+        </section>
 
-          {/* Now Playing Indicator */}
-          {currentPlaying && (
-            <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/25">
-              <div className="flex items-end gap-[3px] h-5">
-                <span className="waveform-bar" style={{height: '4px'}}></span>
-                <span className="waveform-bar" style={{height: '12px'}}></span>
-                <span className="waveform-bar" style={{height: '8px'}}></span>
-                <span className="waveform-bar" style={{height: '16px'}}></span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-xs sm:text-sm">Now Playing</p>
-                <p className="text-[11px] opacity-80 truncate">Donation #{currentPlaying}</p>
-              </div>
+        {/* KPIs */}
+        <section className="grid gap-4 sm:grid-cols-3">
+          <StatCard label="Total donations" value={(pagination?.totalCount || 0).toLocaleString('en-US')} icon="gift" />
+          <StatCard label="In queue" value={queue.length} icon="music" hint={queue.length ? 'Waiting to be read' : 'Queue is empty'} />
+          <StatCard label="Connection" value={<span className="text-lg sm:text-xl">{connectionStatusLabel}</span>} icon="signal" hint={heartbeatHint} />
+        </section>
+
+        {liveStatusMessage ? (
+          <Notice type={liveStatusMessage.type} onDismiss={() => setLiveStatusMessage(null)}>
+            {liveStatusMessage.message}
+          </Notice>
+        ) : null}
+        {playbackWarning ? (
+          <Notice type="warning" onDismiss={() => setPlaybackWarning(null)}>
+            {playbackWarning}
+          </Notice>
+        ) : null}
+
+        {/* Donations */}
+        <section aria-labelledby="donations-title" className="flex flex-col gap-4">
+          <div>
+            <h2 id="donations-title" className="text-lg font-semibold tracking-tight text-fg">
+              Recent donations
+            </h2>
+            {pagination ? (
+              <p className="text-xs text-muted">
+                Page {pagination.currentPage} of {pagination.totalPages} · {pagination.totalCount} total
+              </p>
+            ) : null}
+          </div>
+
+          {!loading && donations.length === 0 ? (
+            <Card padding="lg">
+              <EmptyState
+                icon="gift"
+                title="No donations yet"
+                description="Share your Telegram bot link with your viewers so they can send their first message."
+                action={
+                  <Button as="a" href="https://t.me/HabeshaTTS_bot" target="_blank" rel="noreferrer" variant="secondary" leftIcon={<Icon name="link" size={16} />}>
+                    @HabeshaTTS_bot
+                  </Button>
+                }
+              />
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {loading
+                ? Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-44 rounded-2xl" />)
+                : donations.map((donation) => (
+                    <DonationCard
+                      key={donation.id}
+                      donation={donation}
+                      isPlaying={currentPlaying === donation.id}
+                      onFlagAction={apiClient ? (action) => handleFlagDonation(donation.id, action) : null}
+                      isFlagging={flaggingDonationId === donation.id}
+                    />
+                  ))}
             </div>
           )}
-          {playbackWarning && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-lg border border-amber-300 bg-amber-50/90 dark:bg-amber-900/30 p-3 text-sm text-amber-900 dark:text-amber-100">
-              <div className="flex items-center gap-2">
-                <span className="text-base">⚠️</span>
-                <span>{playbackWarning}</span>
-              </div>
-              <div className="flex items-center gap-2 sm:ml-auto">
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-xs text-amber-700 dark:text-amber-200"
-                  onClick={() => setPlaybackWarning(null)}
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+
+          <Pagination pagination={pagination} onPageChange={handlePageChange} />
+        </section>
       </div>
 
-      {/* Section Label */}
-      <div className="flex items-center justify-between mb-3 sm:mb-4">
-        <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600">Recent Donations</p>
-        {donations.length > 0 && (
-          <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-600 font-medium">{donations.length} shown</p>
-        )}
-      </div>
-
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {loading && donations.length === 0 && (
-          <div className="col-span-full flex justify-center p-8 sm:p-12">
-            <LoadingSpinner
-              size="md"
-              text="Loading donations..."
-              className="text-center"
-            />
-          </div>
-        )}
-        {!loading && donations.length === 0 ? (
-          <div className="streamer-card p-6 sm:p-8 lg:p-12 text-center col-span-full">
-            <div className="mb-4 sm:mb-6">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20">
-                <span className="text-2xl sm:text-4xl">💰</span>
-              </div>
-            </div>
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 tracking-tight">እስካሁን ምንም ልገሳ የለም።</h3>
-            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 max-w-md mx-auto">
-              ተመልካቾችዎ የቴሌግራም bot Link በማጋራት ልገሳ እንዲያደርጉ ያበረታቷቸው።
-            </p>
-            <div className="flex justify-center">
-              <button className="btn btn-primary shadow-lg hover:shadow-xl text-sm sm:text-base">
-                <span>🔗</span>
-                <span className="ml-1 sm:ml-2">@Habeshatts_bot</span>
-              </button>
-            </div>
-          </div>
-        ) : loading ? (
-          <SkeletonLoader type="donation" count={6} />
-        ) : (
-          donations.map((donation) => (
-            <DonationCard
-              key={donation.id}
-              donation={donation}
-              isPlaying={currentPlaying === donation.id}
-              onFlagAction={apiClient ? (action) => handleFlagDonation(donation.id, action) : null}
-              isFlagging={flaggingDonationId === donation.id}
-            />
-          ))
-        )}
-      </div>
-
-      {/* Pagination */}
-      <Pagination pagination={pagination} onPageChange={handlePageChange} />
-
-      {pagination && (
-        <div className="text-center mt-3 sm:mt-4 text-xs sm:text-sm opacity-60">
-          Page {pagination.currentPage} of {pagination.totalPages} • {pagination.totalCount} total donations
-        </div>
-      )}
-
-      <footer className="mt-8 sm:mt-12 lg:mt-16 text-center">
-        <div className="streamer-card p-4 sm:p-5 max-w-md mx-auto">
-          <div className="flex items-center justify-center gap-2.5 mb-2">
-            <div className="relative w-8 h-8 sm:w-9 sm:h-9">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#00730b] via-[#d1bc00] to-[#820000] rounded-lg opacity-15 blur-sm"></div>
-              <img src="/image/habesha-logo.png" alt="Habesha TTS" className="relative w-full h-full object-contain" />
-            </div>
-            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00730b] via-[#d1bc00] to-[#820000] text-sm sm:text-base">Powered by Habesha TTS</span>
-          </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            "ፈጣን ልገሳ በሀገረኛ መንገድ"
-          </p>
-        </div>
-      </footer>
-
-      {flagToasts.length > 0 && (
-        <div
-          className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 w-72 sm:w-80"
-          aria-live="assertive"
-        >
+      {flagToasts.length > 0 ? (
+        <div className="fixed bottom-4 right-4 z-50 flex w-72 flex-col gap-3 sm:w-80" aria-live="assertive">
           {flagToasts.map((toast) => (
-            <div
-              key={toast.id}
-              className={`rounded-2xl border shadow-2xl px-4 py-3.5 flex items-start gap-3 text-sm font-medium animate-slide-in-right overflow-hidden relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl ${
-                toast.type === "success"
-                  ? "border-emerald-200/60 dark:border-emerald-800/40"
-                  : "border-red-200/60 dark:border-red-800/40"
-              }`}
-            >
-              <div className={`absolute left-0 top-0 bottom-0 w-1 ${
-                toast.type === "success" ? "bg-emerald-500" : "bg-red-500"
-              }`}></div>
-              <div className="text-lg leading-none pl-1">
-                {toast.type === "success" ? "✅" : "⚠️"}
-              </div>
-              <div className="flex-1">
-                <p className="leading-tight text-gray-900 dark:text-white">{toast.message}</p>
-              </div>
+            <div key={toast.id} className="flex animate-slide-in-right items-start gap-3 rounded-xl border border-line bg-surface p-3.5 text-sm shadow-overlay">
+              <Icon name={toast.type === 'success' ? 'checkCircle' : 'alert'} size={18} className={toast.type === 'success' ? 'text-emerald-500' : 'text-red-500'} />
+              <p className="flex-1 leading-snug text-fg">{toast.message}</p>
             </div>
           ))}
         </div>
-      )}
+      ) : null}
+    </StreamerLayout>
+  );
+}
+
+const NOTICE_STYLES = {
+  error: { icon: 'xCircle', className: 'border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-200' },
+  warning: { icon: 'alert', className: 'border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-100' },
+  success: { icon: 'checkCircle', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200' },
+};
+
+function Notice({ type = 'success', onDismiss, children }) {
+  const style = NOTICE_STYLES[type] || NOTICE_STYLES.success;
+  return (
+    <div role="status" className={cn('flex items-start gap-3 rounded-xl border p-3.5 text-sm', style.className)}>
+      <Icon name={style.icon} size={18} className="mt-0.5 shrink-0" />
+      <p className="flex-1">{children}</p>
+      {onDismiss ? (
+        <button type="button" onClick={onDismiss} className={cn('rounded-md px-2 py-0.5 text-xs font-semibold opacity-70 hover:opacity-100', focusRing)}>
+          Dismiss
+        </button>
+      ) : null}
     </div>
   );
 }
+
+Notice.propTypes = {
+  type: PropTypes.oneOf(['error', 'warning', 'success']),
+  onDismiss: PropTypes.func,
+  children: PropTypes.node,
+};
