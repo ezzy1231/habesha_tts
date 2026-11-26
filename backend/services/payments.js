@@ -61,6 +61,19 @@ export async function startCheckout({
       providerUsed = 'credit';
       charge = price;
       currency = 'ETB';
+    } else if (providerName === 'wallet') {
+      // Signed-in donor paying from their (Telegram) wallet balance. Debit atomically with the payment row,
+      // so the balance can never go negative; refunds go back to the same wallet via donor_telegram_id.
+      if (!donorTelegramId) throw new CheckoutError('Sign in to pay from your wallet', 401);
+      if (purpose.kind === 'wallet_topup') throw new CheckoutError('Invalid amount');
+      const debit = await client.query(
+        `UPDATE users SET balance = balance - $1
+          WHERE telegram_id = $2 AND role = 'donor' AND balance >= $1
+          RETURNING balance`, [due, donorTelegramId]);
+      if (!debit.rowCount) throw new CheckoutError('Not enough money in your wallet. Top it up first.', 402);
+      providerUsed = 'wallet';
+      charge = due;
+      currency = 'ETB';
     } else {
       provider = getProvider(providerName);
       if (!provider) throw new CheckoutError('That payment method is not available');
@@ -84,8 +97,8 @@ export async function startCheckout({
     client.release();
   }
 
-  if (providerUsed === 'credit') {
-    await fulfilPayment(id, { amountEtb: price, raw: { credit: true } }, deps);
+  if (providerUsed === 'credit' || providerUsed === 'wallet') {
+    await fulfilPayment(id, { amountEtb: price, raw: { [providerUsed]: true } }, deps);
     return { txRef, redirectUrl: returnUrl, status: 'paid' };
   }
 
@@ -111,8 +124,12 @@ export async function markPaymentFailed(paymentId, status = 'failed', raw = null
     const { rows } = await client.query(`
       UPDATE payments SET status = $2, raw = COALESCE($3::jsonb, raw)
        WHERE id = $1 AND status = 'pending'
-       RETURNING credit_code_id, credit_applied`, [paymentId, status, raw ? JSON.stringify(raw) : null]);
+       RETURNING credit_code_id, credit_applied, provider, amount, donor_telegram_id`, [paymentId, status, raw ? JSON.stringify(raw) : null]);
     if (rows[0]) await releaseCredit(client, rows[0].credit_code_id, Number(rows[0].credit_applied));
+    // Wallet payments were debited up front: give the money back.
+    if (rows[0]?.provider === 'wallet' && rows[0].donor_telegram_id) {
+      await client.query('UPDATE users SET balance = balance + $1 WHERE telegram_id = $2', [rows[0].amount, rows[0].donor_telegram_id]);
+    }
     await client.query('COMMIT');
     return Boolean(rows[0]);
   } catch (error) {
@@ -135,6 +152,17 @@ export async function findPaymentByTxRef(txRef) {
  */
 export async function confirmPayment(payment, deps = {}) {
   if (!payment) return undefined;
+  // Wallet / credit payments were captured at checkout; a pending one means fulfilment failed. Retry it.
+  if (payment.provider === 'wallet' || payment.provider === 'credit') {
+    if (payment.status !== 'pending') return payment.status;
+    try {
+      await fulfilPayment(payment.id, { amountEtb: Number(payment.purpose?.price) || null }, deps);
+      return 'paid';
+    } catch (error) {
+      console.error(`[payments] retry fulfil ${payment.tx_ref} failed:`, error.message);
+      return 'pending';
+    }
+  }
   // A donor who finished paying after we expired the checkout still gets their donation,
   // as long as no claim-code credit (already released) was part of it.
   const late = payment.status === 'expired' && Number(payment.credit_applied) === 0;

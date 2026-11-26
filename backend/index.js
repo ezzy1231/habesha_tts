@@ -118,6 +118,7 @@ import streamerAuthRoutes from './routes/streamerAuth.js';
 import overlayRoutes from './routes/overlay.js';
 import publicRoutes from './routes/public.js';
 import streamerFeatureRoutes from './routes/streamerFeatures.js';
+import accountRoutes from './routes/account.js';
 import { webhookRouter as paymentWebhookRoutes, demoPayRouter } from './routes/payments.js';
 import { sweepPendingPayments } from './services/payments.js';
 import { isConfigured as isDemoGatewayEnabled } from './payments/demo.js';
@@ -205,6 +206,8 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Admin-Token"],
   credentials: true,
 }));
+// Mounted before the global 100 kb JSON parser: the streamer application carries a photo.
+app.use('/api/v1/account', accountRoutes);
 app.use(express.json());
 app.use('/public', express.static('public'));
 

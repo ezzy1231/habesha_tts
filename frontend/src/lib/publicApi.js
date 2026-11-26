@@ -8,13 +8,21 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = 'GET', body, signal } = {}) {
+const accountToken = () => {
+  try { return localStorage.getItem('habesha.accountToken'); } catch { return null; }
+};
+
+async function request(path, { method = 'GET', body, signal, auth = false } = {}) {
+  const headers = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  // Signed-in donors: lets checkout use the wallet and send refunds back to it.
+  if (auth && accountToken()) headers.Authorization = `Bearer ${accountToken()}`;
   let res;
   try {
     res = await fetch(`${API_URL}${path}`, {
       method,
       signal,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch (error) {
@@ -29,7 +37,7 @@ async function request(path, { method = 'GET', body, signal } = {}) {
 export const publicApi = {
   streamers: (opts) => request('/public/streamers', opts).then((r) => r.streamers || []),
   streamer: (slug, opts) => request(`/public/streamers/${encodeURIComponent(slug)}`, opts).then((r) => r.streamer),
-  checkout: (body) => request('/public/checkout', { method: 'POST', body }),
+  checkout: (body) => request('/public/checkout', { method: 'POST', body, auth: true }),
   payment: (txRef, opts) => request(`/public/payments/${encodeURIComponent(txRef)}`, opts),
   checkCredit: (code) => request('/public/credit/check', { method: 'POST', body: { code } }),
 };

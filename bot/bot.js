@@ -42,6 +42,28 @@ const isPollingActive = () => {
   return pollingStarted;
 };
 
+// Commands shown in Telegram's "/" menu. /reset (deletes the account) and
+// /quickdonate (same as /donate) still work but are deliberately not advertised.
+const BOT_COMMANDS = [
+  { command: 'start', description: 'ጀምር / ምዝገባ' },
+  { command: 'donate', description: 'ልገሳ ላክ' },
+  { command: 'recharge', description: 'Wallet ሙላ' },
+  { command: 'balance', description: 'ቀሪ ሂሳብ' },
+  { command: 'change_name', description: 'የሚታየውን ስም ቀይር' },
+  { command: 'complaint', description: 'ቅሬታ / አስተያየት' },
+  { command: 'streamer', description: 'እንደ Streamer ተመዝገብ' },
+];
+
+// Best-effort: a failure here must never stop polling.
+const registerCommandMenu = async () => {
+  try {
+    await bot.setMyCommands(BOT_COMMANDS);
+    console.log('[Telegram] Command menu registered.');
+  } catch (error) {
+    console.warn('[Telegram] Failed to register command menu:', error?.response?.body || error?.message || error);
+  }
+};
+
 const startBotPolling = async () => {
   if (!bot) return;
   if (isPollingActive()) {
@@ -52,6 +74,7 @@ const startBotPolling = async () => {
     await bot.startPolling();
     pollingStarted = true;
     console.log('[Telegram] Polling started by lock-owner process.');
+    await registerCommandMenu();
   } catch (error) {
     console.error('[Telegram] Failed to start polling:', error?.response?.body || error?.message || error);
     throw error;

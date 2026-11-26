@@ -18,6 +18,7 @@ const OverlayPage = lazy(() => import('./pages/OverlayPage'));
 const StreamersPage = lazy(() => import('./pages/StreamersPage'));
 const DonatePage = lazy(() => import('./pages/DonatePage'));
 const DonateReturnPage = lazy(() => import('./pages/DonateReturnPage'));
+const AccountPage = lazy(() => import('./pages/AccountPage'));
 
 // Dev-only design-system gallery (src/ui). Set VITE_ENABLE_UI_KIT=true to include it in a build.
 const SHOW_UI_KIT = import.meta.env.DEV || import.meta.env.VITE_ENABLE_UI_KIT === 'true';
@@ -65,6 +66,7 @@ function App() {
               <Route path="/streamers" element={<StreamersPage />} />
               <Route path="/s/:slug" element={<DonatePage />} />
               <Route path="/donate/return" element={<DonateReturnPage />} />
+              <Route path="/account" element={<AccountPage />} />
               <Route path="/:handle" element={<HandleRoute />} />
               {UiKitPage ? <Route path="/ui-kit/*" element={<UiKitPage />} /> : null}
               <Route path="/admin" element={

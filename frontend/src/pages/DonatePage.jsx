@@ -7,6 +7,8 @@ import {
 import { ViewerLayout } from '../components/viewer/ViewerLayout';
 import { ApiError, looksLikeYouTube, messageLength, priceForTts, publicApi, usdFor } from '../lib/publicApi';
 import '../lib/viewerStrings';
+import '../lib/accountStrings';
+import { useAccount } from '../lib/accountApi';
 
 const NAME_KEY = 'habesha.donorName';
 import { CLAIM_KEY } from '../lib/publicApi';
@@ -171,6 +173,16 @@ export default function DonatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
 
+  // Signed-in donors can pay from their (Telegram) wallet.
+  const { account } = useAccount();
+  const walletAccount = account?.role === 'donor' && !account.banned ? account : null;
+  const hasWallet = Boolean(walletAccount);
+  useEffect(() => {
+    if (!hasWallet) return;
+    setProvider('wallet');
+    setDonorName((cur) => cur || walletAccount.displayName || '');
+  }, [hasWallet]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const ctrl = new AbortController();
     setProfile(null);
@@ -283,7 +295,7 @@ export default function DonatePage() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!ready || submitting || !provider) return;
+    if (!ready || submitting || !provider || walletShort) return;
     setSubmitting(true);
     setSubmitError(null);
     writeLocal(NAME_KEY, donorName.trim());
@@ -306,12 +318,16 @@ export default function DonatePage() {
     }
   };
 
-  const providerOptions = profile.providers.map((p) => ({
-    value: p.name,
-    label: p.name === 'demo' ? t('donate.demo') : p.label,
-    badge: p.name === 'demo' ? <Badge variant="warning" size="sm">{t('donate.demo')}</Badge>
-      : p.test ? <Badge variant="info" size="sm">{t('donate.test')}</Badge> : null,
-  }));
+  const providerOptions = [
+    ...(walletAccount ? [{ value: 'wallet', label: t('donate.wallet', { balance: formatETB(walletAccount.balance) }) }] : []),
+    ...profile.providers.map((p) => ({
+      value: p.name,
+      label: p.name === 'demo' ? t('donate.demo') : p.label,
+      badge: p.name === 'demo' ? <Badge variant="warning" size="sm">{t('donate.demo')}</Badge>
+        : p.test ? <Badge variant="info" size="sm">{t('donate.test')}</Badge> : null,
+    })),
+  ];
+  const walletShort = provider === 'wallet' && walletAccount && toPay > Number(walletAccount.balance);
 
   return (
     <ViewerLayout>
@@ -413,12 +429,22 @@ export default function DonatePage() {
             </div>
 
             <div className="flex flex-col gap-5 border-t border-line p-5 sm:p-6">
-              {profile.providers.length ? (
+              {providerOptions.length ? (
                 <ChoiceGroup label={t('donate.payWith')} options={providerOptions} value={provider} onChange={setProvider} />
               ) : (
                 <p className="text-sm text-[#e5484d]" role="alert">{t('donate.noProviders')}</p>
               )}
               {provider === 'demo' ? <p className="-mt-3 text-xs text-muted">{t('donate.demoHint')}</p> : null}
+              {walletShort ? (
+                <p className="-mt-3 text-sm text-[#e5484d]" role="alert">
+                  {t('donate.walletLow')} <Link to="/account" className="underline">{t('acct.nav')}</Link>
+                </p>
+              ) : null}
+              {account === null ? (
+                <Link to="/account" className={cn('-mt-2 self-start rounded text-sm text-muted underline hover:text-fg', focusRing)}>
+                  {t('donate.signInWallet')}
+                </Link>
+              ) : null}
 
               {usdAvailable ? (
                 <ChoiceGroup
@@ -473,7 +499,7 @@ export default function DonatePage() {
                 </p>
               ) : null}
 
-              <Button type="submit" size="lg" fullWidth loading={submitting} disabled={!ready || !profile.live || !provider}>
+              <Button type="submit" size="lg" fullWidth loading={submitting} disabled={!ready || !profile.live || !provider || walletShort}>
                 {payLabel}
               </Button>
             </div>

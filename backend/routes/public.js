@@ -14,6 +14,8 @@ import { findVoice, availableVoices } from '../utils/voices.js';
 import { getTelegramFile, sendTelegramFile } from '../utils/telegramFiles.js';
 import { listStreamerSounds, cooldownRemaining } from '../services/sounds.js';
 import { parseYouTubeUrl, checkYouTubeVideo } from '../utils/media.js';
+import { accountTelegramId, loadUser } from '../middleware/accountAuth.js';
+import { isDonorBanned } from '../../bot/utils/ban.js';
 
 const router = express.Router();
 
@@ -176,7 +178,7 @@ const checkoutSchema = z.object({
   slug: z.string().min(3).max(40),
   kind: z.enum(['tts', 'sound', 'media']),
   donorName: z.string().trim().min(1).max(40),
-  provider: z.enum(['chapa', 'arifpay', 'demo']),
+  provider: z.enum(['chapa', 'arifpay', 'demo', 'wallet']),
   currency: z.enum(['ETB', 'USD']).default('ETB'),
   claimCode: z.string().max(20).optional().nullable(),
   message: z.string().max(2000).optional(),
@@ -274,6 +276,21 @@ router.post('/checkout', checkoutLimiter, express.json({ limit: '16kb' }), async
     if (containsBlocked(body.donorName, globalWords)) throw new CheckoutError('Please choose a different name.');
     const donorName = maskBlocked(body.donorName, settings.blocked_words).display;
 
+    // A signed-in donor can pay from their wallet, and any refund goes back to that wallet
+    // (instead of a claim code), whichever way they pay.
+    let donorTelegramId = null;
+    const accountId = accountTelegramId(req);
+    if (accountId) {
+      const account = await loadUser(accountId);
+      if (account?.role === 'donor') {
+        if (isDonorBanned(account)) throw new CheckoutError('Your account is restricted. Contact support.', 403);
+        donorTelegramId = accountId;
+      }
+    }
+    if (body.provider === 'wallet' && !donorTelegramId) {
+      throw new CheckoutError(accountId ? 'Register as a donor to use a wallet' : 'Sign in to pay from your wallet', 401);
+    }
+
     const build = purposeBuilders[body.kind];
     if (!build) throw new CheckoutError('Not available yet');
     const purpose = await build({ body, streamer, settings, donorName, globalWords });
@@ -281,8 +298,9 @@ router.post('/checkout', checkoutLimiter, express.json({ limit: '16kb' }), async
     const result = await startCheckout({
       providerName: body.provider,
       purpose,
-      currency: body.currency,
+      currency: body.provider === 'wallet' ? 'ETB' : body.currency,
       donorName,
+      donorTelegramId,
       claimCode: body.claimCode || null,
       description: `${displayName(streamer)} ${purpose.kind}`,
     });

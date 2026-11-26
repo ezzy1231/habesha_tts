@@ -1,6 +1,9 @@
 import PropTypes from 'prop-types';
 import { Button, PublicLayout, useI18n } from '../../ui';
 import { extendDictionaries } from '../../ui/i18n';
+import { Link } from 'react-router-dom';
+import { getAccountToken } from '../../lib/accountApi';
+import '../../lib/accountStrings';
 
 const BOT_URL = 'https://t.me/HabeshaTTS_bot';
 
@@ -23,14 +26,21 @@ const FOOTER = [
 /** Public shell for the viewer pages (directory, donate, return). */
 export function ViewerLayout({ children }) {
   const { t } = useI18n();
+  // Signed-in state only changes the header label; no request needed.
+  const account = Boolean(getAccountToken());
   return (
     <PublicLayout
       nav={NAV}
       footerLinks={FOOTER}
       cta={
-        <Button as="a" href={BOT_URL} target="_blank" rel="noreferrer" size="sm" variant="secondary">
-          {t('viewer.cta')}
-        </Button>
+        <>
+          <Button as={Link} to="/account" size="sm" variant="ghost">
+            {account ? t('acct.nav') : t('acct.signIn')}
+          </Button>
+          <Button as="a" href={BOT_URL} target="_blank" rel="noreferrer" size="sm" variant="secondary">
+            {t('viewer.cta')}
+          </Button>
+        </>
       }
     >
       {children}

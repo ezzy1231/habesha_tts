@@ -5,6 +5,7 @@ import { ViewerLayout } from '../components/viewer/ViewerLayout';
 import { publicApi } from '../lib/publicApi';
 import { CLAIM_KEY } from '../lib/publicApi';
 import '../lib/viewerStrings';
+import '../lib/accountStrings';
 
 const POLL_MS = 3000;
 const MAX_POLLS = 100; // about five minutes
@@ -80,7 +81,7 @@ export default function DonateReturnPage() {
       expired: t('ret.expired'), refunded: t('ret.refunded'), mediaRejected: t('ret.refunded'),
     }[state];
     const detail = {
-      paid: { tts: t('ret.paidTts'), sound: t('ret.paidSound'), media: t('ret.paidMedia') }[payment.kind],
+      paid: { tts: t('ret.paidTts'), sound: t('ret.paidSound'), media: t('ret.paidMedia'), wallet_topup: t('ret.paidTopup') }[payment.kind],
       mediaApproved: t('ret.mediaApproved'),
       pending: t('ret.pendingHint'),
       failed: t('ret.failedHint'),
@@ -111,7 +112,11 @@ export default function DonateReturnPage() {
         ) : null}
 
         <div className="mt-8 flex flex-wrap justify-center gap-2">
-          <Button as={Link} to={again}>{t('ret.again')}</Button>
+          {payment.kind === 'wallet_topup' ? (
+            <Button as={Link} to="/account">{t('ret.toAccount')}</Button>
+          ) : (
+            <Button as={Link} to={again}>{t('ret.again')}</Button>
+          )}
           <Button as={Link} to="/streamers" variant="secondary">{t('donate.back')}</Button>
         </div>
       </div>

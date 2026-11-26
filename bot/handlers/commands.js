@@ -1,5 +1,6 @@
 import { isDonorBanned, buildBanMessage } from '../utils/ban.js';
 import { sendRegisteredMenu } from '../utils/menus.js';
+import { bindLoginRequest, LOGIN_TTL_MINUTES } from '../../backend/services/webLogin.js';
 
 // Registers /command handlers without altering existing bot behavior.
 export const registerCommands = (bot, deps = {}) => {
@@ -75,6 +76,25 @@ export const registerCommands = (bot, deps = {}) => {
       from: { id: fromId, first_name },
     } = msg;
     const tgId = String(fromId);
+
+    // Website sign-in: t.me/<bot>?start=login_<nonce> arrives as "/start login_<nonce>".
+    const loginMatch = /^\/start(?:@\w+)?\s+login_([A-Za-z0-9_-]{32})\s*$/.exec(msg.text || '');
+    if (loginMatch) {
+      try {
+        const code = await bindLoginRequest(loginMatch[1], tgId);
+        await bot.sendMessage(
+          chatId,
+          code
+            ? `🔐 *የድረ-ገጽ መግቢያ ኮድ / Website sign-in code*\n\n\`${code}\`\n\nይህን ኮድ በድረ-ገጹ ላይ ያስገቡ። ለ ${LOGIN_TTL_MINUTES} ደቂቃ ያገለግላል።\n⚠️ ለማንም አያጋሩ። ይህን ያላደረጉት እርስዎ ከሆኑ ችላ ይበሉት።`
+            : '⚠️ ይህ የመግቢያ ሊንክ ጊዜው አልፏል። እባክዎ በድረ-ገጹ ላይ እንደገና ይጀምሩ።\nThis sign-in link expired. Please start again on the website.',
+          { parse_mode: 'Markdown' }
+        );
+      } catch (error) {
+        console.error('[Bot] website login bind failed:', error);
+        await bot.sendMessage(chatId, '❌ መግባት አልተቻለም። እባክዎ እንደገና ይሞክሩ።');
+      }
+      return;
+    }
 
     // Clear any previous state
     await userStates.delete(tgId);
