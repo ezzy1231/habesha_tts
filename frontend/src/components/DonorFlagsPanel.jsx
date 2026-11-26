@@ -26,7 +26,7 @@ const formatDate = (value) => {
   }
 };
 
-export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved }) {
+export default function DonorFlagsPanel({ apiClient, refreshKey = 0, onFlagResolved }) {
   const [flags, setFlags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -377,9 +377,4 @@ DonorFlagsPanel.propTypes = {
   apiClient: PropTypes.oneOfType([PropTypes.object, PropTypes.func]),
   refreshKey: PropTypes.number,
   onFlagResolved: PropTypes.func,
-};
-
-DonorFlagsPanel.defaultProps = {
-  refreshKey: 0,
-  onFlagResolved: undefined,
 };

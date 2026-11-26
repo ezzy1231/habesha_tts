@@ -8,7 +8,7 @@ const FLAG_ACTION_OPTIONS = [
   { value: 'unban_request', icon: '✅', label: 'Unban Request' },
 ];
 
-export default function DonationCard({ donation, isPlaying = false, onFlagAction, isFlagging = false }) {
+export default function DonationCard({ donation, isPlaying = false, onFlagAction = null, isFlagging = false }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const hasPendingFlag = donation.flag?.status === 'pending';
@@ -255,10 +255,4 @@ DonationCard.propTypes = {
   isPlaying: PropTypes.bool,
   onFlagAction: PropTypes.func,
   isFlagging: PropTypes.bool,
-};
-
-DonationCard.defaultProps = {
-  isPlaying: false,
-  onFlagAction: null,
-  isFlagging: false,
 };
