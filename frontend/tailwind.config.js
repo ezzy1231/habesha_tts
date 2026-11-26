@@ -134,7 +134,7 @@ export default {
         // Noto Sans Ethiopic for Amharic characters automatically.
         sans: ['Inter', '"Noto Sans Ethiopic"', 'system-ui', '-apple-system', 'sans-serif'],
         // Editorial display face for headings: Fraunces (Latin) + Noto Serif Ethiopic (Ge'ez).
-        display: ['Fraunces', '"Noto Serif Ethiopic"', 'Georgia', 'serif'],
+        display: ['"Bricolage Grotesque"', '"Noto Sans Ethiopic"', 'Inter', 'system-ui', 'sans-serif'],
         ethiopic: ['"Noto Sans Ethiopic"', 'Nyala', '"Abyssinica SIL"', 'Inter', 'system-ui', 'sans-serif'],
       },
       // Radius scale: Tailwind defaults — rounded-md (6px) controls, rounded-lg (8px)

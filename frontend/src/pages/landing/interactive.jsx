@@ -1,61 +1,269 @@
 import { useEffect, useId, useState } from 'react';
 import PropTypes from 'prop-types';
-import { Input, Textarea, Tabs, cn, formatETB, Icon, useI18n } from '../../ui';
-import { BOT_URL, KEEP_PERCENT, PRICING, SAMPLE_DONATIONS, priceForMessage } from './strings';
-import { AlertCard, CtaLink } from './parts';
+import { Tabs, TabsIndicator, TabsList, TabsPanel, TabsTab } from '@ui-sdk/react/tabs';
+import {
+  SegmentedControl,
+  SegmentedControlIndicator,
+  SegmentedControlItem,
+} from '@ui-sdk/react/segmented-control';
+import { Slider, SliderControl, SliderIndicator, SliderThumb, SliderTrack, SliderValue } from '@ui-sdk/react/slider';
+import { cn, focusRing, Icon, Input, Textarea, useI18n } from '../../ui';
+import { BOT_URL, KEEP_PERCENT, PRICING, priceForMessage, SAMPLE_DONATIONS } from './strings';
+import { AlertCard, CtaLink, Equalizer, LiveChip, Panel, WindowFrame } from './parts';
 
 function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false);
+  const [reduced, setReduced] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+  );
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReduced(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
+    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!mq) return undefined;
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
   }, []);
   return reduced;
 }
 
-/** Hero visual: a mock stream frame whose alert cycles through sample donations. */
-export function HeroStage() {
-  const { t } = useI18n();
+function useCycle(length, ms) {
   const reduced = usePrefersReducedMotion();
   const [index, setIndex] = useState(0);
-
   useEffect(() => {
     if (reduced) return undefined;
-    const id = setInterval(() => setIndex((i) => (i + 1) % SAMPLE_DONATIONS.length), 3800);
+    const id = setInterval(() => setIndex((i) => (i + 1) % length), ms);
     return () => clearInterval(id);
-  }, [reduced]);
+  }, [length, ms, reduced]);
+  return index;
+}
 
-  const d = SAMPLE_DONATIONS[index];
-  const next = SAMPLE_DONATIONS.slice(index + 1, index + 3).concat(SAMPLE_DONATIONS).slice(0, 2);
+const etb = (n) => `ETB ${Math.round(n).toLocaleString('en-US')}`;
+
+function Initial({ name, className }) {
+  const hue = [...String(name)].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white', className)}
+      style={{ background: `linear-gradient(135deg, hsl(${hue} 70% 45%), hsl(${(hue + 40) % 360} 70% 35%))` }}
+    >
+      {String(name).charAt(0)}
+    </span>
+  );
+}
+
+Initial.propTypes = { name: PropTypes.string.isRequired, className: PropTypes.string };
+
+/** A stylised "stream" backdrop: dusk sky, mountains, sun. Pure CSS, decorative. */
+function StreamScene({ className, children }) {
+  return (
+    <div className={cn('relative overflow-hidden bg-[#0b1020]', className)}>
+      <div
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(60% 55% at 70% 28%, rgba(245,190,30,0.55), transparent 60%), radial-gradient(70% 60% at 20% 10%, rgba(52,211,153,0.35), transparent 60%), linear-gradient(180deg, #14213d 0%, #3b1f4a 55%, #6b2b3a 100%)',
+        }}
+      />
+      <div aria-hidden="true" className="absolute left-[64%] top-[22%] h-16 w-16 rounded-full bg-[#ffd27a] opacity-90 blur-[1px] sm:h-24 sm:w-24" />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-[55%] bg-[#1d1630]"
+        style={{ clipPath: 'polygon(0 55%, 12% 30%, 24% 48%, 38% 12%, 52% 42%, 63% 25%, 78% 50%, 90% 28%, 100% 45%, 100% 100%, 0 100%)' }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-[38%] bg-[#0f0c1c]"
+        style={{ clipPath: 'polygon(0 40%, 18% 62%, 33% 30%, 47% 58%, 60% 38%, 74% 66%, 88% 34%, 100% 55%, 100% 100%, 0 100%)' }}
+      />
+      <div aria-hidden="true" className="lp-noise absolute inset-0 opacity-[0.12] mix-blend-overlay" />
+      {children}
+    </div>
+  );
+}
+
+StreamScene.propTypes = { className: PropTypes.string, children: PropTypes.node };
+
+/** The hero product shot: an OBS-style window with a live alert, the queue and today's total. */
+export function HeroStudio() {
+  const { t } = useI18n();
+  const index = useCycle(SAMPLE_DONATIONS.length, 3800);
+  const current = SAMPLE_DONATIONS[index];
+  const queue = [1, 2, 3].map((n) => SAMPLE_DONATIONS[(index + n) % SAMPLE_DONATIONS.length]);
+  const bars = [38, 52, 44, 70, 58, 82, 66, 94, 76, 100];
 
   return (
-    <div className="relative" aria-hidden="true">
-      <div className="absolute -inset-8 -z-10 rounded-[3rem] bg-[radial-gradient(closest-side,rgba(242,183,5,0.22),transparent)] blur-2xl" />
-      <div className="overflow-hidden rounded-[1.75rem] border border-line bg-[#0f0b08] p-2 shadow-overlay">
-        <div className="relative overflow-hidden rounded-[1.25rem] bg-[radial-gradient(ellipse_at_30%_0%,rgba(7,137,48,0.35),transparent_55%),radial-gradient(ellipse_at_100%_100%,rgba(218,18,26,0.25),transparent_50%),linear-gradient(160deg,#1d1712,#0c0907)]">
-          <div className="flex items-center justify-between px-4 pt-4">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-flag-red px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
-              {t('lp.alert.live')}
-            </span>
-            <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/70 backdrop-blur">
-              {t('lp.alert.overlay')}
-            </span>
-          </div>
-          <div className="flex min-h-[19rem] flex-col justify-end p-4 sm:min-h-[22rem] sm:p-6">
-            <AlertCard key={index} name={d.name} amount={d.amount} message={d.message} className="animate-ui-pop-in" />
-            <div className="mt-3 flex flex-col gap-1.5">
-              {next.map((n) => (
-                <div key={n.name} className="flex items-center justify-between rounded-xl bg-white/[0.06] px-3 py-2 text-xs text-white/70">
-                  <span className="truncate font-ethiopic">
-                    <span className="font-semibold text-white/90">{n.name}</span> · {n.message}
+    <div className="relative mx-auto mt-16 max-w-5xl sm:mt-20" aria-label={t('lp.alert.overlay')} role="img">
+      <div
+        aria-hidden="true"
+        className="absolute -inset-x-10 -top-10 bottom-0 -z-10 rounded-[50%] bg-[radial-gradient(closest-side,rgba(52,211,153,0.28),transparent),radial-gradient(closest-side,rgba(245,190,30,0.18),transparent)] blur-2xl"
+      />
+      <div className="[perspective:2200px]">
+        <div className="origin-top transition-transform duration-700 [transform:rotateX(8deg)] motion-reduce:[transform:none] lg:hover:[transform:rotateX(0deg)]">
+          <WindowFrame
+            title={t('lp.mock.window')}
+            right={<span className="hidden text-[11px] text-white/40 sm:inline">1920 × 1080</span>}
+            className="lp-ring-gradient"
+          >
+            <div className="grid lg:grid-cols-[1fr_250px]">
+              <StreamScene className="aspect-[4/3] sm:aspect-video">
+                <div className="absolute left-3 top-3 flex items-center gap-2 sm:left-4 sm:top-4">
+                  <LiveChip />
+                  <span className="rounded-md bg-black/45 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur">
+                    {t('lp.mock.viewers')}
                   </span>
-                  <span className="ml-3 shrink-0 font-semibold tabular-nums text-flag-yellow">{n.amount} ETB</span>
                 </div>
+                <div className="absolute inset-x-3 bottom-3 sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-[min(400px,62%)]">
+                  <AlertCard
+                    key={index}
+                    compact
+                    name={current.name}
+                    amount={current.amount}
+                    message={current.message}
+                    className="animate-ui-pop-in"
+                  />
+                </div>
+              </StreamScene>
+              <aside className="hidden flex-col border-l border-white/[0.07] bg-white/[0.02] p-4 lg:flex" aria-hidden="true">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">{t('lp.mock.queue')}</p>
+                <ul className="mt-3 flex flex-col gap-2">
+                  {queue.map((d, i) => (
+                    <li
+                      key={`${d.name}-${i}`}
+                      className="flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.03] p-2"
+                      style={{ opacity: 1 - i * 0.22 }}
+                    >
+                      <Initial name={d.name} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-semibold text-white/90">{d.name}</span>
+                        <span className="block truncate font-ethiopic text-[11px] text-white/45">{d.message}</span>
+                      </span>
+                      <span className="text-xs font-bold tabular-nums text-gold-bright">{d.amount}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-auto rounded-xl border border-white/[0.06] bg-gradient-to-b from-emerald-400/10 to-transparent p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">{t('lp.mock.today')}</p>
+                  <p className="mt-1 font-display text-2xl font-bold tabular-nums text-white">ETB 4,860</p>
+                  <div className="mt-3 flex h-10 items-end gap-1">
+                    {bars.map((h, i) => (
+                      <span
+                        key={i}
+                        className="flex-1 rounded-sm bg-gradient-to-t from-emerald-500/40 to-emerald-300"
+                        style={{ height: `${h}%`, opacity: 0.45 + i * 0.055 }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </WindowFrame>
+        </div>
+      </div>
+
+      <div
+        aria-hidden="true"
+        className="absolute -left-4 top-[18%] hidden animate-float-slow items-center gap-3 rounded-2xl border border-line bg-surface/90 p-3 pr-4 shadow-xl backdrop-blur-xl motion-reduce:animate-none md:flex xl:-left-16"
+      >
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
+          <Icon name="checkCircle" size={18} />
+        </span>
+        <span>
+          <span className="block text-xs font-semibold text-fg">{t('lp.mock.paid')}</span>
+          <span className="block text-[11px] text-muted">Telebirr · ETB {current.amount}</span>
+        </span>
+      </div>
+      <div
+        aria-hidden="true"
+        className="absolute -right-4 bottom-[22%] hidden animate-float-slow items-center gap-3 rounded-2xl border border-line bg-surface/90 p-3 pr-4 shadow-xl backdrop-blur-xl [animation-delay:1.5s] motion-reduce:animate-none md:flex xl:-right-14"
+      >
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold-bright/15 text-gold">
+          <Icon name="mic" size={18} />
+        </span>
+        <span>
+          <span className="block text-xs font-semibold text-fg">{t('lp.mock.voice')}</span>
+          <Equalizer bars={14} className="mt-1 h-3" barClassName="bg-gold" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Endless marquee of sample donations. Pauses on hover. */
+export function DonationTicker() {
+  const { t } = useI18n();
+  const items = [...SAMPLE_DONATIONS, ...SAMPLE_DONATIONS];
+  return (
+    <section aria-label={t('lp.ticker.label')} className="relative border-y border-line bg-surface/40 py-4">
+      <div className="group overflow-hidden [mask-image:linear-gradient(to_right,transparent,#000_8%,#000_92%,transparent)]">
+        <ul className="flex w-max animate-marquee gap-3 group-hover:[animation-play-state:paused] motion-reduce:animate-none">
+          {items.map((d, i) => (
+            <li
+              key={`${d.name}-${i}`}
+              aria-hidden={i >= SAMPLE_DONATIONS.length || undefined}
+              className="flex items-center gap-2.5 whitespace-nowrap rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-4 text-sm"
+            >
+              <Initial name={d.name} />
+              <span className="font-semibold text-fg">{d.name}</span>
+              <span className="font-bold tabular-nums text-gold">ETB {d.amount}</span>
+              <span className="font-ethiopic text-muted">{d.message}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function CheckRow({ children }) {
+  return (
+    <li className="flex gap-3">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500" aria-hidden="true">
+        <Icon name="check" size={14} strokeWidth={3} />
+      </span>
+      <span className="text-[15px] leading-relaxed text-fg/90">{children}</span>
+    </li>
+  );
+}
+
+CheckRow.propTypes = { children: PropTypes.node };
+
+/** Phone mockup of the viewer's donation form. */
+function ViewerMock() {
+  const { t } = useI18n();
+  return (
+    <div className="relative mx-auto w-full max-w-[300px]" aria-hidden="true">
+      <div className="rounded-[2.4rem] border border-line-strong bg-[#0b0e0c] p-2.5 shadow-2xl">
+        <div className="overflow-hidden rounded-[1.9rem] bg-[#111512] text-white">
+          <div className="mx-auto mt-2 h-5 w-24 rounded-full bg-black" />
+          <div className="p-5">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-700 font-ethiopic text-sm font-bold">
+                ኤ
+              </span>
+              <span>
+                <span className="block text-sm font-bold">@ermias_live</span>
+                <span className="flex items-center gap-1.5 text-[11px] text-white/50">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> {t('lp.alert.live')}
+                </span>
+              </span>
+            </div>
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-3.5">
+              <p className="text-[11px] text-white/45">{t('lp.demo.message')}</p>
+              <p className="mt-1 font-ethiopic text-sm leading-relaxed">ሰላም ከአዲስ አበባ! ቀጥል 💚</p>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] font-semibold">
+              {['Telebirr', 'Chapa', 'Arifpay'].map((p, i) => (
+                <span
+                  key={p}
+                  className={cn('rounded-xl border py-2', i === 0 ? 'border-gold-bright/70 bg-gold-bright/10 text-gold-bright' : 'border-white/10 text-white/60')}
+                >
+                  {p}
+                </span>
               ))}
+            </div>
+            <div className="mt-5 flex h-11 items-center justify-center rounded-full bg-gradient-to-b from-[#ffd24d] to-[#f2b705] text-sm font-bold text-[#16130a]">
+              {t('lp.mock.donate')} · ETB 20
             </div>
           </div>
         </div>
@@ -64,213 +272,263 @@ export function HeroStage() {
   );
 }
 
-/** Infinite ticker of sample donations. */
-export function DonationTicker() {
+/** Dashboard card mockup for streamers. */
+function StreamerMock() {
   const { t } = useI18n();
-  const items = [...SAMPLE_DONATIONS, ...SAMPLE_DONATIONS];
+  const week = [30, 55, 40, 75, 60, 90, 70];
   return (
-    <section aria-label={t('lp.ticker.label')} className="relative overflow-hidden border-y border-line bg-surface py-4">
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-surface to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-surface to-transparent" />
-      <ul className="flex w-max animate-marquee gap-3 hover:[animation-play-state:paused] motion-reduce:animate-none">
-        {items.map((d, i) => (
-          <li
-            key={i}
-            aria-hidden={i >= SAMPLE_DONATIONS.length || undefined}
-            className="flex shrink-0 items-center gap-2.5 rounded-full border border-line bg-canvas px-4 py-2 text-sm"
-          >
-            <span className="font-semibold text-fg">{d.name}</span>
-            <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs font-bold tabular-nums text-gold">{d.amount} ETB</span>
-            <span className="max-w-[14rem] truncate font-ethiopic text-muted">{d.message}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/** "For viewers / For streamers" switcher. */
-export function AudienceSwitcher() {
-  const { t } = useI18n();
-  const [who, setWho] = useState('viewers');
-  const points = [1, 2, 3, 4].map((n) => t(`lp.who.${who}.${n}`, { keep: KEEP_PERCENT }));
-  const icons = who === 'viewers' ? ['globe', 'wallet', 'checkCircle', 'mic'] : ['gift', 'layers', 'shield', 'chart'];
-
-  return (
-    <div>
-      <Tabs
-        variant="pill"
-        label={t('lp.who.title')}
-        value={who}
-        onChange={setWho}
-        items={[
-          { value: 'viewers', label: t('lp.who.viewers'), icon: <Icon name="users" size={16} /> },
-          { value: 'streamers', label: t('lp.who.streamers'), icon: <Icon name="mic" size={16} /> },
-        ]}
-      />
-      <div key={who} className="mt-8 grid animate-ui-fade-in gap-8 lg:grid-cols-[1fr_1.2fr] lg:items-center">
-        <p className="font-display text-2xl font-semibold leading-snug text-fg sm:text-3xl">{t(`lp.who.${who}.headline`)}</p>
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {points.map((p, i) => (
-            <li key={p} className="flex gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
-                <Icon name={icons[i]} size={18} />
-              </span>
-              <span className="text-sm leading-relaxed text-fg">{p}</span>
-            </li>
+    <div className="relative mx-auto w-full max-w-md" aria-hidden="true">
+      <Panel className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-subtle">{t('lp.mock.balance')}</p>
+            <p className="mt-1 font-display text-4xl font-bold tabular-nums tracking-tight text-fg">ETB 12,480</p>
+          </div>
+          <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-500">+18%</span>
+        </div>
+        <div className="mt-6 flex h-28 items-end gap-2">
+          {week.map((h, i) => (
+            <span
+              key={i}
+              className={cn('flex-1 rounded-lg', i === 5 ? 'bg-gradient-to-t from-[#f2b705] to-[#ffd24d]' : 'bg-surface-3')}
+              style={{ height: `${h}%` }}
+            />
           ))}
-        </ul>
-      </div>
+        </div>
+        <p className="mt-2 text-xs text-subtle">
+          {t('lp.mock.week')} · {t('lp.mock.sample')}
+        </p>
+        <div className="mt-5 flex items-center justify-between rounded-2xl border border-line bg-surface-2 p-3">
+          <span className="flex items-center gap-2 text-sm font-semibold text-fg">
+            <Icon name="wallet" size={16} className="text-gold" /> Telebirr
+          </span>
+          <span className="rounded-full bg-fg px-3 py-1.5 text-xs font-bold text-canvas">{t('lp.mock.payout')}</span>
+        </div>
+      </Panel>
     </div>
   );
 }
 
-/** Interactive demo: type a message, see the alert and the price. */
+const AUDIENCES = [
+  { value: 'viewers', prefix: 'lp.who.viewers', Mock: ViewerMock },
+  { value: 'streamers', prefix: 'lp.who.streamers', Mock: StreamerMock },
+];
+
+/** Viewers / streamers tabs (ui-sdk Tabs with a sliding indicator). */
+export function AudienceTabs() {
+  const { t } = useI18n();
+  return (
+    <Tabs defaultValue="viewers" className="mt-10">
+      <TabsList aria-label={t('lp.who.title')} className="relative mx-auto flex w-fit rounded-full border border-line bg-surface p-1">
+        <TabsIndicator className="rounded-full bg-fg shadow-sm" />
+        {AUDIENCES.map(({ value, prefix }) => (
+          <TabsTab
+            key={value}
+            value={value}
+            className={cn(
+              'relative z-10 rounded-full px-5 py-2.5 text-sm font-semibold text-muted transition-colors duration-200 hover:text-fg data-[selected]:text-canvas sm:px-7',
+              focusRing,
+            )}
+          >
+            {t(prefix)}
+          </TabsTab>
+        ))}
+      </TabsList>
+      {AUDIENCES.map(({ value, prefix, Mock }) => (
+        <TabsPanel key={value} value={value} className="mt-12 animate-ui-fade-in focus:outline-none">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            <div>
+              <h3 className="text-balance font-display text-2xl font-bold tracking-tight text-fg sm:text-3xl">{t(`${prefix}.headline`)}</h3>
+              <ul className="mt-7 flex flex-col gap-4">
+                {[1, 2, 3, 4].map((k) => (
+                  <CheckRow key={k}>{t(`${prefix}.${k}`, { keep: KEEP_PERCENT })}</CheckRow>
+                ))}
+              </ul>
+            </div>
+            <Mock />
+          </div>
+        </TabsPanel>
+      ))}
+    </Tabs>
+  );
+}
+
+const PRESETS = ['am', 'en', 'mix'];
+const PRESET_KEYS = { am: 'lp.demo.messageDefault', en: 'lp.demo.sample.en', mix: 'lp.demo.sample.mix' };
+
+/** Live demo: write a message, see the price and the alert update. */
 export function TryItDemo() {
   const { t } = useI18n();
+  const [preset, setPreset] = useState('am');
   const [name, setName] = useState('');
-  const [message, setMessage] = useState(null);
-  const text = message ?? t('lp.demo.messageDefault');
-  const count = Array.from(text).length;
-  const price = priceForMessage(text);
+  const [message, setMessage] = useState(() => t(PRESET_KEYS.am));
+  const nameId = useId();
+  const messageId = useId();
+  const price = priceForMessage(message);
+  const count = Array.from(message).length;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_1.05fr] lg:gap-10">
-      <div className="flex flex-col gap-5 rounded-3xl border border-line bg-surface p-5 shadow-card sm:p-7">
-        <Input
-          label={t('lp.demo.name')}
-          placeholder={t('lp.demo.namePlaceholder')}
-          value={name}
-          maxLength={40}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <Textarea
-          label={t('lp.demo.message')}
-          value={text}
-          rows={4}
-          maxLength={PRICING.maxChars}
-          onChange={(e) => setMessage(e.target.value)}
-          hint={t('lp.demo.chars', { count, max: PRICING.maxChars })}
-        />
-        <div className="flex items-end justify-between gap-4 rounded-2xl bg-surface-2 px-4 py-3">
+    <div className="mt-12 grid gap-6 lg:grid-cols-[1fr_1.1fr]">
+      <Panel className="p-6 sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-subtle">{t('lp.demo.preset')}</p>
+        <SegmentedControl
+          aria-label={t('lp.demo.preset')}
+          value={preset}
+          onValueChange={(v) => {
+            if (!v) return;
+            setPreset(v);
+            setMessage(t(PRESET_KEYS[v]));
+          }}
+          className="relative isolate mt-3 inline-flex rounded-full border border-line bg-surface-2 p-1"
+        >
+          <SegmentedControlIndicator className="rounded-full bg-surface shadow-[0_1px_3px_rgb(0_0_0/0.2)] ring-1 ring-line" />
+          {PRESETS.map((k) => (
+            <SegmentedControlItem
+              key={k}
+              value={k}
+              className={cn('rounded-full px-4 py-1.5 text-sm font-semibold text-muted transition-colors data-[checked]:text-fg', focusRing)}
+            >
+              {t(`lp.demo.preset.${k}`)}
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
+
+        <div className="mt-6 flex flex-col gap-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('lp.demo.price')}</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted">
-              {t('lp.demo.priceHint', { base: PRICING.basePrice, step: PRICING.stepChars, inc: PRICING.incrementPrice })}
+            <label htmlFor={nameId} className="text-sm font-semibold text-fg">
+              {t('lp.demo.name')}
+            </label>
+            <Input
+              id={nameId}
+              value={name}
+              maxLength={40}
+              placeholder={t('lp.demo.namePlaceholder')}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+          <div>
+            <div className="flex items-baseline justify-between">
+              <label htmlFor={messageId} className="text-sm font-semibold text-fg">
+                {t('lp.demo.message')}
+              </label>
+              <span className="text-xs tabular-nums text-subtle">{t('lp.demo.chars', { count, max: PRICING.maxChars })}</span>
+            </div>
+            <Textarea
+              id={messageId}
+              rows={4}
+              value={message}
+              maxLength={PRICING.maxChars}
+              onChange={(e) => setMessage(e.target.value)}
+              className="mt-2 font-ethiopic"
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-line bg-surface-2 p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-subtle">{t('lp.demo.price')}</p>
+            <p className="mt-1 font-display text-3xl font-bold tabular-nums text-fg" aria-live="polite">
+              {etb(price)}
             </p>
           </div>
-          <p className="shrink-0 font-display text-3xl font-bold tabular-nums text-fg" aria-live="polite">
-            {price} <span className="text-base font-semibold text-muted">ETB</span>
+          <p className="max-w-[16rem] text-xs leading-relaxed text-muted">
+            {t('lp.demo.priceHint', { base: PRICING.basePrice, step: PRICING.stepChars, inc: PRICING.incrementPrice })}
           </p>
         </div>
-        <CtaLink href={BOT_URL} external icon="chevronRight" className="w-full sm:w-auto sm:self-start">
+        <CtaLink href={BOT_URL} external icon="chevronRight" className="mt-6 w-full">
           {t('lp.demo.send')}
         </CtaLink>
-      </div>
-      <div className="relative flex flex-col justify-end overflow-hidden rounded-3xl border border-line bg-[radial-gradient(ellipse_at_20%_0%,rgba(7,137,48,0.3),transparent_55%),linear-gradient(160deg,#1d1712,#0c0907)] p-5 sm:p-7">
-        <span className="mb-auto self-start rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/70">
-          {t('lp.alert.overlay')}
-        </span>
-        <AlertCard
-          name={name.trim() || t('lp.demo.anonymous')}
-          amount={price}
-          message={text || '…'}
-          className="mt-16"
-        />
-      </div>
+      </Panel>
+
+      <WindowFrame title={t('lp.alert.overlay')} right={<LiveChip />} className="flex flex-col">
+        <StreamScene className="flex min-h-[320px] flex-1 items-end p-4 sm:p-6">
+          <AlertCard
+            name={name.trim() || t('lp.demo.anonymous')}
+            amount={price}
+            message={message || '…'}
+            className="relative w-full max-w-md"
+          />
+        </StreamScene>
+      </WindowFrame>
     </div>
   );
 }
 
-function RangeField({ label, value, min, max, step, onChange, format }) {
-  const id = useId();
-  const pct = ((value - min) / (max - min)) * 100;
+function SliderRow({ label, value, onChange, min, max, step = 1, format }) {
   return (
-    <div>
+    <Slider value={value} onValueChange={onChange} min={min} max={max} step={step} format={format} locale="en-US">
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-sm font-medium text-fg">
-          {label}
-        </label>
-        <output htmlFor={id} className="font-semibold tabular-nums text-fg">
-          {format ? format(value) : value}
-        </output>
+        <span className="text-sm font-medium text-muted">{label}</span>
+        <SliderValue className="font-display text-lg font-bold tabular-nums text-fg" />
       </div>
-      <input
-        id={id}
-        data-ui=""
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-surface-3 accent-[#F2B705] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-bright focus-visible:ring-offset-2 focus-visible:ring-offset-surface [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-gold-bright [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold-bright [&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(242,183,5,0.25)]"
-        style={{ background: `linear-gradient(to right, #F2B705 ${pct}%, rgb(var(--ui-surface-3)) ${pct}%)` }}
-      />
-    </div>
+      <SliderControl className="relative mt-1 flex h-8 cursor-pointer touch-none items-center">
+        <SliderTrack className="relative h-2 w-full rounded-full bg-surface-3">
+          <SliderIndicator className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-gold-bright" />
+          <SliderThumb
+            aria-label={label}
+            className="h-6 w-6 rounded-full border-[3px] border-gold-bright bg-white shadow-[0_4px_12px_rgb(0_0_0/0.3)] transition-transform data-[dragging]:scale-110"
+          />
+        </SliderTrack>
+      </SliderControl>
+    </Slider>
   );
 }
 
-RangeField.propTypes = {
-  label: PropTypes.node.isRequired,
+SliderRow.propTypes = {
+  label: PropTypes.string.isRequired,
   value: PropTypes.number.isRequired,
+  onChange: PropTypes.func.isRequired,
   min: PropTypes.number.isRequired,
   max: PropTypes.number.isRequired,
   step: PropTypes.number,
-  onChange: PropTypes.func.isRequired,
-  format: PropTypes.func,
+  format: PropTypes.object,
 };
 
-/** Monthly earnings estimate from three sliders. */
+const ETB_FORMAT = { style: 'currency', currency: 'ETB', currencyDisplay: 'code', maximumFractionDigits: 0 };
+
+/** Earnings estimate with three ui-sdk sliders. */
 export function EarningsCalculator() {
   const { t } = useI18n();
   const [perStream, setPerStream] = useState(15);
   const [avg, setAvg] = useState(60);
   const [streams, setStreams] = useState(12);
-
   const gross = perStream * avg * streams;
-  const fee = Math.round(gross * PRICING.platformFeePercent) / 100;
+  const fee = (gross * PRICING.platformFeePercent) / 100;
   const net = gross - fee;
-  const keepShare = KEEP_PERCENT;
 
   return (
-    <div className="grid overflow-hidden rounded-3xl border border-line bg-surface shadow-card lg:grid-cols-[1.1fr_1fr]">
-      <div className="flex flex-col gap-7 p-6 sm:p-8">
-        <RangeField label={t('lp.earn.perStream')} value={perStream} min={1} max={100} step={1} onChange={setPerStream} />
-        <RangeField
-          label={t('lp.earn.avg')}
-          value={avg}
-          min={20}
-          max={500}
-          step={10}
-          onChange={setAvg}
-          format={(v) => formatETB(v, { decimals: 0 })}
-        />
-        <RangeField label={t('lp.earn.streams')} value={streams} min={1} max={30} step={1} onChange={setStreams} />
-      </div>
-      <div className="relative flex flex-col justify-between gap-6 overflow-hidden bg-[#17120d] p-6 text-white sm:p-8">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gold-bright/20 blur-3xl" aria-hidden="true" />
-        <dl className="relative flex flex-col gap-3 text-sm">
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-white/65">{t('lp.earn.gross')}</dt>
-            <dd className="font-semibold tabular-nums">{formatETB(gross, { decimals: 0 })}</dd>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-white/65">{t('lp.earn.fee', { fee: PRICING.platformFeePercent })}</dt>
-            <dd className="tabular-nums text-white/65">− {formatETB(fee, { decimals: 0 })}</dd>
-          </div>
-        </dl>
+    <div className="mt-12 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+      <Panel className="flex flex-col justify-center gap-7 p-6 sm:p-8">
+        <SliderRow label={t('lp.earn.perStream')} value={perStream} onChange={setPerStream} min={1} max={100} />
+        <SliderRow label={t('lp.earn.avg')} value={avg} onChange={setAvg} min={20} max={500} step={10} format={ETB_FORMAT} />
+        <SliderRow label={t('lp.earn.streams')} value={streams} onChange={setStreams} min={1} max={30} />
+      </Panel>
+
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0b0e0c] p-6 text-white sm:p-8">
+        <div aria-hidden="true" className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(245,190,30,0.35),transparent)]" />
+        <div aria-hidden="true" className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(52,211,153,0.25),transparent)]" />
         <div className="relative">
-          <p className="text-sm text-white/65">{t('lp.earn.net')}</p>
-          <p className="mt-1 font-display text-4xl font-bold tabular-nums text-gold-bright sm:text-5xl" aria-live="polite">
-            {formatETB(net, { decimals: 0 })}
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/50">{t('lp.earn.net')}</p>
+          <p className="mt-2 font-display text-5xl font-extrabold tabular-nums tracking-tight sm:text-6xl" aria-live="polite">
+            <span className="lp-text-gradient">{etb(net)}</span>
           </p>
-          <div className="mt-5 flex h-2.5 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
-            <span className="bg-gold-bright" style={{ width: `${keepShare}%` }} />
+          <dl className="mt-8 flex flex-col gap-3 text-sm">
+            <div className="flex justify-between border-b border-white/10 pb-3">
+              <dt className="text-white/60">{t('lp.earn.gross')}</dt>
+              <dd className="font-semibold tabular-nums">{etb(gross)}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-white/60">{t('lp.earn.fee', { fee: PRICING.platformFeePercent })}</dt>
+              <dd className="font-semibold tabular-nums text-white/70">− {etb(fee)}</dd>
+            </div>
+          </dl>
+          <div className="mt-6 flex h-3 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+            <span className="bg-gradient-to-r from-emerald-400 to-gold-bright" style={{ width: `${KEEP_PERCENT}%` }} />
             <span className="flex-1 bg-white/25" />
           </div>
-          <div className={cn('mt-2 flex justify-between text-xs text-white/55')}>
-            <span>{keepShare}%</span>
+          <div className="mt-2 flex justify-between text-[11px] font-semibold text-white/50" aria-hidden="true">
+            <span>{KEEP_PERCENT}%</span>
             <span>{PRICING.platformFeePercent}%</span>
           </div>
         </div>

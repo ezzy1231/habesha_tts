@@ -5,46 +5,27 @@ import { cn, focusRing, Icon, useI18n } from '../../ui';
  * Small presentational pieces shared by the landing sections.
  */
 
-const TILET_SVG = encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="14" viewBox="0 0 32 14">` +
-    `<rect width="32" height="1.5" fill="#F2B705"/><rect y="12.5" width="32" height="1.5" fill="#F2B705"/>` +
-    `<polygon points="8,3 12,7 8,11 4,7" fill="#078930"/><polygon points="8,5.5 9.5,7 8,8.5 6.5,7" fill="#FCDD09"/>` +
-    `<polygon points="24,3 28,7 24,11 20,7" fill="#DA121A"/><polygon points="24,5.5 25.5,7 24,8.5 22.5,7" fill="#FCDD09"/>` +
-    `<rect x="15" y="6.25" width="2" height="1.5" fill="#F2B705"/><rect x="0" y="6.25" width="1" height="1.5" fill="#F2B705"/><rect x="31" y="6.25" width="1" height="1.5" fill="#F2B705"/>` +
-    `</svg>`,
-);
-
-/** Woven "tilet" border, like the hem of a habesha kemis. Decorative. */
-export function TiletBand({ className }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={cn('h-[14px] w-full', className)}
-      style={{ backgroundImage: `url("data:image/svg+xml,${TILET_SVG}")`, backgroundRepeat: 'repeat-x', backgroundSize: '32px 14px' }}
-    />
-  );
-}
-
-TiletBand.propTypes = { className: PropTypes.string };
-
-/** Primary (gold) / secondary (outline) call-to-action link. */
+/** Primary (gold) / secondary (glass) call-to-action link. */
 export function CtaLink({ href, variant = 'primary', size = 'lg', external = false, icon, children, className }) {
   return (
     <a
       href={href}
       {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}
       className={cn(
-        'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold transition-all duration-150',
+        'group/cta relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold transition-all duration-200',
         focusRing,
-        size === 'lg' ? 'h-12 px-6 text-base' : 'h-10 px-4 text-sm',
+        size === 'lg' ? 'h-12 px-6 text-[15px]' : 'h-10 px-4 text-sm',
         variant === 'primary' &&
-          'bg-gold-bright text-[#1e160e] shadow-[0_8px_24px_-8px_rgba(242,183,5,0.55)] hover:-translate-y-px hover:bg-[#ffc81a] active:translate-y-0',
-        variant === 'secondary' && 'border border-line-strong bg-surface/60 text-fg backdrop-blur hover:border-fg/40 hover:bg-surface',
+          'bg-gradient-to-b from-[#ffd24d] to-[#f2b705] text-[#16130a] shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_10px_30px_-10px_rgba(242,183,5,0.7)] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_16px_40px_-12px_rgba(242,183,5,0.85)] active:translate-y-0',
+        variant === 'secondary' &&
+          'border border-line-strong/80 bg-surface/50 text-fg backdrop-blur-md hover:border-fg/30 hover:bg-surface-2/80',
         className,
       )}
     >
       {children}
-      {icon ? <Icon name={icon} size={size === 'lg' ? 18 : 16} /> : null}
+      {icon ? (
+        <Icon name={icon} size={size === 'lg' ? 18 : 16} className="transition-transform duration-200 group-hover/cta:translate-x-0.5" />
+      ) : null}
     </a>
   );
 }
@@ -59,11 +40,16 @@ CtaLink.propTypes = {
   className: PropTypes.string,
 };
 
-/** Small uppercase label above a section title. */
+/** Small pill label above a section title. */
 export function Eyebrow({ children, className }) {
   return (
-    <p className={cn('inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-gold', className)}>
-      <span className="h-px w-6 bg-gold" aria-hidden="true" />
+    <p
+      className={cn(
+        'inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted backdrop-blur',
+        className,
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-emerald-400 to-gold-bright" aria-hidden="true" />
       {children}
     </p>
   );
@@ -71,15 +57,18 @@ export function Eyebrow({ children, className }) {
 
 Eyebrow.propTypes = { children: PropTypes.node, className: PropTypes.string };
 
-/** Eyebrow + serif title + optional body, used by every section. */
+/** Eyebrow + display title + optional body, used by every section. */
 export function SectionHeader({ id, eyebrow, title, body, center = false, className }) {
   return (
     <div className={cn('max-w-2xl', center && 'mx-auto text-center', className)}>
-      {eyebrow ? <Eyebrow className={center ? 'justify-center' : undefined}>{eyebrow}</Eyebrow> : null}
-      <h2 id={id} className="mt-3 font-display text-3xl font-bold leading-[1.15] tracking-tight text-fg sm:text-4xl">
+      {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
+      <h2
+        id={id}
+        className="mt-5 text-balance font-display text-[2rem] font-bold leading-[1.08] tracking-[-0.03em] text-fg sm:text-5xl"
+      >
         {title}
       </h2>
-      {body ? <p className="mt-4 text-base leading-relaxed text-muted sm:text-lg">{body}</p> : null}
+      {body ? <p className="mt-4 text-pretty text-base leading-relaxed text-muted sm:text-lg">{body}</p> : null}
     </div>
   );
 }
@@ -93,14 +82,31 @@ SectionHeader.propTypes = {
   className: PropTypes.string,
 };
 
+/** A surface card with a soft inner highlight. */
+export function Panel({ as: Tag = 'div', className, children, ...rest }) {
+  return (
+    <Tag
+      className={cn(
+        'relative overflow-hidden rounded-3xl border border-line bg-surface shadow-[0_1px_0_rgb(255_255_255/0.04)_inset,0_20px_50px_-30px_rgb(0_0_0/0.45)]',
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </Tag>
+  );
+}
+
+Panel.propTypes = { as: PropTypes.elementType, className: PropTypes.string, children: PropTypes.node };
+
 /** Animated equaliser bars (pauses for reduced-motion users). */
-export function Equalizer({ bars = 18, className }) {
+export function Equalizer({ bars = 18, className, barClassName = 'bg-gold-bright' }) {
   return (
     <span className={cn('flex h-5 items-end gap-[3px]', className)} aria-hidden="true">
       {Array.from({ length: bars }, (_, i) => (
         <span
           key={i}
-          className="h-full w-[3px] origin-bottom animate-eq-bar rounded-full bg-gold-bright motion-reduce:animate-none"
+          className={cn('h-full w-[3px] origin-bottom animate-eq-bar rounded-full motion-reduce:animate-none', barClassName)}
           style={{ animationDelay: `${(i * 137) % 900}ms`, animationDuration: `${700 + ((i * 89) % 600)}ms` }}
         />
       ))}
@@ -108,35 +114,75 @@ export function Equalizer({ bars = 18, className }) {
   );
 }
 
-Equalizer.propTypes = { bars: PropTypes.number, className: PropTypes.string };
+Equalizer.propTypes = { bars: PropTypes.number, className: PropTypes.string, barClassName: PropTypes.string };
+
+/** Fake window chrome (traffic lights + title) around a mockup. */
+export function WindowFrame({ title, right, className, children }) {
+  return (
+    <div className={cn('overflow-hidden rounded-2xl border border-white/10 bg-[#0b0e0c] text-white shadow-2xl', className)}>
+      <div className="flex h-9 items-center gap-3 border-b border-white/[0.07] bg-white/[0.03] px-3.5">
+        <span className="flex gap-1.5" aria-hidden="true">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+        </span>
+        <span className="truncate text-[11px] font-medium text-white/45">{title}</span>
+        {right ? <span className="ml-auto">{right}</span> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+WindowFrame.propTypes = { title: PropTypes.node, right: PropTypes.node, className: PropTypes.string, children: PropTypes.node };
+
+/** Red LIVE chip. */
+export function LiveChip({ className }) {
+  const { t } = useI18n();
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 rounded-md bg-[#e11d2e] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white', className)}>
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white motion-reduce:animate-none" aria-hidden="true" />
+      {t('lp.alert.live')}
+    </span>
+  );
+}
+
+LiveChip.propTypes = { className: PropTypes.string };
 
 /**
  * The on-stream alert, styled like the real OBS overlay (OverlayPage):
  * flag stripe, gold donor name, amount, message, equaliser.
  */
-export function AlertCard({ name, amount, message, className }) {
+export function AlertCard({ name, amount, message, compact = false, className }) {
   const { t } = useI18n();
   return (
-    <div className={cn('overflow-hidden rounded-2xl border border-white/10 bg-[#120e0a]/90 text-white shadow-overlay backdrop-blur', className)}>
+    <div
+      className={cn(
+        'overflow-hidden rounded-2xl border border-white/15 bg-[#0d100e]/85 text-white shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)] backdrop-blur-xl',
+        className,
+      )}
+    >
       <div className="flex h-1" aria-hidden="true">
         <span className="flex-1 bg-flag-green" />
         <span className="flex-1 bg-flag-yellow" />
         <span className="flex-1 bg-flag-red" />
       </div>
-      <div className="p-4 font-ethiopic sm:p-5">
-        <p className="truncate text-lg font-extrabold text-flag-yellow sm:text-xl">
-          {name} <span className="text-sm font-medium text-white/65">{t('lp.alert.sent')}</span>
+      <div className={cn('font-ethiopic', compact ? 'p-3.5' : 'p-4 sm:p-5')}>
+        <div className="flex items-baseline justify-between gap-3">
+          <p className={cn('truncate font-extrabold text-flag-yellow', compact ? 'text-base' : 'text-lg sm:text-xl')}>
+            {name} <span className="text-sm font-medium text-white/60">{t('lp.alert.sent')}</span>
+          </p>
+          <p className={cn('shrink-0 font-display font-extrabold tabular-nums', compact ? 'text-xl' : 'text-2xl sm:text-3xl')}>
+            <span className="lp-text-gradient">{Number(amount).toLocaleString('en-US')}</span>{' '}
+            <span className="text-xs font-semibold text-white/60">ETB</span>
+          </p>
+        </div>
+        <p className={cn('mt-1.5 line-clamp-3 break-words font-medium leading-snug text-white/95', compact ? 'text-sm' : 'text-base sm:text-lg')}>
+          {message}
         </p>
-        <p className="mt-0.5 text-3xl font-extrabold leading-tight tabular-nums sm:text-4xl">
-          <span className="bg-gradient-to-r from-emerald-400 via-flag-yellow to-red-400 bg-clip-text text-transparent">
-            {Number(amount).toLocaleString('en-US')}
-          </span>{' '}
-          <span className="text-base text-white/75 sm:text-lg">ETB</span>
-        </p>
-        <p className="mt-2 line-clamp-3 break-words text-base font-medium leading-snug sm:text-lg">{message}</p>
         <div className="mt-3 flex items-center gap-3">
-          <Equalizer bars={16} />
-          <span className="text-xs text-white/55">{t('lp.alert.reading')}</span>
+          <Equalizer bars={compact ? 12 : 16} />
+          <span className="text-[11px] text-white/50">{t('lp.alert.reading')}</span>
         </div>
       </div>
     </div>
@@ -147,5 +193,6 @@ AlertCard.propTypes = {
   name: PropTypes.node.isRequired,
   amount: PropTypes.number.isRequired,
   message: PropTypes.node,
+  compact: PropTypes.bool,
   className: PropTypes.string,
 };
