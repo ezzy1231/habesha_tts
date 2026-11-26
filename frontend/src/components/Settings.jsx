@@ -64,13 +64,13 @@ export default function Settings({ apiClient }) {
 
 const input = (k, label) => (
     <div>
-      <label className="block text-sm text-gray-500 dark:text-gray-300">{label}</label>
-      <input type="number" value={s[k]} onChange={e => setS({ ...s, [k]: Number(e.target.value) })} className="border rounded px-2 py-1 w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" />
+      <label className="block text-sm text-muted">{label}</label>
+      <input type="number" value={s[k]} onChange={e => setS({ ...s, [k]: Number(e.target.value) })} className="border rounded px-2 py-1 w-full bg-surface text-fg" />
     </div>
   );
 
   return (
-    <div className="rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 p-4 space-y-3">
+    <div className="rounded-xl border bg-surface p-4 space-y-3">
 {message && (
         <div className={`p-2 rounded text-sm ${
           message.type === 'success' 
@@ -88,12 +88,12 @@ const input = (k, label) => (
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm text-gray-500 dark:text-gray-300">Filtered Words</label>
+        <label className="block text-sm text-muted">Filtered Words</label>
         <div className="flex flex-wrap gap-2">
           {s.filteredWords.map((word, index) => (
-            <span key={index} className="flex items-center bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full text-sm">
+            <span key={index} className="flex items-center bg-surface-3 px-3 py-1 rounded-full text-sm">
               {word}
-              <button onClick={() => removeFilteredWord(word)} className="ml-2 text-gray-600 dark:text-gray-300 hover:text-red-500">
+              <button onClick={() => removeFilteredWord(word)} className="ml-2 text-muted hover:text-red-500">
                 &times;
               </button>
             </span>
@@ -105,7 +105,7 @@ const input = (k, label) => (
             value={newFilteredWord}
             onChange={e => setNewFilteredWord(e.target.value)}
             onKeyPress={e => { if (e.key === 'Enter') { e.preventDefault(); addFilteredWord(); } }}
-            className="border rounded px-2 py-1 flex-grow bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            className="border rounded px-2 py-1 flex-grow bg-surface text-fg"
             placeholder="Add new filtered word"
           />
           <button onClick={addFilteredWord} className="px-3 py-1.5 rounded bg-blue-500 text-white">

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import LoadingSpinner from './LoadingSpinner';
 import Balance from './Balance';
+import { Icon } from '../ui';
 import { BAN_DURATION_OPTIONS, resolveBanDurationMinutes } from '../constants/banOptions';
 
 const STATUS_OPTIONS = [
@@ -26,7 +27,7 @@ const formatDate = (value) => {
   }
 };
 
-export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved }) {
+export default function DonorFlagsPanel({ apiClient, refreshKey = 0, onFlagResolved }) {
   const [flags, setFlags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -94,8 +95,8 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
     if (loading) return null;
     if (error) return null;
     return (
-      <div className="text-center py-12 text-sm text-gray-500 dark:text-gray-400">
-        <p className="text-xl mb-2">🎉</p>
+      <div className="text-center py-12 text-sm text-muted">
+        <Icon name="checkCircle" size={22} className="mx-auto mb-2 text-emerald-500" />
         <p>No streamer flags in this bucket.</p>
       </div>
     );
@@ -156,49 +157,49 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
     const banForm = getBanForm(flag.id, flag.reason || '');
 
     return (
-      <div key={flag.id} className="p-4 sm:p-5 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+      <div key={flag.id} className="p-4 sm:p-5 rounded-xl border border-line bg-surface-2/50 hover:bg-surface-2 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-lg">🚩</span>
-              <h4 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+              <Icon name="flag" size={18} className="text-amber-500" />
+              <h4 className="text-base sm:text-lg font-bold text-fg">
                 {flag.action_label || flag.action}
               </h4>
             </div>
-            <div className="flex flex-wrap gap-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex flex-wrap gap-2 mt-1 text-sm text-muted">
               <span className="flex items-center gap-1">
                 <span>Streamer:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{flag.streamer_name || `#${flag.streamer_id}`}</span>
+                <span className="font-medium text-fg">{flag.streamer_name || `#${flag.streamer_id}`}</span>
               </span>
-              <span className="hidden sm:inline text-gray-300 dark:text-gray-600">•</span>
+              <span className="hidden sm:inline text-subtle">•</span>
               <span className="flex items-center gap-1">
                 <span>Donor:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{flag.donor_name || `#${flag.donor_id || 'Unknown'}`}</span>
+                <span className="font-medium text-fg">{flag.donor_name || `#${flag.donor_id || 'Unknown'}`}</span>
               </span>
             </div>
           </div>
           <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2">
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
               flag.status === 'resolved' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-              flag.status === 'dismissed' ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' :
+              flag.status === 'dismissed' ? 'bg-surface-2 text-muted' :
               'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
             }`}>
               {flag.status}
             </span>
-            <div className="text-xs text-gray-500 dark:text-gray-400">{formatDate(flag.created_at)}</div>
+            <div className="text-xs text-muted">{formatDate(flag.created_at)}</div>
           </div>
         </div>
 
         <div className="mt-4 space-y-3">
           {flag.reason && (
-            <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-300 italic">“{flag.reason}”</p>
+            <div className="bg-surface p-3 rounded-lg border border-line">
+              <p className="text-sm text-muted italic">“{flag.reason}”</p>
             </div>
           )}
           
           <div className="flex flex-wrap gap-4 text-xs">
             {typeof flag.donation_amount !== 'undefined' && (
-              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold">
+              <div className="flex items-center gap-2 text-muted uppercase tracking-wide font-semibold">
                 <span>Donation Amount:</span>
                 <Balance value={flag.donation_amount} showLabel={false} showToggle={false} context="admin" />
               </div>
@@ -206,19 +207,19 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
           </div>
 
           {flag.donation_message && (
-            <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
-              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Donor Message</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{flag.donation_message}</p>
+            <div className="bg-surface rounded-lg p-3 border border-line">
+              <p className="text-xs font-bold text-muted uppercase tracking-wide mb-1">Donor Message</p>
+              <p className="text-sm text-muted leading-relaxed">{flag.donation_message}</p>
             </div>
           )}
         </div>
 
         {isPending ? (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+          <div className="mt-4 pt-4 border-t border-line space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Resolution Notes</label>
+              <label className="block text-xs font-bold text-muted uppercase tracking-wide mb-2">Resolution Notes</label>
               <textarea
-                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-shadow"
+                className="w-full rounded-lg border border-line bg-surface text-sm px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-shadow"
                 placeholder="Optional notes for admins..."
                 value={notes[flag.id] || ''}
                 onChange={(e) => setNotes((prev) => ({ ...prev, [flag.id]: e.target.value }))}
@@ -237,7 +238,7 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
               </button>
               <button
                 type="button"
-                className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                className="flex-1 py-2 bg-surface border border-line text-muted hover:bg-surface-2 rounded-lg text-sm font-medium transition-colors"
                 disabled={resolvingId === flag.id}
                 onClick={() => handleResolve(flag.id, 'dismissed')}
               >
@@ -253,9 +254,9 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
               
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Ban Reason</label>
+                  <label className="block text-xs font-medium text-muted mb-1">Ban Reason</label>
                   <textarea
-                    className="w-full rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                    className="w-full rounded-lg border border-rose-200 dark:border-rose-800 bg-surface text-sm px-3 py-2 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
                     rows={2}
                     value={banForm.reason}
                     onChange={(e) => updateBanForm(flag.id, { reason: e.target.value }, flag.reason || '')}
@@ -265,9 +266,9 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Duration</label>
+                    <label className="block text-xs font-medium text-muted mb-1">Duration</label>
                     <select
-                      className="w-full rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                      className="w-full rounded-lg border border-rose-200 dark:border-rose-800 bg-surface text-sm px-3 py-2 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
                       value={banForm.duration}
                       onChange={(e) => updateBanForm(flag.id, { duration: e.target.value }, flag.reason || '')}
                     >
@@ -278,11 +279,11 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
                   </div>
                   {banForm.duration === 'custom' && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Minutes</label>
+                      <label className="block text-xs font-medium text-muted mb-1">Minutes</label>
                       <input
                         type="number"
                         min="1"
-                        className="w-full rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                        className="w-full rounded-lg border border-rose-200 dark:border-rose-800 bg-surface text-sm px-3 py-2 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
                         placeholder="e.g. 120"
                         value={banForm.customMinutes}
                         onChange={(e) => updateBanForm(flag.id, { customMinutes: e.target.value }, flag.reason || '')}
@@ -303,7 +304,7 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
                 </button>
                 <button
                   type="button"
-                  className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2 bg-surface border border-line text-muted hover:bg-surface-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!flag.donor_id || unbanActionId === flag.id}
                   onClick={() => handleUnbanDonor(flag)}
                 >
@@ -318,10 +319,10 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
             </div>
           </div>
         ) : (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <div className="mt-4 pt-4 border-t border-line flex items-center gap-2 text-xs text-muted">
             <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             <span>Resolved by {flag.resolved_by || 'admin'} on {formatDate(flag.resolved_at)}</span>
-            {flag.resolution_notes && <span className="text-gray-400 dark:text-gray-500">• Notes: {flag.resolution_notes}</span>}
+            {flag.resolution_notes && <span className="text-subtle">• Notes: {flag.resolution_notes}</span>}
           </div>
         )}
       </div>
@@ -329,12 +330,12 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+    <div className="bg-surface rounded-xl shadow-sm border border-line overflow-hidden animate-fade-in-stagger">
+      <div className="px-6 py-4 border-b border-line">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Streamer Reports</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Review and action streamer-submitted donor flags</p>
+            <h3 className="text-lg font-bold text-fg">Streamer Reports</h3>
+            <p className="text-sm text-muted mt-1">Review and action streamer-submitted donor flags</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {STATUS_OPTIONS.map((option) => (
@@ -344,7 +345,7 @@ export default function DonorFlagsPanel({ apiClient, refreshKey, onFlagResolved 
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   filter === option.value
                     ? 'bg-primary-500 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    : 'bg-surface-2 text-muted hover:bg-surface-3'
                 }`}
                 onClick={() => setFilter(option.value)}
               >
@@ -377,9 +378,4 @@ DonorFlagsPanel.propTypes = {
   apiClient: PropTypes.oneOfType([PropTypes.object, PropTypes.func]),
   refreshKey: PropTypes.number,
   onFlagResolved: PropTypes.func,
-};
-
-DonorFlagsPanel.defaultProps = {
-  refreshKey: 0,
-  onFlagResolved: undefined,
 };

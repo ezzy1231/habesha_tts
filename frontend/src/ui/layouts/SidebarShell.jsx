@@ -54,12 +54,12 @@ function NavItems({ items, collapsed, onNavigate }) {
                   />
                   <span className={cn('truncate', collapsed && 'sr-only')}>{label}</span>
                   {item.badge !== undefined && item.badge !== null && !collapsed ? (
-                    <span className="ml-auto rounded-full bg-flag-red px-1.5 py-px text-[11px] font-semibold tabular-nums text-white">
+                    <span className="ml-auto rounded-full bg-brand-600 px-1.5 py-px text-[11px] font-semibold tabular-nums text-white">
                       {item.badge}
                     </span>
                   ) : null}
                   {item.badge && collapsed ? (
-                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-flag-red" aria-hidden="true" />
+                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-500" aria-hidden="true" />
                   ) : null}
                 </>
               )}

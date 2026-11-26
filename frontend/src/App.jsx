@@ -19,6 +19,7 @@ const StreamersPage = lazy(() => import('./pages/StreamersPage'));
 const DonatePage = lazy(() => import('./pages/DonatePage'));
 const DonateReturnPage = lazy(() => import('./pages/DonateReturnPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Dev-only design-system gallery (src/ui). Set VITE_ENABLE_UI_KIT=true to include it in a build.
 const SHOW_UI_KIT = import.meta.env.DEV || import.meta.env.VITE_ENABLE_UI_KIT === 'true';
@@ -28,17 +29,6 @@ function PageFallback() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas text-muted">
       <Spinner size={28} label="Loading" />
-    </div>
-  );
-}
-
-function NotFound() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas px-4 text-center">
-      <div>
-        <h2 className="mb-2 text-2xl font-bold text-fg">Page not found</h2>
-        <p className="text-muted">Check the link, or go to the <a className="text-brand-600 underline dark:text-brand-400" href="/streamers">streamer list</a>.</p>
-      </div>
     </div>
   );
 }
@@ -69,7 +59,7 @@ function App() {
               <Route path="/account" element={<AccountPage />} />
               <Route path="/:handle" element={<HandleRoute />} />
               {UiKitPage ? <Route path="/ui-kit/*" element={<UiKitPage />} /> : null}
-              <Route path="/admin" element={
+              <Route path="/admin/:tab?" element={
                 <AdminBalanceProvider>
                   <AdminDashboard />
                 </AdminBalanceProvider>

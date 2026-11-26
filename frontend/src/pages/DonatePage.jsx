@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link, useParams } from 'react-router-dom';
 import {
-  Avatar, Badge, Button, Card, EmptyState, Icon, Input, Select, Skeleton, Tabs, Textarea, cn, focusRing, formatETB, useI18n,
+  Avatar, Badge, Button, Card, EmptyState, Icon, Input, Select, Skeleton, Tabs, Textarea, cn, extendDictionaries, focusRing, formatETB, useI18n,
 } from '../ui';
 import { ViewerLayout } from '../components/viewer/ViewerLayout';
 import { ApiError, looksLikeYouTube, messageLength, priceForTts, publicApi, usdFor } from '../lib/publicApi';
@@ -11,6 +11,21 @@ import '../lib/accountStrings';
 import { useAccount } from '../lib/accountApi';
 
 const NAME_KEY = 'habesha.donorName';
+
+extendDictionaries({
+  en: {
+    'donate.preview.title': 'Your alert',
+    'donate.preview.anon': 'Your name',
+    'donate.preview.empty': 'Your message will appear here…',
+    'donate.secure': 'Secure checkout · plays live on stream',
+  },
+  am: {
+    'donate.preview.title': 'የእርስዎ መልዕክት',
+    'donate.preview.anon': 'ስምዎ',
+    'donate.preview.empty': 'መልዕክትዎ እዚህ ይታያል…',
+    'donate.secure': 'ደህንነቱ የተጠበቀ ክፍያ · በቀጥታ ይነበባል',
+  },
+});
 import { CLAIM_KEY } from '../lib/publicApi';
 
 const readLocal = (key) => {
@@ -26,27 +41,33 @@ const fmtUSD = (n) => `USD ${n.toFixed(2)}`;
 function ChoiceGroup({ label, options, value, onChange }) {
   return (
     <fieldset>
-      <legend className="mb-2 text-sm font-medium text-fg">{label}</legend>
+      <legend className="mb-2.5 text-sm font-medium text-fg">{label}</legend>
       <div className="grid gap-2 sm:grid-cols-2">
-        {options.map((o) => (
-          <label
-            key={o.value}
-            className={cn(
-              'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors',
-              value === o.value ? 'border-brand-500 bg-brand-500/10 text-fg' : 'border-line hover:border-line-strong text-muted',
-            )}
-          >
-            <input
-              type="radio"
-              className="h-4 w-4 accent-[#078930]"
-              checked={value === o.value}
-              onChange={() => onChange(o.value)}
-              name={label}
-            />
-            <span className="flex-1 font-medium text-fg">{o.label}</span>
-            {o.badge}
-          </label>
-        ))}
+        {options.map((o) => {
+          const active = value === o.value;
+          return (
+            <label
+              key={o.value}
+              className={cn(
+                'relative flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-500/50',
+                active ? 'border-brand-500 bg-brand-500/[0.08] shadow-[0_0_0_1px_rgb(139_92_246/0.35)]' : 'border-line bg-surface hover:border-line-strong hover:bg-surface-2',
+              )}
+            >
+              <input type="radio" className="sr-only" checked={active} onChange={() => onChange(o.value)} name={String(label)} />
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors',
+                  active ? 'border-brand-500 bg-brand-500' : 'border-line-strong',
+                )}
+              >
+                {active ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+              </span>
+              <span className="flex-1 font-medium text-fg">{o.label}</span>
+              {o.badge}
+            </label>
+          );
+        })}
       </div>
     </fieldset>
   );
@@ -125,21 +146,53 @@ SoundGrid.propTypes = {
   onSelect: PropTypes.func.isRequired,
 };
 
+/** Profile hero: soft violet glow, large avatar, live state and links. */
 function Header({ s }) {
   const { t } = useI18n();
+  let host = null;
+  try {
+    host = s.socialLink ? new URL(s.socialLink).hostname.replace(/^www\./, '') : null;
+  } catch {
+    host = null;
+  }
   return (
-    <div className="flex items-center gap-4">
-      <Avatar src={s.avatarUrl} name={s.name} size="xl" status={s.live ? 'live' : 'offline'} />
-      <div className="min-w-0">
-        <h1 className="truncate text-2xl font-bold tracking-tight text-fg sm:text-3xl">{s.name}</h1>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
-          {s.live ? <Badge variant="danger" dot pulse>{t('dir.liveNow')}</Badge> : <Badge>{t('dir.offline')}</Badge>}
-          <span>@{s.slug}</span>
-          {s.socialLink ? (
-            <a href={s.socialLink} target="_blank" rel="noreferrer nofollow" className="underline-offset-2 hover:text-fg hover:underline">
-              {new URL(s.socialLink).hostname.replace(/^www\./, '')}
-            </a>
-          ) : null}
+    <div className="relative overflow-hidden border-b border-line">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 left-1/2 h-[26rem] w-[56rem] -translate-x-1/2 rounded-full bg-brand-500/20 blur-[120px]" />
+        <div className="absolute -top-24 right-[8%] h-64 w-64 rounded-full bg-sky-500/10 blur-[90px]" />
+        <div className="lp-grid absolute inset-0 opacity-60 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
+      </div>
+      <div className="relative mx-auto w-full max-w-5xl px-4 pb-8 pt-6 sm:px-6 sm:pb-10">
+        <Link to="/streamers" className={cn('inline-flex items-center gap-1 rounded text-sm text-muted transition-colors hover:text-fg', focusRing)}>
+          <Icon name="chevronLeft" size={16} />
+          {t('donate.back')}
+        </Link>
+        <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="relative w-fit">
+            <div aria-hidden="true" className={cn('absolute -inset-1 rounded-full blur-md', s.live ? 'bg-red-500/40' : 'bg-brand-500/30')} />
+            <Avatar src={s.avatarUrl} name={s.name} size="xl" status={s.live ? 'live' : 'offline'} className="relative rounded-full ring-4 ring-canvas" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="truncate font-display text-3xl font-semibold tracking-tight text-fg sm:text-4xl">{s.name}</h1>
+              {s.live ? (
+                <Badge variant="danger" dot pulse>
+                  {t('dir.liveNow')}
+                </Badge>
+              ) : (
+                <Badge>{t('dir.offline')}</Badge>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+              <span className="font-medium">@{s.slug}</span>
+              {host ? (
+                <a href={s.socialLink} target="_blank" rel="noreferrer nofollow" className={cn('inline-flex items-center gap-1 rounded transition-colors hover:text-fg', focusRing)}>
+                  <Icon name="external" size={13} />
+                  {host}
+                </a>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -239,9 +292,12 @@ export default function DonatePage() {
   if (!profile) {
     return (
       <ViewerLayout>
-        <div className="mx-auto max-w-2xl px-4 py-10">
-          <Skeleton className="h-20 w-full rounded-xl" />
-          <Skeleton className="mt-6 h-96 w-full rounded-xl" />
+        <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <Skeleton className="h-96 w-full rounded-xl" />
+            <Skeleton className="h-80 w-full rounded-xl" />
+          </div>
         </div>
       </ViewerLayout>
     );
@@ -329,119 +385,130 @@ export default function DonatePage() {
   ];
   const walletShort = provider === 'wallet' && walletAccount && toPay > Number(walletAccount.balance);
 
+  const voiceLabel = voiceOptions.find((v) => v.value === voiceKey)?.label;
+  const previewText = tab === 'tts' ? message.trim()
+    : tab === 'sound' ? (sound ? sound.label : '')
+    : (mediaNote.trim() || mediaUrl.trim());
+  const kindIcon = tab === 'tts' ? 'mic' : tab === 'sound' ? 'music' : 'film';
+  const errorText = 'text-red-600 dark:text-red-400';
+
   return (
     <ViewerLayout>
-      <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
-        <Link to="/streamers" className={cn('mb-6 inline-flex items-center gap-1 rounded text-sm text-muted hover:text-fg', focusRing)}>
-          <Icon name="chevronLeft" size={16} />
-          {t('donate.back')}
-        </Link>
-        <Header s={profile} />
+      <Header s={profile} />
 
+      <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
         {!profile.live ? (
-          <div className="mt-6 flex items-start gap-2 rounded-lg border border-line bg-surface-2 p-3 text-sm text-muted" role="status">
-            <Icon name="info" size={18} className="mt-0.5 shrink-0" />
+          <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-line bg-surface p-3.5 text-sm text-muted" role="status">
+            <Icon name="info" size={18} className="mt-0.5 shrink-0 text-brand-500" />
             {t('donate.offline')}
           </div>
         ) : null}
 
-        <Card className="mt-6" padding="none">
-          <form onSubmit={submit} noValidate>
-            {tabs.length > 1 ? (
-              <div className="px-5 pt-4 sm:px-6">
-                <Tabs items={tabs} value={tab} onChange={setTab} label={t('donate.tab.tts')} fitted />
+        <form onSubmit={submit} noValidate className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <Card padding="none" className="overflow-hidden">
+              {tabs.length > 1 ? (
+                <div className="border-b border-line bg-surface-2/50 px-5 pt-4 sm:px-6">
+                  <Tabs items={tabs} value={tab} onChange={setTab} label={t('donate.tab.tts')} fitted />
+                </div>
+              ) : null}
+
+              <div className="flex flex-col gap-5 p-5 sm:p-6">
+                <Input
+                  label={t('donate.name')}
+                  placeholder={t('donate.namePh')}
+                  value={donorName}
+                  maxLength={40}
+                  required
+                  autoComplete="nickname"
+                  onChange={(e) => setDonorName(e.target.value)}
+                />
+
+                {tab === 'tts' ? (
+                  <>
+                    <Textarea
+                      label={t('donate.message')}
+                      placeholder={t('donate.messagePh')}
+                      rows={5}
+                      value={message}
+                      required
+                      inputClassName="font-ethiopic text-[15px] leading-relaxed"
+                      onChange={(e) => setMessage(e.target.value)}
+                      error={tooLong ? `${len}/${tts.maxChars}` : undefined}
+                      hint={
+                        <span className="flex justify-between gap-2">
+                          <span>{t('donate.priceHint', { base: tts.basePrice, step: tts.stepChars, inc: tts.incrementPrice })}</span>
+                          <span className="tabular-nums">{len}/{tts.maxChars}</span>
+                        </span>
+                      }
+                    />
+                    {tts.minAmount > 0 ? <p className="-mt-3 text-xs text-muted">{t('donate.minimum', { min: tts.minAmount })}</p> : null}
+                    {voiceOptions.length > 1 ? (
+                      <Select label={t('donate.voice')} options={voiceOptions} value={voiceKey} onChange={(e) => setVoiceKey(e.target.value)} />
+                    ) : null}
+                  </>
+                ) : null}
+
+                {tab === 'sound' ? <SoundGrid sounds={soundboard.sounds} selected={soundId} onSelect={setSoundId} /> : null}
+
+                {tab === 'media' ? (
+                  <>
+                    <p className="flex items-start gap-2.5 rounded-xl border border-line bg-surface-2 p-3.5 text-sm text-muted">
+                      <Icon name="info" size={16} className="mt-0.5 shrink-0 text-brand-500" />
+                      {t('donate.media.rules', { max: media.maxSeconds })}
+                    </p>
+                    <Input
+                      label={t('donate.media.url')}
+                      placeholder={t('donate.media.urlPh')}
+                      inputMode="url"
+                      value={mediaUrl}
+                      required
+                      leftIcon={<Icon name="link" size={15} />}
+                      error={urlBad ? t('donate.media.urlBad') : undefined}
+                      onChange={(e) => setMediaUrl(e.target.value)}
+                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Input
+                        label={t('donate.media.amount')}
+                        type="number"
+                        min={mediaMin}
+                        step={1}
+                        placeholder={String(mediaMin)}
+                        value={mediaAmount}
+                        hint={t('donate.minimum', { min: mediaMin })}
+                        onChange={(e) => setMediaAmount(e.target.value)}
+                      />
+                      <Input
+                        label={t('donate.media.start')}
+                        type="number"
+                        min={0}
+                        step={1}
+                        placeholder="0"
+                        value={mediaStart}
+                        onChange={(e) => setMediaStart(e.target.value)}
+                      />
+                    </div>
+                    <Input label={t('donate.media.note')} maxLength={200} value={mediaNote} onChange={(e) => setMediaNote(e.target.value)} />
+                  </>
+                ) : null}
               </div>
-            ) : null}
+            </Card>
 
-            <div className="flex flex-col gap-5 p-5 sm:p-6">
-              <Input
-                label={t('donate.name')}
-                placeholder={t('donate.namePh')}
-                value={donorName}
-                maxLength={40}
-                required
-                autoComplete="nickname"
-                onChange={(e) => setDonorName(e.target.value)}
-              />
-
-              {tab === 'tts' ? (
-                <>
-                  <Textarea
-                    label={t('donate.message')}
-                    placeholder={t('donate.messagePh')}
-                    rows={4}
-                    value={message}
-                    required
-                    onChange={(e) => setMessage(e.target.value)}
-                    error={tooLong ? `${len}/${tts.maxChars}` : undefined}
-                    hint={
-                      <span className="flex justify-between gap-2">
-                        <span>{t('donate.priceHint', { base: tts.basePrice, step: tts.stepChars, inc: tts.incrementPrice })}</span>
-                        <span className="tabular-nums">{len}/{tts.maxChars}</span>
-                      </span>
-                    }
-                  />
-                  {tts.minAmount > 0 ? <p className="-mt-3 text-xs text-muted">{t('donate.minimum', { min: tts.minAmount })}</p> : null}
-                  {voiceOptions.length > 1 ? (
-                    <Select label={t('donate.voice')} options={voiceOptions} value={voiceKey} onChange={(e) => setVoiceKey(e.target.value)} />
-                  ) : null}
-                </>
-              ) : null}
-
-              {tab === 'sound' ? <SoundGrid sounds={soundboard.sounds} selected={soundId} onSelect={setSoundId} /> : null}
-
-              {tab === 'media' ? (
-                <>
-                  <p className="rounded-lg bg-surface-2 p-3 text-sm text-muted">{t('donate.media.rules', { max: media.maxSeconds })}</p>
-                  <Input
-                    label={t('donate.media.url')}
-                    placeholder={t('donate.media.urlPh')}
-                    inputMode="url"
-                    value={mediaUrl}
-                    required
-                    error={urlBad ? t('donate.media.urlBad') : undefined}
-                    onChange={(e) => setMediaUrl(e.target.value)}
-                  />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Input
-                      label={t('donate.media.amount')}
-                      type="number"
-                      min={mediaMin}
-                      step={1}
-                      placeholder={String(mediaMin)}
-                      value={mediaAmount}
-                      hint={t('donate.minimum', { min: mediaMin })}
-                      onChange={(e) => setMediaAmount(e.target.value)}
-                    />
-                    <Input
-                      label={t('donate.media.start')}
-                      type="number"
-                      min={0}
-                      step={1}
-                      placeholder="0"
-                      value={mediaStart}
-                      onChange={(e) => setMediaStart(e.target.value)}
-                    />
-                  </div>
-                  <Input label={t('donate.media.note')} maxLength={200} value={mediaNote} onChange={(e) => setMediaNote(e.target.value)} />
-                </>
-              ) : null}
-            </div>
-
-            <div className="flex flex-col gap-5 border-t border-line p-5 sm:p-6">
+            <Card className="flex flex-col gap-5">
               {providerOptions.length ? (
                 <ChoiceGroup label={t('donate.payWith')} options={providerOptions} value={provider} onChange={setProvider} />
               ) : (
-                <p className="text-sm text-[#e5484d]" role="alert">{t('donate.noProviders')}</p>
+                <p className={cn('text-sm', errorText)} role="alert">{t('donate.noProviders')}</p>
               )}
               {provider === 'demo' ? <p className="-mt-3 text-xs text-muted">{t('donate.demoHint')}</p> : null}
               {walletShort ? (
-                <p className="-mt-3 text-sm text-[#e5484d]" role="alert">
+                <p className={cn('-mt-3 text-sm', errorText)} role="alert">
                   {t('donate.walletLow')} <Link to="/account" className="underline">{t('acct.nav')}</Link>
                 </p>
               ) : null}
               {account === null ? (
-                <Link to="/account" className={cn('-mt-2 self-start rounded text-sm text-muted underline hover:text-fg', focusRing)}>
+                <Link to="/account" className={cn('-mt-2 inline-flex items-center gap-1.5 self-start rounded text-sm text-muted transition-colors hover:text-fg', focusRing)}>
+                  <Icon name="wallet" size={15} />
                   {t('donate.signInWallet')}
                 </Link>
               ) : null}
@@ -455,56 +522,91 @@ export default function DonatePage() {
                 />
               ) : null}
 
-              <details className="group" open={Boolean(claimCode)}>
-                <summary className={cn('cursor-pointer select-none rounded text-sm font-medium text-muted hover:text-fg', focusRing)}>
-                  {t('donate.claim')}
+              <details className="group rounded-xl border border-line" open={Boolean(claimCode)}>
+                <summary className={cn('flex cursor-pointer select-none items-center justify-between gap-2 rounded-xl px-3.5 py-3 text-sm font-medium text-muted transition-colors hover:text-fg [&::-webkit-details-marker]:hidden', focusRing)}>
+                  <span className="inline-flex items-center gap-2">
+                    <Icon name="gift" size={15} />
+                    {t('donate.claim')}
+                  </span>
+                  <Icon name="chevronDown" size={15} className="transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="mt-3 flex items-end gap-2">
-                  <Input
-                    className="flex-1"
-                    aria-label={t('donate.claim')}
-                    placeholder={t('donate.claimPh')}
-                    value={claimCode}
-                    autoComplete="off"
-                    spellCheck={false}
-                    onChange={(e) => { setClaimCode(e.target.value.toUpperCase()); setCredit(null); setCreditMsg(null); }}
-                  />
-                  <Button type="button" variant="secondary" loading={checkingCredit} disabled={!claimCode.trim()} onClick={checkCredit}>
-                    {t('donate.claimCheck')}
-                  </Button>
-                </div>
-                {creditMsg ? <p className="mt-2 text-sm text-muted" role="status">{creditMsg}</p> : null}
-              </details>
-
-              <div className="rounded-lg bg-surface-2 p-4">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-muted">{t('donate.price')}</span>
-                  <span className="text-2xl font-bold tabular-nums text-fg" aria-live="polite">{formatETB(price, { decimals: 0 })}</span>
-                </div>
-                {creditUsed > 0 ? (
-                  <div className="mt-1 flex justify-between text-sm text-muted">
-                    <span>{t('donate.payCredit')}</span>
-                    <span className="tabular-nums">− {formatETB(creditUsed)}</span>
+                <div className="border-t border-line p-3.5">
+                  <div className="flex items-end gap-2">
+                    <Input
+                      className="flex-1"
+                      aria-label={t('donate.claim')}
+                      placeholder={t('donate.claimPh')}
+                      value={claimCode}
+                      autoComplete="off"
+                      spellCheck={false}
+                      inputClassName="font-mono tracking-wider"
+                      onChange={(e) => { setClaimCode(e.target.value.toUpperCase()); setCredit(null); setCreditMsg(null); }}
+                    />
+                    <Button type="button" variant="secondary" loading={checkingCredit} disabled={!claimCode.trim()} onClick={checkCredit}>
+                      {t('donate.claimCheck')}
+                    </Button>
                   </div>
-                ) : null}
-                {price > 0 ? (
-                  <p className="mt-2 text-xs text-muted">{t('donate.fee', { fee: profile.platformFeePercent, net: formatETB(net) })}</p>
-                ) : null}
+                  {creditMsg ? <p className="mt-2 text-sm text-muted" role="status">{creditMsg}</p> : null}
+                </div>
+              </details>
+            </Card>
+          </div>
+
+          <aside className="lg:sticky lg:top-24">
+            <Card padding="none" className="overflow-hidden">
+              <div className="border-b border-line p-5">
+                <p className="text-xs font-medium uppercase tracking-[0.12em] text-subtle">{t('donate.preview.title')}</p>
+                <div className="relative mt-3 overflow-hidden rounded-xl border border-line bg-canvas p-4">
+                  <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-500/70 to-transparent" />
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-600 dark:text-brand-300">
+                      <Icon name={kindIcon} size={15} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-fg">{donorName.trim() || t('donate.preview.anon')}</p>
+                      {tab === 'tts' && voiceLabel ? <p className="truncate text-xs text-subtle">{voiceLabel}</p> : null}
+                    </div>
+                    <span className="text-sm font-semibold tabular-nums text-brand-600 dark:text-brand-300">{formatETB(price, { decimals: 0 })}</span>
+                  </div>
+                  <p className={cn('mt-3 line-clamp-4 break-words font-ethiopic text-sm leading-relaxed', previewText ? 'text-fg' : 'italic text-subtle')}>
+                    {previewText || t('donate.preview.empty')}
+                  </p>
+                </div>
               </div>
 
-              {submitError ? (
-                <p className="flex items-center gap-1.5 text-sm font-medium text-[#e5484d]" role="alert">
-                  <Icon name="alert" size={16} />
-                  {submitError}
-                </p>
-              ) : null}
+              <div className="flex flex-col gap-4 p-5">
+                <dl className="flex flex-col gap-2 text-sm">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-muted">{t('donate.price')}</dt>
+                    <dd className="font-display text-3xl font-semibold tabular-nums tracking-tight text-fg" aria-live="polite">{formatETB(price, { decimals: 0 })}</dd>
+                  </div>
+                  {creditUsed > 0 ? (
+                    <div className="flex justify-between gap-3 text-muted">
+                      <dt>{t('donate.payCredit')}</dt>
+                      <dd className="tabular-nums">− {formatETB(creditUsed)}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+                {price > 0 ? <p className="-mt-1 text-xs leading-relaxed text-subtle">{t('donate.fee', { fee: profile.platformFeePercent, net: formatETB(net) })}</p> : null}
 
-              <Button type="submit" size="lg" fullWidth loading={submitting} disabled={!ready || !profile.live || !provider || walletShort}>
-                {payLabel}
-              </Button>
-            </div>
-          </form>
-        </Card>
+                {submitError ? (
+                  <p className={cn('flex items-start gap-1.5 text-sm font-medium', errorText)} role="alert">
+                    <Icon name="alert" size={16} className="mt-0.5 shrink-0" />
+                    {submitError}
+                  </p>
+                ) : null}
+
+                <Button type="submit" size="lg" fullWidth loading={submitting} disabled={!ready || !profile.live || !provider || walletShort} rightIcon={<Icon name="chevronRight" size={16} />}>
+                  {payLabel}
+                </Button>
+                <p className="flex items-center justify-center gap-1.5 text-xs text-subtle">
+                  <Icon name="shield" size={13} />
+                  {t('donate.secure')}
+                </p>
+              </div>
+            </Card>
+          </aside>
+        </form>
       </div>
     </ViewerLayout>
   );

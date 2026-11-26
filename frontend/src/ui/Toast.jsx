@@ -9,9 +9,9 @@ const ToastContext = createContext(null);
 
 const VARIANT = {
   info: { icon: 'info', accent: 'bg-sky-500', iconClass: 'text-sky-500' },
-  success: { icon: 'checkCircle', accent: 'bg-flag-green', iconClass: 'text-brand-500' },
-  warning: { icon: 'alert', accent: 'bg-flag-yellow', iconClass: 'text-amber-500 dark:text-flag-yellow' },
-  error: { icon: 'xCircle', accent: 'bg-flag-red', iconClass: 'text-[#e5484d]' },
+  success: { icon: 'checkCircle', accent: 'bg-emerald-500', iconClass: 'text-brand-500' },
+  warning: { icon: 'alert', accent: 'bg-amber-500', iconClass: 'text-amber-500' },
+  error: { icon: 'xCircle', accent: 'bg-red-500', iconClass: 'text-[#e5484d]' },
 };
 
 let nextId = 1;

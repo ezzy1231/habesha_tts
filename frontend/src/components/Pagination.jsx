@@ -1,106 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
+import { cn, focusRing, Icon } from '../ui';
 
-const Pagination = ({ pagination, onPageChange }) => {
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+function pageWindow(currentPage, totalPages, size) {
+  const half = Math.floor(size / 2);
+  let start = Math.max(1, currentPage - half);
+  let end = Math.min(totalPages, start + size - 1);
+  start = Math.max(1, end - size + 1);
+  const pages = [];
+  if (start > 1) pages.push(1, ...(start > 2 ? ['…start'] : []));
+  for (let p = start; p <= end; p += 1) pages.push(p);
+  if (end < totalPages) pages.push(...(end < totalPages - 1 ? ['…end'] : []), totalPages);
+  return pages;
+}
+
+const btn = cn(
+  'inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg px-2 text-sm font-medium tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+  focusRing,
+);
+
+/** Numbered pager. Renders nothing for a single page. */
+export default function Pagination({ pagination, onPageChange }) {
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
 
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const onResize = () => setNarrow(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  if (!pagination || pagination.totalPages <= 1) {
-    return null;
-  }
-
+  if (!pagination || pagination.totalPages <= 1) return null;
   const { currentPage, totalPages } = pagination;
-
-  const handlePageClick = (page) => {
-    if (page >= 1 && page <= totalPages && page !== currentPage) {
-      onPageChange(page);
-    }
-  };
-
-  const renderPageNumbers = () => {
-    const pageNumbers = [];
-    const maxPagesToShow = windowWidth < 768 ? 3 : 5; // Show 3 pages on mobile, 5 on larger screens
-    const halfPagesToShow = Math.floor(maxPagesToShow / 2);
-
-    let startPage = Math.max(1, currentPage - halfPagesToShow);
-    let endPage = Math.min(totalPages, currentPage + halfPagesToShow);
-
-    if (currentPage - 1 <= halfPagesToShow) {
-      endPage = Math.min(totalPages, maxPagesToShow);
-    }
-
-    if (totalPages - currentPage <= halfPagesToShow) {
-      startPage = Math.max(1, totalPages - maxPagesToShow + 1);
-    }
-
-    if (startPage > 1) {
-      pageNumbers.push(
-        <button key={1} onClick={() => handlePageClick(1)} className="w-9 h-9 mx-0.5 text-sm rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30">
-          1
-        </button>
-      );
-      if (startPage > 2) {
-        pageNumbers.push(<span key="start-ellipsis" className="px-1.5 py-2 text-sm text-gray-400 dark:text-gray-600">…</span>);
-      }
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      pageNumbers.push(
-        <button
-          key={i}
-          onClick={() => handlePageClick(i)}
-          className={`w-9 h-9 mx-0.5 text-sm rounded-xl transition-all duration-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 ${
-            currentPage === i 
-              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/25' 
-              : 'hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400'
-          }`}
-        >
-          {i}
-        </button>
-      );
-    }
-
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) {
-        pageNumbers.push(<span key="end-ellipsis" className="px-1.5 py-2 text-sm text-gray-400 dark:text-gray-600">…</span>);
-      }
-      pageNumbers.push(
-        <button key={totalPages} onClick={() => handlePageClick(totalPages)} className="w-9 h-9 mx-0.5 text-sm rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30">
-          {totalPages}
-        </button>
-      );
-    }
-
-    return pageNumbers;
+  const go = (page) => {
+    if (page >= 1 && page <= totalPages && page !== currentPage) onPageChange(page);
   };
 
   return (
-    <div className="flex justify-center items-center mt-6 sm:mt-8">
-      <div className="inline-flex items-center gap-1 px-2 py-1.5 rounded-2xl bg-white/70 dark:bg-gray-900/60 backdrop-blur-xl border border-gray-200/60 dark:border-white/[0.08] shadow-sm">
-        <button
-          onClick={() => handlePageClick(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="px-3 py-1.5 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 dark:text-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-        >
-          <span className="hidden sm:inline">← Prev</span>
-          <span className="sm:hidden">←</span>
-        </button>
-        {renderPageNumbers()}
-        <button
-          onClick={() => handlePageClick(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className="px-3 py-1.5 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 dark:text-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-        >
-          <span className="hidden sm:inline">Next →</span>
-          <span className="sm:hidden">→</span>
-        </button>
-      </div>
-    </div>
+    <nav aria-label="Pagination" className="flex items-center justify-center gap-1 pt-2">
+      <button type="button" className={cn(btn, 'text-muted hover:bg-surface-2 hover:text-fg')} onClick={() => go(currentPage - 1)} disabled={currentPage <= 1} aria-label="Previous page">
+        <Icon name="chevronLeft" size={16} />
+      </button>
+      {pageWindow(currentPage, totalPages, narrow ? 3 : 5).map((p) =>
+        typeof p === 'string' ? (
+          <span key={p} className="px-1 text-sm text-subtle" aria-hidden="true">
+            …
+          </span>
+        ) : (
+          <button
+            key={p}
+            type="button"
+            onClick={() => go(p)}
+            aria-current={p === currentPage ? 'page' : undefined}
+            className={cn(btn, p === currentPage ? 'bg-fg text-canvas' : 'text-muted hover:bg-surface-2 hover:text-fg')}
+          >
+            {p}
+          </button>
+        ),
+      )}
+      <button type="button" className={cn(btn, 'text-muted hover:bg-surface-2 hover:text-fg')} onClick={() => go(currentPage + 1)} disabled={currentPage >= totalPages} aria-label="Next page">
+        <Icon name="chevronRight" size={16} />
+      </button>
+    </nav>
   );
-};
+}
 
-export default Pagination;
+Pagination.propTypes = {
+  pagination: PropTypes.shape({ currentPage: PropTypes.number, totalPages: PropTypes.number }),
+  onPageChange: PropTypes.func.isRequired,
+};

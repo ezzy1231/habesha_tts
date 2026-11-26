@@ -12,11 +12,11 @@ const SIZES = {
 
 const TINTS = [
   'bg-brand-600 text-white',
-  'bg-amber-500 text-black',
-  'bg-rose-600 text-white',
+  'bg-indigo-600 text-white',
+  'bg-fuchsia-600 text-white',
   'bg-sky-600 text-white',
   'bg-violet-600 text-white',
-  'bg-teal-600 text-white',
+  'bg-slate-600 text-white',
 ];
 
 function initials(name = '') {
@@ -60,7 +60,7 @@ export function Avatar({ src, name = '', size = 'md', status, className }) {
           className={cn(
             'absolute bottom-0 right-0 block rounded-full ring-2 ring-surface',
             size === 'xs' || size === 'sm' ? 'h-2 w-2' : 'h-3 w-3',
-            status === 'live' ? 'bg-flag-red' : status === 'online' ? 'bg-brand-500' : 'bg-subtle',
+            status === 'live' ? 'bg-red-500' : status === 'online' ? 'bg-brand-500' : 'bg-subtle',
           )}
           aria-hidden="true"
         />

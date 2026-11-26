@@ -1,238 +1,116 @@
-import { useState, useEffect, useRef } from "react";
 import PropTypes from 'prop-types';
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '@ui-sdk/react/menu';
+import { Avatar, Badge, cn, focusRing, Icon } from '../ui';
 import Balance from './Balance';
 
 const FLAG_ACTION_OPTIONS = [
-  { value: 'temp_ban', icon: '⏳', label: 'Time Ban' },
-  { value: 'permanent_ban', icon: '🚫', label: 'Ban Donor' },
-  { value: 'unban_request', icon: '✅', label: 'Unban Request' },
+  { value: 'temp_ban', icon: 'clock', label: 'Time ban' },
+  { value: 'permanent_ban', icon: 'ban', label: 'Ban donor' },
+  { value: 'unban_request', icon: 'checkCircle', label: 'Unban request' },
 ];
 
-export default function DonationCard({ donation, isPlaying = false, onFlagAction, isFlagging = false }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+const formatTime = (dateString) => {
+  try {
+    return new Date(dateString).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', month: 'short', day: '2-digit' });
+  } catch {
+    return '';
+  }
+};
+
+/** One donation in the streamer's feed: donor, amount, message, status and a flag-to-admin menu. */
+export default function DonationCard({ donation, isPlaying = false, onFlagAction = null, isFlagging = false }) {
   const hasPendingFlag = donation.flag?.status === 'pending';
   const disableFlagMenu = !onFlagAction || hasPendingFlag || isFlagging;
-
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-
-    const handleClickOutside = (event) => {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    };
-
-    const handleEsc = (event) => {
-      if (event.key === 'Escape') {
-        setMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEsc);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEsc);
-    };
-  }, [menuOpen]);
-
-  useEffect(() => {
-    if (disableFlagMenu && menuOpen) {
-      setMenuOpen(false);
-    }
-  }, [disableFlagMenu, menuOpen]);
-
-  const handleFlagAction = (action) => {
-    if (!onFlagAction || disableFlagMenu) return;
-    onFlagAction(action);
-    setMenuOpen(false);
-  };
-
-  const formatTime = (dateString) => {
-    try {
-      const d = new Date(dateString);
-      return d.toLocaleString(undefined, {
-        hour: "2-digit",
-        minute: "2-digit",
-        month: "short",
-        day: "2-digit",
-      });
-    } catch (e) {
-      return "";
-    }
-  };
-
   const flagTimestamp = donation.flag?.created_at ? formatTime(donation.flag.created_at) : null;
-
-  const initials = (name) => {
-    if (!name) return "?";
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-  };
+  const name = donation.donor_name || 'Anonymous';
 
   return (
-    <div
-      className={`card group transition-all duration-300 ${
-        isPlaying 
-          ? "ring-1 ring-emerald-500/40 dark:ring-emerald-400/30 shadow-lg shadow-emerald-500/10" 
-          : "hover:shadow-lg hover:shadow-gray-900/5 dark:hover:shadow-black/20 hover-scale-102"
-      }`}
+    <article
+      className={cn(
+        'group relative flex flex-col rounded-2xl border bg-surface p-4 transition-all duration-200 sm:p-5',
+        isPlaying
+          ? 'border-brand-500/50 shadow-[0_0_0_1px_rgb(139_92_246/0.35),0_12px_40px_-16px_rgb(139_92_246/0.55)]'
+          : 'border-line hover:border-line-strong hover:shadow-[0_12px_32px_-20px_rgb(0_0_0/0.45)]',
+      )}
     >
-      <div className="p-3 sm:p-4 lg:p-5">
-        {/* Header with donor info and status */}
-        <div className="flex items-start justify-between mb-3 sm:mb-4 gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 min-w-0 flex-1">
-            <div className={`relative w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center text-xs sm:text-sm font-bold shadow-md transition-all duration-300 flex-shrink-0 ${
-              isPlaying 
-                ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white scale-105 shadow-emerald-500/25" 
-                : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white hover-scale-105 shadow-blue-500/15"
-            }`}>
-              {initials(donation.donor_name || "Donor")}
-              {isPlaying && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-success-400 rounded-full animate-ping"></div>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
-                <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base lg:text-lg truncate">
-                  {donation.donor_name || "Anonymous"}
-                </span>
-                {isPlaying && (
-                  <div className="badge badge-success flex-shrink-0">
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-success-500 rounded-full animate-pulse"></span>
-                    <span className="hidden sm:inline">Playing</span>
-                    <span className="sm:hidden">▶</span>
-                  </div>
+      <header className="flex items-start gap-3">
+        <Avatar name={name} size="md" status={isPlaying ? 'live' : undefined} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-fg sm:text-[15px]">{name}</p>
+          <p className="mt-0.5 text-xs text-subtle">{formatTime(donation.created_at)}</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="rounded-lg bg-surface-2 px-2.5 py-1 text-sm font-semibold tabular-nums text-fg">
+            <Balance value={donation.amount} showLabel={false} hideButton className="gap-0" />
+          </span>
+          {onFlagAction ? (
+            <Menu onAction={(value) => !disableFlagMenu && onFlagAction(value)}>
+              <MenuTrigger
+                disabled={disableFlagMenu}
+                aria-label={hasPendingFlag ? 'Awaiting admin review' : 'Notify admins about this donor'}
+                title={hasPendingFlag ? 'Awaiting admin review' : 'Notify admins about this donor'}
+                className={cn(
+                  'inline-flex h-8 w-8 items-center justify-center rounded-lg text-subtle transition-colors hover:bg-surface-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 data-[open]:bg-surface-2 data-[open]:text-fg',
+                  focusRing,
                 )}
-              </div>
-              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                {formatTime(donation.created_at)}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-end gap-1.5 sm:gap-2 flex-shrink-0">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="gradient-donation flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
-                <span className="text-sm sm:text-lg">💸</span>
-                <Balance 
-                  value={donation.amount} 
-                  showLabel={false} 
-                  className="font-bold text-xs sm:text-sm text-blue-700 dark:text-blue-300"
-                />
-              </div>
-              {onFlagAction && (
-                <div className="relative" ref={menuRef}>
-                  <button
-                    type="button"
-                    className={`p-1.5 rounded-full text-base sm:text-lg transition-all duration-150 border border-transparent ${
-                      disableFlagMenu
-                        ? "text-gray-400 cursor-not-allowed"
-                        : "text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900"
-                    }`}
-                    aria-haspopup="menu"
-                    aria-expanded={menuOpen}
-                    disabled={disableFlagMenu}
-                    onClick={() => {
-                      if (disableFlagMenu) return;
-                      setMenuOpen((prev) => !prev);
-                    }}
-                    title={hasPendingFlag ? "Awaiting admin review" : "Notify admins about this donor"}
+              >
+                <Icon name="more" size={16} />
+              </MenuTrigger>
+              <MenuContent
+                side="bottom"
+                align="end"
+                sideOffset={6}
+                className="z-50 m-0 w-52 rounded-xl border border-line bg-surface p-1 text-fg shadow-overlay transition-[opacity,scale] duration-150 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0"
+              >
+                {FLAG_ACTION_OPTIONS.map((option) => (
+                  <MenuItem
+                    key={option.value}
+                    value={option.value}
+                    className="flex cursor-default items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm outline-none data-[highlighted]:bg-surface-2"
                   >
-                    ⋮
-                  </button>
-                  {menuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl z-20 overflow-hidden">
-                      {FLAG_ACTION_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                          onClick={() => handleFlagAction(option.value)}
-                        >
-                          <span className="text-base">{option.icon}</span>
-                          <span className="font-medium">{option.label}</span>
-                        </button>
-                      ))}
-                      <div className="px-3 py-1 text-[11px] text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
-                        Sends an instant alert to admins.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            <div className="flex flex-wrap gap-1 justify-end">
-              <span className={`badge ${
-                donation.status === "paid" ? "badge-success" : "badge-warning"
-              }`}>
-                {donation.status || "pending"}
-              </span>
-              <span className={`badge ${
-                donation.played ? "badge-gray" : "badge-purple"
-              }`}>
-                {donation.played ? "✓" : "○"}
-                <span className="hidden sm:inline ml-1">{donation.played ? "Played" : "Unplayed"}</span>
-              </span>
-            </div>
-            {isFlagging && (
-              <div className="text-[11px] text-amber-600">Sending review...</div>
-            )}
-          </div>
+                    <Icon name={option.icon} size={15} className="text-muted" />
+                    {option.label}
+                  </MenuItem>
+                ))}
+                <p className="mt-1 border-t border-line px-2.5 pb-1 pt-2 text-[11px] text-subtle">Sends an instant alert to admins.</p>
+              </MenuContent>
+            </Menu>
+          ) : null}
         </div>
+      </header>
 
-        {/* Donation message */}
-        <div className="relative">
-          <div className="gradient-message rounded-xl p-3 sm:p-4 border border-gray-200 dark:border-gray-700">
-            <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 text-gray-400 dark:text-gray-500 text-sm sm:text-lg">&ldquo;</div>
-            <p className="italic text-gray-800 dark:text-gray-200 leading-relaxed pl-3 sm:pl-4 pr-3 sm:pr-4 text-sm sm:text-base">
-              {donation.text}
-            </p>
-            <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 text-gray-400 dark:text-gray-500 text-sm sm:text-lg">&rdquo;</div>
+      <p className="mt-4 flex-1 whitespace-pre-wrap break-words font-ethiopic text-[15px] leading-relaxed text-fg/90">{donation.text}</p>
+
+      <footer className="mt-4 flex flex-wrap items-center gap-1.5">
+        <Badge size="sm" variant={donation.status === 'paid' ? 'success' : 'warning'} dot>
+          {donation.status || 'pending'}
+        </Badge>
+        {isPlaying ? (
+          <Badge size="sm" variant="brand" dot pulse>
+            Playing
+          </Badge>
+        ) : (
+          <Badge size="sm" variant={donation.played ? 'neutral' : 'info'}>
+            {donation.played ? 'Played' : 'Unplayed'}
+          </Badge>
+        )}
+        {isFlagging ? <span className="text-[11px] text-amber-600 dark:text-amber-300">Sending review…</span> : null}
+      </footer>
+
+      {donation.flag ? (
+        <div className="mt-4 flex flex-col gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-100">
+          <div className="flex items-center gap-2">
+            <Icon name="flag" size={13} />
+            <span className="truncate font-semibold">{donation.flag.actionLabel || 'Flagged'}</span>
+            <Badge size="sm" variant={donation.flag.status === 'pending' ? 'warning' : 'success'} className="ml-auto">
+              {donation.flag.status === 'pending' ? 'Pending review' : donation.flag.status}
+            </Badge>
           </div>
+          {donation.flag.reason ? <p className="leading-snug opacity-90">{donation.flag.reason}</p> : null}
+          {flagTimestamp ? <span className="text-[11px] opacity-70">Sent {flagTimestamp}</span> : null}
         </div>
-
-        {donation.flag && (
-          <div className="mt-3 sm:mt-4 rounded-xl border border-amber-200 dark:border-amber-500/40 bg-amber-50/60 dark:bg-amber-900/20 p-3 sm:p-4 text-xs sm:text-sm text-amber-900 dark:text-amber-50 flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold truncate">{donation.flag.actionLabel || 'Flagged'}</span>
-              <span className={`badge ${donation.flag.status === 'pending' ? 'badge-warning' : 'badge-success'}`}>
-                {donation.flag.status === 'pending' ? 'Pending review' : donation.flag.status}
-              </span>
-            </div>
-            {donation.flag.reason && (
-              <p className="text-[13px] leading-snug opacity-90">
-                {donation.flag.reason}
-              </p>
-            )}
-            {flagTimestamp && (
-              <span className="text-[11px] uppercase tracking-wide opacity-75">Sent {flagTimestamp}</span>
-            )}
-          </div>
-        )}
-
-        {/* Action indicators */}
-        {isPlaying && (
-          <div className="mt-3 sm:mt-4 flex items-center justify-center">
-            <div className="badge badge-success">
-              <div className="flex space-x-0.5 sm:space-x-1">
-                <div className="w-0.5 h-3 sm:w-1 sm:h-4 bg-success-500 rounded-full animate-pulse"></div>
-                <div className="w-0.5 h-3 sm:w-1 sm:h-4 bg-success-500 rounded-full animate-pulse" style={{animationDelay: '75ms'}}></div>
-                <div className="w-0.5 h-3 sm:w-1 sm:h-4 bg-success-500 rounded-full animate-pulse" style={{animationDelay: '150ms'}}></div>
-              </div>
-              <span className="text-xs sm:text-sm">Audio Playing</span>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+      ) : null}
+    </article>
   );
 }
 
@@ -255,10 +133,4 @@ DonationCard.propTypes = {
   isPlaying: PropTypes.bool,
   onFlagAction: PropTypes.func,
   isFlagging: PropTypes.bool,
-};
-
-DonationCard.defaultProps = {
-  isPlaying: false,
-  onFlagAction: null,
-  isFlagging: false,
 };

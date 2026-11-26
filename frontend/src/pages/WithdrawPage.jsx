@@ -5,8 +5,7 @@ import io from "socket.io-client";
 import Balance from "../components/Balance";
 import ApiKeyModal from '../components/ApiKeyModal';
 import { useAuth } from '../contexts/AuthContext';
-import ThemeToggle from '../components/ThemeToggle';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { Button, Card, cn, Icon, Input, StreamerLayout } from '../ui';
 
 const API = import.meta.env.VITE_BASE_URL || 'http://localhost:5000';
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -25,11 +24,6 @@ export default function WithdrawPage() {
   const usingSession = REQUIRE_JWT && isAuthenticated;
   const [apiKey, setApiKey] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => {
-    // Check for theme in multiple possible keys for backward compatibility
-    const saved = localStorage.getItem('theme') || localStorage.getItem('streamer_theme');
-    return saved === 'dark';
-  });
 
   // Create a memoized axios instance that includes the API key
   const apiClient = useMemo(() => {
@@ -97,7 +91,8 @@ export default function WithdrawPage() {
 
     const socket = io(SOCKET_URL, { transports: ["websocket"], reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000 });
     socket.emit("join_streamer_room", uuid);
-    socket.on("withdrawal_approved", (data) => {// console.log("💸 Withdrawal approved received:", data);
+    socket.on("withdrawal_approved", (data) => {
+// console.log("💸 Withdrawal approved received:", data);
       setStreamerBalance(typeof data?.newBalance === 'number' ? data.newBalance : 0);
     });
 
@@ -105,15 +100,6 @@ export default function WithdrawPage() {
       socket.disconnect();
     };
   }, [uuid, apiClient]);
-
-  // Apply theme on load and when darkMode changes
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -160,13 +146,15 @@ export default function WithdrawPage() {
 
   const withdrawalAmount = parseFloat(amount);
   const payoutAmount = !isNaN(withdrawalAmount) && withdrawalAmount > 0 ? withdrawalAmount.toFixed(2) : null;
+  const isSuccess = message.includes("success");
 
-  const themeClasses = darkMode
-    ? "min-h-screen gradient-dark text-gray-100"
-    : "min-h-screen gradient-light text-gray-900";
+  const navItems = [
+    { to: `/streamer/${uuid}`, icon: 'live', label: 'Dashboard', end: true },
+    { to: `/withdraw/${uuid}`, icon: 'wallet', label: 'Withdraw' },
+  ];
 
   return (
-    <div className={`${themeClasses} p-6 md:p-10`}>
+    <StreamerLayout items={navItems} title="Withdraw">
       {!usingSession && (
         <ApiKeyModal
           isOpen={isModalOpen}
@@ -176,99 +164,83 @@ export default function WithdrawPage() {
           message="Please enter your secret API Key to submit a withdrawal request."
         />
       )}
-      <div className="max-w-md mx-auto">
-        <button
-          onClick={() => navigate(`/streamer/${uuid}`)}
-          className="mb-6 btn btn-secondary"
-        >
-          ← Back to Dashboard
-        </button>
 
-        <div className="card p-6 relative">
-          {/* Theme Toggle - Inside Card at Right Top Corner */}
-          <div className="absolute top-3 right-3 z-10">
-            <ThemeToggle isDarkMode={darkMode} toggleDarkMode={setDarkMode} />
+      <div className="mx-auto grid max-w-4xl gap-6 lg:grid-cols-[1fr_1.15fr]">
+        <div className="relative overflow-hidden rounded-2xl border border-line bg-surface p-6">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-500/20 blur-3xl" />
+          <div className="relative">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400">
+              <Icon name="wallet" size={20} />
+            </span>
+            <p className="mt-6 text-xs font-medium uppercase tracking-[0.12em] text-subtle">Available balance</p>
+            <div className="mt-1 text-4xl font-semibold tracking-tight text-fg">
+              <Balance value={streamerBalance} showLabel={false} />
+            </div>
+            <dl className="mt-8 flex flex-col gap-3 border-t border-line pt-5 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted">Requested</dt>
+                <dd className="font-semibold tabular-nums text-fg">{!isNaN(withdrawalAmount) && withdrawalAmount > 0 ? `Br ${withdrawalAmount.toFixed(2)}` : '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted">You will receive</dt>
+                <dd className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{payoutAmount ? `Br ${payoutAmount}` : '—'}</dd>
+              </div>
+            </dl>
+            <p className="mt-5 text-xs leading-relaxed text-subtle">The platform fee was already taken from each donation. Payouts are sent to your Telebirr account after an admin approves the request.</p>
           </div>
-          
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 text-center">Request Withdrawal</h1>
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2 text-center">
-            Your current balance: <Balance value={streamerBalance} showLabel={false} className="font-semibold text-gray-900 dark:text-white" />
-          </div>
-          {payoutAmount && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 text-center">
-              You will receive: <span className="font-semibold text-green-600 dark:text-green-400">Br {payoutAmount}</span> (the platform fee was already taken from each donation)
-            </p>
-          )}
+        </div>
 
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount (Br)</label>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                placeholder="Enter amount"
-                min="0"
-                step="0.01"
-                required
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Telebirr Username</label>
-              <input
-                type="text"
-                value={telebirrUsername}
-                onChange={(e) => setTelebirrUsername(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                placeholder="Enter your Telebirr username"
-                required
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone Number</label>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                placeholder="Enter your phone number"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn btn-primary"
-            >
-              {loading ? "Submitting..." : "Submit Request"}
-            </button>
+        <Card padding="lg">
+          <h2 className="text-lg font-semibold tracking-tight text-fg">Request a withdrawal</h2>
+          <p className="mt-1 text-sm text-muted">Fill in your Telebirr details. We&apos;ll notify you when it&apos;s approved.</p>
+          <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+            <Input
+              label="Amount (Br)"
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              required
+              leftIcon={<Icon name="coins" size={16} />}
+            />
+            <Input
+              label="Telebirr username"
+              value={telebirrUsername}
+              onChange={(e) => setTelebirrUsername(e.target.value)}
+              placeholder="Your Telebirr name"
+              required
+            />
+            <Input
+              label="Phone number"
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="09…"
+              required
+            />
+            <Button type="submit" size="lg" fullWidth loading={loading} disabled={loading} className="mt-2">
+              {loading ? "Submitting…" : "Submit request"}
+            </Button>
           </form>
 
-          {message && (
-            <p className={`mt-4 text-center text-sm font-medium ${
-              message.includes("success") 
-                ? "text-green-600 dark:text-green-400" 
-                : "text-red-600 dark:text-red-400"
-            }`}>
+          {message ? (
+            <div
+              role="status"
+              className={cn(
+                'mt-5 flex items-start gap-2.5 rounded-xl border p-3 text-sm',
+                isSuccess
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                  : 'border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-200',
+              )}
+            >
+              <Icon name={isSuccess ? 'checkCircle' : 'alert'} size={17} className="mt-0.5 shrink-0" />
               {message}
-            </p>
-          )}
-        </div>
+            </div>
+          ) : null}
+        </Card>
       </div>
-      
-      {/* Overlay loading for form submission */}
-      {loading && (
-        <LoadingSpinner 
-          overlay={true}
-          size="md"
-          text="Submitting request..."
-          showText={true}
-        />
-      )}
-    </div>
+    </StreamerLayout>
   );
 }

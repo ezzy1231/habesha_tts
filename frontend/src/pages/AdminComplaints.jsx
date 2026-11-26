@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { Icon } from '../ui';
 
 export default function AdminComplaints({ apiClient, refreshData }) {
   const [complaints, setComplaints] = useState([]);
@@ -92,37 +93,37 @@ export default function AdminComplaints({ apiClient, refreshData }) {
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-stagger">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+      <div className="bg-surface rounded-xl shadow-sm border border-line overflow-hidden animate-fade-in-stagger">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">User Complaints</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage and respond to user feedback</p>
+            <h3 className="text-lg font-bold text-fg">User Complaints</h3>
+            <p className="text-sm text-muted mt-1">Manage and respond to user feedback</p>
           </div>
-          <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300">
+          <span className="px-3 py-1 rounded-full bg-surface-2 text-xs font-medium text-muted">
             {complaints.length} Total
           </span>
         </div>
         
         {complaints.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">📝</span>
+            <div className="w-16 h-16 bg-surface-2 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Icon name="inbox" size={24} className="text-subtle" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">No complaints found</h3>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Everything seems to be running smoothly!</p>
+            <h3 className="text-lg font-medium text-fg">No complaints found</h3>
+            <p className="text-muted mt-1">Everything seems to be running smoothly!</p>
           </div>
         ) : (
           <>
             {/* Mobile Card View */}
-            <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+            <div className="block sm:hidden divide-y divide-line">
               {complaints.map((complaint) => (
-                <div key={complaint.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <div key={complaint.id} className="p-4 hover:bg-surface-2 transition-colors">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono mb-1">
+                      <div className="text-xs text-muted font-mono mb-1">
                         #{complaint.id} • {new Date(complaint.created_at).toLocaleDateString()}
                       </div>
-                      <div className="font-medium text-gray-900 dark:text-white truncate">
+                      <div className="font-medium text-fg truncate">
                         User ID: {complaint.telegram_id}
                       </div>
                     </div>
@@ -134,8 +135,8 @@ export default function AdminComplaints({ apiClient, refreshData }) {
                     </span>
                   </div>
 
-                  <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg mb-3">
-                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+                  <div className="bg-surface-2 p-3 rounded-lg mb-3">
+                    <p className="text-sm text-muted line-clamp-3">
                       "{complaint.complaint}"
                     </p>
                   </div>
@@ -156,30 +157,30 @@ export default function AdminComplaints({ apiClient, refreshData }) {
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50/50 dark:bg-gray-700/20 border-b border-gray-100 dark:border-gray-700">
-                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
-                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">User ID</th>
-                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Complaint</th>
-                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Status</th>
-                    <th className="py-3 px-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Actions</th>
+                  <tr className="bg-surface-2/50 border-b border-line">
+                    <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">ID</th>
+                    <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">User ID</th>
+                    <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Complaint</th>
+                    <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider">Date</th>
+                    <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Status</th>
+                    <th className="py-3 px-6 text-xs font-semibold text-muted uppercase tracking-wider text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                <tbody className="divide-y divide-line">
                   {complaints.map((complaint) => (
-                    <tr key={complaint.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="py-4 px-6 text-sm font-medium text-gray-900 dark:text-white">
+                    <tr key={complaint.id} className="hover:bg-surface-2 transition-colors">
+                      <td className="py-4 px-6 text-sm font-medium text-fg">
                         #{complaint.id}
                       </td>
-                      <td className="py-4 px-6 text-sm text-gray-500 dark:text-gray-400 font-mono">
+                      <td className="py-4 px-6 text-sm text-muted font-mono">
                         {complaint.telegram_id}
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-sm text-gray-600 dark:text-gray-300 max-w-xs truncate" title={complaint.complaint}>
+                        <div className="text-sm text-muted max-w-xs truncate" title={complaint.complaint}>
                           {complaint.complaint}
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-sm text-gray-500 dark:text-gray-400">
+                      <td className="py-4 px-6 text-sm text-muted">
                         {new Date(complaint.created_at).toLocaleDateString()}
                       </td>
                       <td className="py-4 px-6 text-center">
@@ -210,22 +211,22 @@ export default function AdminComplaints({ apiClient, refreshData }) {
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Page <span className="font-medium text-gray-900 dark:text-white">{page}</span> of <span className="font-medium text-gray-900 dark:text-white">{totalPages}</span>
+          <div className="flex items-center justify-between px-6 py-4 border-t border-line bg-surface-2/50">
+            <div className="text-sm text-muted">
+              Page <span className="font-medium text-fg">{page}</span> of <span className="font-medium text-fg">{totalPages}</span>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-1 text-sm font-medium rounded-lg border border-line bg-surface text-muted hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-1 text-sm font-medium rounded-lg border border-line bg-surface text-muted hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
               </button>
@@ -236,9 +237,9 @@ export default function AdminComplaints({ apiClient, refreshData }) {
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 sm:p-8 border border-gray-100 dark:border-gray-700 transform transition-all scale-100">
-            <h2 className="text-xl font-bold mb-6 text-gray-900 dark:text-white flex items-center gap-3">
-              <span>💬</span> Respond to Complaint
+          <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-lg p-6 sm:p-8 border border-line transform transition-all scale-100">
+            <h2 className="text-xl font-bold mb-6 text-fg flex items-center gap-3">
+              <Icon name="message" size={20} className="text-brand-500" /> Respond to complaint
             </h2>
             
             {submissionStatus === 'success' ? (
@@ -248,29 +249,29 @@ export default function AdminComplaints({ apiClient, refreshData }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Response Sent!</p>
-                <p className="text-gray-500 dark:text-gray-400">The user has been notified.</p>
+                <p className="text-lg font-semibold text-fg mb-2">Response Sent!</p>
+                <p className="text-muted">The user has been notified.</p>
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider font-semibold">
+                <div className="bg-surface-2 rounded-xl p-4 border border-line">
+                  <div className="flex justify-between text-xs text-muted mb-2 uppercase tracking-wider font-semibold">
                     <span>User ID: {currentComplaint.telegram_id}</span>
                     <span>Complaint #{currentComplaint.id}</span>
                   </div>
-                  <p className="text-gray-700 dark:text-gray-300 italic">
+                  <p className="text-muted italic">
                     "{currentComplaint.complaint}"
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-muted mb-2">
                     Your Response
                   </label>
                   <textarea
                     value={responseText}
                     onChange={(e) => setResponseText(e.target.value)}
-                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all resize-none"
+                    className="w-full p-3 rounded-xl border border-line bg-surface text-fg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all resize-none"
                     rows="5"
                     placeholder="Type your response here..."
                   />
@@ -288,7 +289,7 @@ export default function AdminComplaints({ apiClient, refreshData }) {
                 <div className="flex justify-end gap-3 pt-2">
                   <button
                     onClick={() => setModalOpen(false)}
-                    className="px-4 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium"
+                    className="px-4 py-2 rounded-lg text-muted hover:bg-surface-2 transition-colors font-medium"
                     disabled={sending}
                   >
                     Cancel
