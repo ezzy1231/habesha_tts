@@ -1,4 +1,5 @@
 import { isDonorBanned, buildBanMessage } from '../utils/ban.js';
+import { sendRegisteredMenu } from '../utils/menus.js';
 
 // Registers /command handlers without altering existing bot behavior.
 export const registerCommands = (bot, deps = {}) => {
@@ -81,10 +82,13 @@ export const registerCommands = (bot, deps = {}) => {
     const user = await getUserByTelegramId(tgId);
 
     if (user) {
-      await bot.sendMessage(chatId, `👋 እንኳን ደህና መጡ ${first_name}! እንደ ${user.role} ተመዝግበዋል።`);
+      await bot.sendMessage(chatId, `👋 እንኳን ደህና መጡ ${first_name}!`);
       if (await checkBanAndNotify(chatId, user)) {
         return;
       }
+      // Already registered: show their menu instead of a role picker that can't do anything.
+      await sendRegisteredMenu(bot, chatId, user);
+      return;
     }
 
     await bot.sendMessage(chatId, "👋 እንኳን ደህና መጡ! እባክዎ ሚናዎን ይምረጡ:", {

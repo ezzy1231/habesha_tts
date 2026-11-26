@@ -1,6 +1,7 @@
 import { isDonorBanned, buildBanMessage } from '../utils/ban.js';
 import { offerRechargeMethods, sendGatewayLink, MIN_TOPUP, MAX_TOPUP } from '../utils/rechargeGateway.js';
 import { buildSpokenText, stylePromptFor } from '../../backend/utils/voices.js';
+import { sendRegisteredMenu } from '../utils/menus.js';
 
 export const registerCallbacks = (bot, deps = {}) => {
   if (!bot) return;
@@ -76,7 +77,14 @@ export const registerCallbacks = (bot, deps = {}) => {
 
     const tgId = String(fromId);
     const username = fromUsername || first_name;
-    const user = await getUserByTelegramId(tgId);
+    let user;
+    try {
+      user = await getUserByTelegramId(tgId);
+    } catch (error) {
+      console.error('[Bot] callback_query user lookup failed:', error);
+      await safeAnswerCallback(query.id, { text: '❌ ጥያቄ ተሰናክሏል። እባክዎ እንደገና ይሞክሩ።', show_alert: true });
+      return;
+    }
 
     const notifyBan = async () => {
       if (user && isDonorBanned(user)) {
@@ -97,8 +105,11 @@ export const registerCallbacks = (bot, deps = {}) => {
 
       if (data.startsWith('register_')) {
         if (user) {
+          // Old role-picker buttons stay tappable in chat history; always reply with a real message.
           if (isDonorBanned(user)) {
             await bot.sendMessage(chatId, buildBanMessage(user));
+          } else {
+            await sendRegisteredMenu(bot, chatId, user);
           }
           safeAnswerCallback(query.id, { text: 'አስቀድመው ተመዝግበዋል።' });
           return;
@@ -302,6 +313,7 @@ export const registerCallbacks = (bot, deps = {}) => {
       if (data === 'quick_donate') {
         if (!user || user.role !== 'donor') {
           await bot.sendMessage(chatId, '❌ መጀመሪያ እንደ ለጋሽ መመዝገብ አለብ።');
+          safeAnswerCallback(query.id);
           return;
         }
         if (await notifyBan()) return;
