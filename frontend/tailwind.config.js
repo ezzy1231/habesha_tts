@@ -43,6 +43,12 @@ export default {
         fg: 'rgb(var(--ui-fg) / <alpha-value>)',
         muted: 'rgb(var(--ui-muted) / <alpha-value>)',
         subtle: 'rgb(var(--ui-subtle) / <alpha-value>)',
+        // Warm gold accent (landing "coffee & gold" theme). DEFAULT is theme-aware for text contrast.
+        gold: {
+          DEFAULT: 'rgb(var(--ui-gold) / <alpha-value>)',
+          bright: '#F2B705',
+          deep: '#8A5A00',
+        },
         // ── Legacy palette (existing pages) ────────────────────
         primary: {
           50: '#eff6ff',
@@ -127,6 +133,8 @@ export default {
         // Inter has no Ge'ez glyphs, so the browser falls through to
         // Noto Sans Ethiopic for Amharic characters automatically.
         sans: ['Inter', '"Noto Sans Ethiopic"', 'system-ui', '-apple-system', 'sans-serif'],
+        // Editorial display face for headings: Fraunces (Latin) + Noto Serif Ethiopic (Ge'ez).
+        display: ['Fraunces', '"Noto Serif Ethiopic"', 'Georgia', 'serif'],
         ethiopic: ['"Noto Sans Ethiopic"', 'Nyala', '"Abyssinica SIL"', 'Inter', 'system-ui', 'sans-serif'],
       },
       // Radius scale: Tailwind defaults — rounded-md (6px) controls, rounded-lg (8px)
@@ -144,6 +152,9 @@ export default {
         'ui-slide-in': 'ui-slide-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1)',
         'ui-toast-in': 'ui-toast-in 200ms cubic-bezier(0.2, 0.9, 0.3, 1)',
         'ui-shimmer': 'ui-shimmer 1.6s infinite',
+        marquee: 'marquee 45s linear infinite',
+        'float-slow': 'float-slow 6s ease-in-out infinite',
+        'eq-bar': 'eq-bar 1s ease-in-out infinite',
       },
       keyframes: {
         ping: {
@@ -171,6 +182,9 @@ export default {
           to: { opacity: '1', transform: 'translateY(0)' },
         },
         'ui-shimmer': { '100%': { transform: 'translateX(100%)' } },
+        marquee: { from: { transform: 'translateX(0)' }, to: { transform: 'translateX(-50%)' } },
+        'float-slow': { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-8px)' } },
+        'eq-bar': { '0%, 100%': { transform: 'scaleY(0.35)' }, '50%': { transform: 'scaleY(1)' } },
       },
     },
   },

@@ -1,4 +1,4 @@
-@import 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700;800&display=swap';
+@import 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700;800&family=Noto+Serif+Ethiopic:wght@600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600;1,9..144,700&display=swap';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -19,6 +19,7 @@
     --ui-fg: 16 22 19;
     --ui-muted: 82 94 88;
     --ui-subtle: 120 132 126;
+    --ui-gold: 166 112 0;
     color-scheme: light;
   }
 
@@ -32,7 +33,36 @@
     --ui-fg: 236 240 238;
     --ui-muted: 162 172 167;
     --ui-subtle: 118 128 123;
+    --ui-gold: 242 183 5;
     color-scheme: dark;
+  }
+
+  /* "Coffee & gold" theme — scoped to the landing page for now. Wrap any
+     subtree in .theme-coffee to re-skin every design-system component in it. */
+  .theme-coffee {
+    --ui-canvas: 251 247 240;
+    --ui-surface: 255 253 249;
+    --ui-surface-2: 246 239 227;
+    --ui-surface-3: 237 227 210;
+    --ui-line: 231 220 202;
+    --ui-line-strong: 210 195 170;
+    --ui-fg: 30 22 14;
+    --ui-muted: 102 86 68;
+    --ui-subtle: 142 126 106;
+    --ui-gold: 150 100 0;
+  }
+
+  .dark .theme-coffee {
+    --ui-canvas: 15 12 9;
+    --ui-surface: 24 20 16;
+    --ui-surface-2: 33 28 22;
+    --ui-surface-3: 45 38 31;
+    --ui-line: 50 43 35;
+    --ui-line-strong: 76 66 54;
+    --ui-fg: 247 240 229;
+    --ui-muted: 184 170 151;
+    --ui-subtle: 133 121 105;
+    --ui-gold: 242 183 5;
   }
 
   /* Amharic text benefits from a little more line-height. */
